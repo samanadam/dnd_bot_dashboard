@@ -1,0 +1,15 @@
+# Use when the bot API listens on the VPS's own loopback (BOT_API_URL=http://127.0.0.1:...).
+#
+#   docker compose -f docker-compose.yml -f compose.host.yml up -d
+#
+# Host networking lets the container reach 127.0.0.1 on the VPS. The portal
+# then binds to 127.0.0.1 itself, so it is still only reachable by the reverse
+# proxy on the same machine. Linux only.
+
+services:
+  portal:
+    network_mode: host
+    ports: !reset []
+    environment:
+      HOSTNAME: 127.0.0.1
+      PORT: ${PORTAL_PORT:-3000}

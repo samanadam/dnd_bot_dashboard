@@ -1,0 +1,46 @@
+# HTTPS in a container: Caddy with automatic Let's Encrypt certificates for
+# PORTAL_DOMAIN. Use when nothing else on the VPS listens on 80/443.
+#
+#   docker compose -f docker-compose.yml -f compose.host.yml -f compose.caddy.yml up -d
+#   (drop compose.host.yml if the bot is not on the VPS's loopback)
+#
+# Caddy uses host networking so it reaches the portal on 127.0.0.1:3000 in every
+# setup, and sees real client IPs.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: dnd-portal-caddy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # Fails `docker compose up` loudly when unset, instead of Caddy starting
+      # with an empty site address and serving nothing.
+      PORTAL_DOMAIN: ${PORTAL_DOMAIN:?set PORTAL_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account survive restarts and updates.
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      portal:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

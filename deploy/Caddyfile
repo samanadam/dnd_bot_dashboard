@@ -1,0 +1,45 @@
+# HTTPS for the portal. The domain is PORTAL_DOMAIN from .env, so no real
+# hostname lives in this repository.
+#
+# Used by compose.caddy.yml (Caddy as a container). It also works for a Caddy
+# installed directly on the VPS: copy it to /etc/caddy/Caddyfile and reload.
+#
+# Caddy fetches and renews the Let's Encrypt certificate by itself once the DNS
+# record points at the VPS and ports 80 and 443 are open.
+
+{
+	# Where Let's Encrypt sends expiry warnings. Optional but recommended.
+	# email you@example.com
+
+	# No trusted_proxies: Caddy is the edge, so it discards any X-Forwarded-*
+	# headers a client sends and sets its own. The portal relies on that.
+}
+
+{$PORTAL_DOMAIN} {
+	encode zstd gzip
+
+	# The portal never accepts request bodies over 8 KB.
+	request_body {
+		max_size 64KB
+	}
+
+	# The portal sets its own security headers (CSP, HSTS, framing, referrer).
+	# Caddy only removes its own identifying header.
+	header -Server
+
+	# Container health endpoint stays internal.
+	@health path /api/health
+	respond @health 404
+
+	reverse_proxy 127.0.0.1:3000
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Anything else pointed at this VPS gets nothing.
+:80, :443 {
+	abort
+}

@@ -1,0 +1,21 @@
+# Never send secrets or local state into the build context.
+.env*
+!.env.example
+.git
+.github
+deploy
+.next
+node_modules
+coverage
+*.log
+npm-debug.log*
+
+# Not needed to build or run the image.
+tests
+docs
+Dockerfile
+docker-compose*.yml
+compose.*.yml
+scripts/verify-bundle.mjs
+.dockerignore
+*.md

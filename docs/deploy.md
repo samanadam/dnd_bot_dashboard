@@ -1,0 +1,178 @@
+# Deploying to the VPS
+
+Target setup: the portal at **https://dashboard.example.com**, running as
+containers on the VPS next to the recorder bot. Caddy (also a container) serves
+HTTPS with an automatic Let's Encrypt certificate.
+
+```
+internet ──HTTPS :443──> caddy container ──> 127.0.0.1:3000 portal container ──> bot API
+```
+
+The portal needs about 70 MB of RAM and almost no CPU when running. Building
+the image needs about 1.5 GB of RAM, so on a small VPS build it somewhere else
+(option A or B below).
+
+## 0. Once per VPS
+
+- Docker Engine with the compose plugin (`docker compose version`).
+- **DNS:** at your DNS provider, add
+  `dcdashboard  A  <VPS IPv4>` (and `AAAA <VPS IPv6>` if it has one). Check
+  with `nslookup dashboard.example.com` before starting Caddy, or the
+  certificate request fails and Let's Encrypt rate-limits retries.
+- **Firewall:** allow only SSH, 80 and 443 (e.g. `ufw allow OpenSSH`,
+  `ufw allow 80,443/tcp`, `ufw enable`). Port 80 must be open for the
+  certificate challenge and the HTTP→HTTPS redirect. The portal port is bound
+  to 127.0.0.1, so it is never reachable from outside.
+- Nothing else may already listen on 80/443. If another proxy is there, skip
+  the Caddy container and use `deploy/nginx.conf` or add the site to that proxy.
+- **Discord application** (Developer Portal > OAuth2): add the redirect
+  `https://dashboard.example.com/api/auth/callback/discord`.
+
+## 1. Get the files onto the VPS
+
+Only these are needed on the VPS: `docker-compose.yml`, `compose.caddy.yml`,
+`compose.host.yml` (if used), `.env.example` and `deploy/Caddyfile`.
+
+```bash
+git clone <your repo> dnd-portal && cd dnd-portal
+```
+
+## 2. Configure
+
+```bash
+cp .env.example .env
+chmod 600 .env
+nano .env
+```
+
+`.env.example` is written for this setup; follow its comments. The choices
+that matter:
+
+| Setting | Value |
+|---|---|
+| `PORTAL_DOMAIN` | your bare hostname, e.g. `dashboard.example.com` — Caddy requests the certificate for it, and compose refuses to start without it |
+| `AUTH_URL` | `https://` followed by the same hostname |
+| `BOT_API_URL` | loopback (a), Docker network (b) or remote HTTPS (c) as described in the file |
+| `AUTH_SECRET` | output of `openssl rand -base64 33`, used for nothing else |
+
+## 3. Get the image
+
+**A. Prebuilt from GitHub (recommended).** Pushing to `main` runs CI, which
+tests everything and publishes `ghcr.io/<github-user>/dnd-portal` for amd64 and
+arm64. On the VPS:
+
+```bash
+echo "PORTAL_IMAGE=ghcr.io/<github-user>/dnd-portal:latest" >> .env
+# If the package is private, log in with a token that has read:packages only:
+docker login ghcr.io -u <github-user>
+docker compose pull
+```
+
+**B. Build on your PC and copy it over.**
+
+```bash
+# on your PC (use --platform linux/arm64 for an ARM VPS)
+docker build --platform linux/amd64 -t dnd-portal:latest .
+docker save dnd-portal:latest | gzip | ssh <user>@<vps> 'gunzip | docker load'
+```
+
+**C. Build on the VPS.** Only with at least 2 GB of RAM plus swap:
+`docker compose build`.
+
+## 4. Start
+
+Pick the command that matches `BOT_API_URL` in `.env`:
+
+```bash
+# (a) bot on the VPS's loopback
+docker compose -f docker-compose.yml -f compose.host.yml -f compose.caddy.yml up -d
+
+# (b) bot as a container (uncomment the networks section in docker-compose.yml first)
+# (c) remote bot over HTTPS
+docker compose -f docker-compose.yml -f compose.caddy.yml up -d
+```
+
+Tip: put the chosen files in `.env` once, so every later command is just
+`docker compose ...`:
+
+```bash
+echo "COMPOSE_FILE=docker-compose.yml:compose.host.yml:compose.caddy.yml" >> .env
+docker compose up -d
+```
+
+Check it:
+
+```bash
+docker compose ps                             # portal "healthy", caddy "running"
+curl -s http://127.0.0.1:3000/api/health      # {"status":"ok"}
+docker compose logs caddy | grep -i certificate   # "certificate obtained successfully"
+curl -sI https://dashboard.example.com/signin | head -1   # HTTP/2 200
+```
+
+`{"status":"misconfigured"}` means a value in `.env` is wrong; the log line
+`Invalid server configuration: ...` names it without showing the value.
+
+## 5. HTTPS
+
+Handled by the Caddy container with `deploy/Caddyfile`:
+
+- certificate issued and renewed automatically, stored in the `caddy_data` volume;
+- HTTP redirects to HTTPS;
+- `/api/health` is not served publicly;
+- any other hostname pointed at the VPS gets no response.
+
+Already running a proxy on the VPS? Leave out `compose.caddy.yml` and use
+`deploy/nginx.conf`, or copy the site block from `deploy/Caddyfile`.
+
+## 6. First-run checks
+
+Walk the checklist at the end of [security.md](security.md). In short:
+
+- Signed out: `https://dashboard.example.com/bot` redirects to sign-in, and
+  `https://dashboard.example.com/api/bot/stats` returns 401.
+- `http://dashboard.example.com` redirects to HTTPS, and
+  `curl -m 5 http://<VPS IP>:3000` from another machine fails.
+- An account without the admin role is refused at sign-in.
+- The Overview shows the bot as online. Joining voice from Discord flips the
+  status to Active within a few seconds.
+- On a phone: start and stop a test recording, change the volume.
+
+## What the container enforces
+
+| Setting | Why |
+|---|---|
+| Port bound to 127.0.0.1 (or `HOSTNAME=127.0.0.1` with host networking) | Only the reverse proxy on the same machine can reach it |
+| Runs as uid 1001, app files owned by root | A compromised process cannot rewrite the app |
+| `read_only: true` + tmpfs for `/tmp` and the Next cache | Nothing on disk can be changed |
+| `cap_drop: ALL`, `no-new-privileges` | No kernel capabilities, no privilege escalation |
+| `mem_limit: 512m`, `pids_limit`, log rotation | A runaway process cannot take the bot down with it |
+| Healthcheck on `/api/health` | Says only `ok` or `misconfigured` |
+| Shared 2-second read cache | However many dashboards are open, the bot sees about 30 requests a minute, well under its 60/min limit |
+
+## Updating
+
+```bash
+docker compose pull      # option A; for B load the new image again
+docker compose up -d     # with COMPOSE_FILE set in .env, otherwise the step 4 command
+docker image prune -f
+```
+
+Rotating secrets: change `AUTH_SECRET` (signs everyone out) or `BOT_API_TOKEN`
+in `.env`, then run the step 4 command again.
+
+## Logs and audit trail
+
+```bash
+docker compose logs -f portal
+docker compose logs portal | grep '"type":"audit"'    # who did what
+docker compose logs caddy                             # access log, certificates
+```
+
+## Try it locally first
+
+```bash
+docker compose -f docker-compose.yml -f compose.mock.yml up -d --build
+```
+
+Runs the container against the in-memory mock bot. Signing in still needs a
+real Discord application.

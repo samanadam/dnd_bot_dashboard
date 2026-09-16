@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+
+# AI assistant instructions and planning notes (local only)
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.codex/
+.windsurf/
+.aider*
+GEMINI.md
+docs/portal-plan.md
+plans/
+*.plan.md

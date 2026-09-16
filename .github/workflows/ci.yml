@@ -1,0 +1,94 @@
+name: CI
+
+# Checks every push and pull request. On main, also builds the Docker image and
+# pushes it to GitHub Container Registry, so a small VPS only has to pull it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck, lint, test, build, scan bundle for secrets
+        run: |
+          # Throwaway values generated per run: the bundle scan checks that none
+          # of them leak into client JavaScript. Real secrets never enter CI.
+          {
+            echo "BOT_API_URL=https://bot.ci.invalid/api/v1"
+            echo "BOT_API_TOKEN=$(openssl rand -hex 24)"
+            echo "AUTH_SECRET=$(openssl rand -base64 33)"
+            echo "AUTH_DISCORD_ID=ci"
+            echo "AUTH_DISCORD_SECRET=$(openssl rand -hex 16)"
+            echo "ALLOWED_GUILD_ID=111111111111111111"
+            echo "ALLOWED_ROLE_IDS=222222222222222222"
+          } > .env.local
+          npm run verify
+
+  image:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # arm64 too: many cheap VPS plans run ARM.
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/dnd-portal
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

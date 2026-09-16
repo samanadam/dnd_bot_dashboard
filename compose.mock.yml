@@ -1,0 +1,32 @@
+# Local demo only: run the containerised portal against the in-memory mock bot.
+#
+#   docker compose -f docker-compose.yml -f compose.mock.yml up --build
+#
+# The mock shares the portal's network namespace, so the portal reaches it on
+# loopback and the normal "https or loopback" rule still applies.
+# Discord sign-in still needs a real Discord application in .env.
+
+services:
+  portal:
+    environment:
+      BOT_API_URL: http://127.0.0.1:8787/api/v1
+
+  mock-bot:
+    image: node:22-alpine
+    container_name: dnd-portal-mock-bot
+    network_mode: "service:portal"
+    working_dir: /mock
+    command: ["node", "mock-bot.mjs"]
+    volumes:
+      - ./scripts/mock-bot.mjs:/mock/mock-bot.mjs:ro
+    # Only the token it must check, not the portal's other secrets.
+    environment:
+      MOCK_BOT_TOKEN: ${BOT_API_TOKEN:?set BOT_API_TOKEN in .env}
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "node"
+    depends_on:
+      - portal

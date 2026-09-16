@@ -1,0 +1,48 @@
+# Production-style run of the portal.
+#
+#   cp .env.example .env    # fill in real values
+#   docker compose up -d --build
+#
+# The port is bound to 127.0.0.1 only: put your HTTPS reverse proxy (Caddy,
+# nginx, Traefik) in front and never expose 3000 directly.
+
+services:
+  portal:
+    build: .
+    # Set PORTAL_IMAGE in .env to run a prebuilt image instead of building here.
+    image: ${PORTAL_IMAGE:-dnd-portal:latest}
+    container_name: dnd-portal
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-3000}:3000"
+    # Hardening: nothing in the container can be modified, gain privileges or
+    # use kernel capabilities it does not need.
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache:uid=1001,gid=1001
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Bot on the VPS's loopback: add compose.host.yml (see that file).
+    # Bot as another container: join its network and set in .env:
+    #   BOT_API_URL=http://<bot service name>:<port>/api/v1
+    #   BOT_API_HTTP_HOSTS=<bot service name>
+    # networks: [bot]
+
+# networks:
+#   bot:
+#     external: true
+#     name: <the bot's network>
