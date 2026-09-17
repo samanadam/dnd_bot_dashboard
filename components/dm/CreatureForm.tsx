@@ -473,7 +473,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
 
       {/* Sticky save bar. On phones it sits above the tab bar and leaves room for the dice button. */}
       <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] z-30 lg:bottom-4">
-        <div className="flex items-center justify-end gap-2 rounded-2xl border border-border bg-surface/95 py-2.5 pl-3 pr-20 shadow-2xl backdrop-blur-xl lg:pr-3">
+        <div className="flex items-center justify-end gap-2 rounded-2xl border border-border bg-surface/95 py-2.5 pl-3 pr-20 shadow-2xl backdrop-blur-xl lg:pr-24">
           <span className="mr-auto hidden truncate text-sm text-muted sm:block">{block.name || "Unnamed creature"}</span>
           <Button onClick={() => router.back()} disabled={busy}>
             Cancel
