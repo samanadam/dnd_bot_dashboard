@@ -8,11 +8,17 @@ import type {
   LoopMode,
   PlayerState,
   SessionSummary,
+  Soundboard,
+  SoundboardState,
+  SoundKind,
   Stats,
   StopResult,
   Track,
+  TranscriptPage,
   QueuePosition,
   TrackSource,
+  UploadFolder,
+  UploadResult,
 } from "./types";
 
 // Browser-side client. It only ever talks to the portal's own /api/bot proxy;
@@ -110,4 +116,55 @@ export const bot = {
   join: (channel_id: string) => call<PlayerState>("POST", "music/join", { channel_id }),
   leave: () => call<PlayerState>("POST", "music/leave"),
   announceDice: (body: DiceAnnounce) => call<{ sent: true; channel_id: string }>("POST", "dice/announce", body),
+
+  deleteTrack: (id: string) => call<{ deleted: string }>("POST", "music/delete", { id }),
+  soundboard: () => call<Soundboard>("GET", "soundboard"),
+  playSound: (input: { kind: SoundKind; id: string; volume?: number; channel_id?: string }) =>
+    call<SoundboardState>("POST", "soundboard/play", input),
+  stopSound: (input: { layer_id?: string; kind?: SoundKind } = {}) => call<SoundboardState>("POST", "soundboard/stop", input),
+  soundVolume: (layer_id: string, volume: number) => call<SoundboardState>("POST", "soundboard/volume", { layer_id, volume }),
+  transcript: (sessionId: string, offset: number, limit = 500) =>
+    call<TranscriptPage>("GET", `sessions/${encodeURIComponent(sessionId)}/transcript?offset=${offset}&limit=${limit}`),
 };
+
+/**
+ * Upload one audio file with progress. XHR rather than fetch: fetch still has
+ * no upload progress events in browsers.
+ */
+export function uploadTrack(
+  file: File,
+  folder: UploadFolder,
+  onProgress: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<UploadResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const search = new URLSearchParams({ folder, filename: file.name });
+    xhr.open("POST", `/api/bot/music/upload?${search}`);
+    xhr.setRequestHeader("x-portal-request", "1");
+    xhr.setRequestHeader("Content-Type", file.type.startsWith("audio/") ? file.type : "application/octet-stream");
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    };
+    xhr.onerror = () => reject(new BotError(0, "network_error", "The upload was interrupted."));
+    xhr.onabort = () => reject(new BotError(0, "aborted", "Upload cancelled."));
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/signin?callbackUrl=${encodeURIComponent(window.location.pathname)}`);
+        reject(new BotError(401, "unauthorized", "Session expired."));
+        return;
+      }
+      const data = xhr.response as UploadResult | ApiErrorBody | null;
+      if (xhr.status >= 200 && xhr.status < 300 && data && "id" in data) {
+        resolve(data);
+        return;
+      }
+      const error = data && "error" in data ? data.error : null;
+      reject(new BotError(xhr.status, error?.code ?? "internal_error", error?.message ?? `Upload failed (${xhr.status}).`));
+    };
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+}

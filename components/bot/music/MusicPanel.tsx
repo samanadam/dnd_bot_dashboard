@@ -7,9 +7,10 @@ import { EmptyState, PageHeader, Skeleton } from "../../ui";
 import { QueueList } from "./QueueList";
 import { TrackLibrary } from "./TrackLibrary";
 import { TransportBar } from "./TransportBar";
+import { UploadTracks } from "./UploadTracks";
 import { YouTubeSearch } from "./YouTubeSearch";
 
-export function MusicPanel() {
+export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
   const { online } = useBotOnline();
   const music = useMusicState();
 
@@ -51,10 +52,13 @@ export function MusicPanel() {
       <TransportBar state={state} enabled={enabled} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="space-y-6">
-          <TrackLibrary state={state} enabled={enabled} />
+          <TrackLibrary state={state} enabled={enabled} canManage={canManage} />
           {state.sources.youtube && <YouTubeSearch state={state} enabled={enabled} />}
         </div>
-        <QueueList state={state} enabled={enabled} />
+        <div className="space-y-6">
+          <QueueList state={state} enabled={enabled} />
+          {canManage && state.sources.r2 !== false && <UploadTracks compact />}
+        </div>
       </div>
     </div>
   );

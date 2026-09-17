@@ -82,4 +82,61 @@ export type Stats = {
 
 export type DiceAnnounce = { expression: string; total: number; breakdown: string; label?: string; channel_id?: string };
 
+export type UploadFolder = "music" | "ambience" | "sfx";
+
+export type UploadResult = {
+  id: string;
+  title: string;
+  folder: UploadFolder;
+  size_bytes: number;
+  duration_seconds: number;
+};
+
+export type SoundKind = "ambience" | "sfx";
+
+export type SoundLayer = {
+  id: string;
+  kind: SoundKind;
+  track_id: string;
+  title: string;
+  volume: number;
+};
+
+export type SoundboardState = {
+  connected: boolean;
+  layers: SoundLayer[];
+  limits: Record<SoundKind, number>;
+};
+
+export type Soundboard = SoundboardState & { ambience: Track[]; sfx: Track[] };
+
+export type TranscriptSegment = {
+  speaker: string;
+  // Seconds from the session start; null for transcripts read from Markdown.
+  start: number | null;
+  end: number | null;
+  // HH:MM:SS: an offset when start is known, else local wall-clock time.
+  clock: string | null;
+  text: string;
+};
+
+export type TranscriptPage = {
+  session: {
+    id: string;
+    name: string | null;
+    started_at: string;
+    ended_at: string | null;
+    language: string | null;
+    timezone: string | null;
+    duration_seconds: number | null;
+    word_count: number;
+    speakers: string[];
+    warnings: string[];
+  };
+  total: number;
+  offset: number;
+  limit: number;
+  segments: TranscriptSegment[];
+};
+
 export type ApiErrorBody = { error: { code: string; message: string } };

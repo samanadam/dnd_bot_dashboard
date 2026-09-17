@@ -25,9 +25,9 @@ const library = [
 ].map(([id, title, duration_seconds]) => ({ id, title, source: "r2", duration_seconds }));
 
 const sessions = [
-  { id: "s-003", name: "Session 3: The Sunken Keep", channel_name: "table", started_at: hoursAgo(26), ended_at: hoursAgo(22), duration_seconds: 14400, transcribed: false, cancelled: false, speakers: ["DM", "Aria", "Borin", "Cass"], speaker_count: 4 },
-  { id: "s-002", name: "Session 2", channel_name: "table", started_at: hoursAgo(170), ended_at: hoursAgo(167), duration_seconds: 10800, transcribed: true, cancelled: false, speakers: ["DM", "Aria", "Borin"], speaker_count: 3 },
-  { id: "s-001", name: null, channel_name: "table", started_at: hoursAgo(340), ended_at: null, duration_seconds: null, transcribed: false, cancelled: false, speakers: ["DM"], speaker_count: 1 },
+  { id: "2026-09-16-2030-a1b2c3d4", name: "Session 3: The Sunken Keep", channel_name: "table", started_at: hoursAgo(26), ended_at: hoursAgo(22), duration_seconds: 14400, transcribed: false, cancelled: false, speakers: ["DM", "Aria", "Borin", "Cass"], speaker_count: 4 },
+  { id: "2026-09-09-2015-b2c3d4e5", name: "Session 2", channel_name: "table", started_at: hoursAgo(170), ended_at: hoursAgo(167), duration_seconds: 10800, transcribed: true, cancelled: false, speakers: ["DM", "Aria", "Borin"], speaker_count: 3 },
+  { id: "2026-09-02-2000-c3d4e5f6", name: null, channel_name: "table", started_at: hoursAgo(340), ended_at: null, duration_seconds: null, transcribed: false, cancelled: false, speakers: ["DM"], speaker_count: 1 },
 ];
 const active = new Map();
 const player = {
@@ -132,10 +132,137 @@ const routes = {
   "POST music/join": (body) => (Object.assign(player, { connected: true, channel_id: body.channel_id, owner: active.size ? "recording" : "music" }), ok(state())),
   "POST dice/announce": (body) => (console.log(`dice: ${body.label ?? ""} ${body.expression} = ${body.total} (${body.breakdown})`), ok({ sent: true, channel_id: "100000000000000001" })),
   "POST music/leave": () => (Object.assign(player, { connected: false, channel_id: null, owner: null, playing: false, current: null }), ok(state())),
+
+  "POST music/delete": (body) => {
+    const index = library.findIndex((t) => t.id === body.id);
+    if (index === -1) return fail(404, "not_found", "No such track.");
+    library.splice(index, 1);
+    return ok({ deleted: body.id });
+  },
+  "GET soundboard": () => ok({ ambience: sounds.ambience, sfx: sounds.sfx, ...boardState() }),
+  "POST soundboard/play": (body) => {
+    const track = sounds[body.kind]?.find((t) => t.id === body.id);
+    if (!track) return fail(404, "not_found", `No such ${body.kind} sound.`);
+    if (!player.connected) {
+      if (!body.channel_id) return fail(409, "conflict", "Not connected to a voice channel; name one to join.");
+      Object.assign(player, { connected: true, channel_id: body.channel_id, owner: "music" });
+    }
+    if (body.kind === "ambience" && layers.some((l) => l.track_id === track.id)) return fail(409, "conflict", "That ambience is already playing.");
+    const layer = { id: randomUUID().replace(/-/g, "").slice(0, 8), kind: body.kind, track_id: track.id, title: track.title, volume: body.volume ?? 1 };
+    layers.push(layer);
+    // One-shots end by themselves.
+    if (body.kind === "sfx") {
+      setTimeout(() => {
+        const at = layers.indexOf(layer);
+        if (at !== -1) layers.splice(at, 1);
+      }, 4000);
+    }
+    return ok(boardState());
+  },
+  "POST soundboard/stop": (body) => {
+    if (body.layer_id) {
+      const index = layers.findIndex((l) => l.id === body.layer_id);
+      if (index === -1) return fail(409, "conflict", "That sound is not playing.");
+      layers.splice(index, 1);
+    } else {
+      for (let i = layers.length - 1; i >= 0; i--) if (!body.kind || layers[i].kind === body.kind) layers.splice(i, 1);
+    }
+    return ok(boardState());
+  },
+  "POST soundboard/volume": (body) => {
+    const layer = layers.find((l) => l.id === body.layer_id);
+    if (!layer) return fail(409, "conflict", "That sound is not playing.");
+    layer.volume = body.volume;
+    return ok(boardState());
+  },
 };
+
+const sounds = {
+  ambience: [
+    ["rain-on-roof", "Rain on the Roof"],
+    ["tavern-crowd", "Tavern Crowd"],
+    ["cave-drips", "Cave Drips"],
+    ["campfire", "Campfire"],
+    ["storm-wind", "Storm Wind"],
+  ].map(([id, title]) => ({ id: `music/ambience/${id}.ogg`, title, source: "r2", duration_seconds: null })),
+  sfx: [
+    ["door-creak", "Door Creak"],
+    ["thunder", "Thunder"],
+    ["dragon-roar", "Dragon Roar"],
+    ["sword-clash", "Sword Clash"],
+    ["fireball", "Fireball"],
+    ["wolf-howl", "Wolf Howl"],
+  ].map(([id, title]) => ({ id: `music/sfx/${id}.ogg`, title, source: "r2", duration_seconds: null })),
+};
+const layers = [];
+
+function boardState() {
+  return { connected: player.connected, layers, limits: { ambience: 3, sfx: 6 } };
+}
 
 function activeView(s) {
   return { session_id: s.session_id, name: s.name, channel_id: s.channel_id, channel_name: s.channel_name, started_at: new Date(s.started).toISOString(), elapsed_seconds: Math.floor((Date.now() - s.started) / 1000), speakers: s.speakers, speaker_count: s.speakers.length, warnings: s.warnings };
+}
+
+async function upload(req, query) {
+  const folder = query.get("folder");
+  const filename = query.get("filename") ?? "";
+  const declared = Number(req.headers["content-length"] ?? "NaN");
+  if (!["music", "ambience", "sfx"].includes(folder)) return fail(400, "bad_folder", "folder must be music, ambience or sfx.");
+  if (!Number.isFinite(declared)) return fail(411, "length_required", "Send the file size (Content-Length).");
+  let size = 0;
+  let head = Buffer.alloc(0);
+  for await (const chunk of req) {
+    if (head.length < 16) head = Buffer.concat([head, chunk]).subarray(0, 16);
+    size += chunk.length;
+  }
+  if (size !== declared) return fail(400, "incomplete_upload", "The upload did not complete.");
+  const title = filename.replace(/\.[^.]+$/, "");
+  const id = `music/${folder === "music" ? "" : `${folder}/`}${filename}`;
+  const known = [...library, ...sounds.ambience, ...sounds.sfx].some((t) => t.id === id || t.title === title);
+  if (known) return fail(409, "already_exists", "A file with that name already exists.");
+  if (!/^(OggS|ID3|fLaC|RIFF)/.test(head.toString("latin1")) && head[0] !== 0xff && head.subarray(4, 8).toString("latin1") !== "ftyp") {
+    return fail(415, "not_audio", "That file is not a valid audio file.");
+  }
+  const track = { id, title, source: "r2", duration_seconds: 42 };
+  if (folder === "music") library.push(track);
+  else sounds[folder].push(track);
+  console.log(`upload: ${id} (${size} bytes)`);
+  return ok({ id, title, folder, size_bytes: size, duration_seconds: 42 }, 201);
+}
+
+function transcript(id, query) {
+  const session = sessions.find((s) => s.id === id);
+  if (!session) return fail(404, "not_found", "No such session.");
+  if (!session.transcribed) return fail(404, "no_transcript", "This session has no transcript yet.");
+  const lines = [
+    ["DM", "Rüzgâr kulenin taşlarında uğulduyor. Kapının önünde üç goblin var, ellerinde paslı kılıçlar."],
+    ["Aria", "Gizlice yaklaşmak istiyorum. Stealth atıyorum."],
+    ["DM", "Tamam, zar at."],
+    ["Aria", "On yedi."],
+    ["Borin", "Ben arkadan geliyorum ama zırhım çok ses çıkarıyor, dezavantajla atıyorum sanırım."],
+    ["DM", "Evet, dezavantaj. Goblinlerden biri başını kaldırıyor."],
+    ["Borin", "Dokuz. Kötü."],
+    ["DM", "Goblin bağırıyor: kim var orada! Initiative atın."],
+  ];
+  const segments = Array.from({ length: 240 }, (_, n) => {
+    const [speaker, text] = lines[n % lines.length];
+    const start = 12 + n * 17.5;
+    const whole = Math.floor(start);
+    const clock = [Math.floor(whole / 3600), Math.floor(whole / 60) % 60, whole % 60].map((v) => String(v).padStart(2, "0")).join(":");
+    return { speaker, start, end: start + 6, clock, text };
+  });
+  const offset = Number(query.get("offset") ?? 0);
+  const limit = Number(query.get("limit") ?? 500);
+  return ok({
+    session: {
+      id: session.id, name: session.name, started_at: session.started_at, ended_at: session.ended_at,
+      language: "tr", timezone: "Europe/Istanbul", duration_seconds: session.duration_seconds,
+      word_count: segments.reduce((sum, s) => sum + s.text.split(" ").length, 0),
+      speakers: ["Aria", "Borin", "DM"], warnings: [],
+    },
+    total: segments.length, offset, limit, segments: segments.slice(offset, offset + limit),
+  });
 }
 
 createServer(async (req, res) => {
@@ -145,12 +272,17 @@ createServer(async (req, res) => {
 
   if (path !== "health" && req.headers.authorization !== `Bearer ${TOKEN}`) {
     result = fail(401, "unauthorized", "Bad token.");
+  } else if (req.method === "POST" && path === "music/upload") {
+    result = await upload(req, url.searchParams);
   } else {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const body = raw ? JSON.parse(raw) : {};
     const index = path.match(/^music\/queue\/(\d+)$/);
-    if (req.method === "DELETE" && index) {
+    const transcriptPath = path.match(/^sessions\/([a-z0-9-]+)\/transcript$/);
+    if (req.method === "GET" && transcriptPath) {
+      result = transcript(transcriptPath[1], url.searchParams);
+    } else if (req.method === "DELETE" && index) {
       player.queue.splice(Number(index[1]), 1);
       result = ok(state());
     } else {

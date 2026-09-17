@@ -70,6 +70,11 @@ export class ReadCache {
 
 const sharedCache = new ReadCache();
 
+/** Drop the shared read cache after a change made outside handleBotRequest. */
+export function clearReadCache(cache: ReadCache = sharedCache) {
+  cache.clear();
+}
+
 export { PORTAL_HEADER };
 export const MAX_BODY_BYTES = 8 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -254,7 +259,7 @@ async function toSnapshot(response: Response): Promise<Snapshot> {
   };
 }
 
-async function normaliseUpstream(upstream: Response): Promise<Response> {
+export async function normaliseUpstream(upstream: Response): Promise<Response> {
   const headers: Record<string, string> = { "Cache-Control": "no-store" };
   const retryAfter = upstream.headers.get("retry-after");
   if (retryAfter && /^\d{1,5}$/.test(retryAfter)) headers["Retry-After"] = retryAfter;

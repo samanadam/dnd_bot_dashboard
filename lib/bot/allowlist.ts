@@ -13,7 +13,8 @@ export type RateBucket = "read" | "control" | "recording";
 
 export type Rule = {
   method: Method;
-  // Path relative to /api/v1, one literal per segment; ":index" matches an int.
+  // Path relative to /api/v1, one literal per segment; ":index" matches an int,
+  // ":session" a session id.
   path: string;
   query?: z.ZodType<Record<string, string>>;
   body?: z.ZodType<Record<string, unknown>>;
@@ -40,6 +41,13 @@ const intString = (min: number, max: number) =>
     });
 
 const source = z.enum(["r2", "youtube"]);
+const trackId = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[^\x00-\x1f\x7f]+$/, "invalid track id");
+const layerId = z.string().regex(/^[0-9a-f]{8}$/, "invalid layer id");
+const soundKind = z.enum(["ambience", "sfx"]);
 const channelBody = z.object({ channel_id: snowflake }).strict();
 
 const rules: Rule[] = [
@@ -52,6 +60,21 @@ const rules: Rule[] = [
     query: z.object({ limit: intString(1, 200).optional() }).strict(),
   },
   { method: "GET", path: "recording", bucket: "read" },
+  {
+    method: "GET",
+    path: "sessions/:session/transcript",
+    bucket: "read",
+    timeoutMs: 20_000,
+    query: z
+      .object({
+        offset: z
+          .string()
+          .regex(/^\d{1,7}$/)
+          .optional(),
+        limit: intString(1, 1000).optional(),
+      })
+      .strict(),
+  },
 
   {
     method: "POST",
@@ -160,9 +183,55 @@ const rules: Rule[] = [
       .strict(),
   },
   { method: "POST", path: "music/leave", bucket: "control" },
+
+  // Library changes and the soundboard are the DM's.
+  {
+    method: "POST",
+    path: "music/delete",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    body: z.object({ id: trackId }).strict(),
+  },
+  { method: "GET", path: "soundboard", bucket: "read", dmOnly: true },
+  {
+    method: "POST",
+    path: "soundboard/play",
+    bucket: "control",
+    timeoutMs: 30_000,
+    audit: true,
+    dmOnly: true,
+    body: z
+      .object({
+        kind: soundKind,
+        id: trackId,
+        volume: z.number().min(0).max(2).optional(),
+        channel_id: snowflake.optional(),
+      })
+      .strict(),
+  },
+  {
+    method: "POST",
+    path: "soundboard/stop",
+    bucket: "control",
+    dmOnly: true,
+    body: z
+      .object({ layer_id: layerId.optional(), kind: soundKind.optional() })
+      .strict()
+      .refine((value) => !(value.layer_id && value.kind), { message: "give layer_id or kind, not both" }),
+  },
+  {
+    method: "POST",
+    path: "soundboard/volume",
+    bucket: "control",
+    dmOnly: true,
+    body: z.object({ layer_id: layerId, volume: z.number().min(0).max(2) }).strict(),
+  },
 ];
 
-const SEGMENT = /^[a-z0-9_-]{1,32}$/;
+const SEGMENT = /^[a-z0-9_-]{1,64}$/;
+// Dated ids (2026-09-09-2130-a1b2c3d4) and the older UUIDs.
+const SESSION_SEGMENT = /^[a-z0-9-]{8,64}$/;
 
 export type Match = { rule: Rule; path: string };
 
@@ -182,7 +251,11 @@ export function matchRule(method: string, segments: readonly string[]): Match | 
     if (pattern.length !== segments.length) continue;
 
     const ok = pattern.every((part, i) =>
-      part === ":index" ? /^\d{1,4}$/.test(segments[i]) : part === segments[i],
+      part === ":index"
+        ? /^\d{1,4}$/.test(segments[i])
+        : part === ":session"
+          ? SESSION_SEGMENT.test(segments[i])
+          : part === segments[i],
     );
     if (ok) return { rule, path: segments.join("/") };
   }

@@ -1,12 +1,14 @@
 "use client";
 
-import { Library, Play, Search } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Library, Play, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { bot } from "@/lib/bot/client";
+import { bot, BotError } from "@/lib/bot/client";
 import type { PlayerState, Track } from "@/lib/bot/types";
 import { formatDuration } from "@/lib/format";
 import { useLibrary, useMusicMutation } from "@/lib/bot/useBotState";
 import { useLocalValue } from "@/lib/useLocalValue";
+import { ConfirmDialog } from "../../ConfirmDialog";
 import { useToast } from "../../Providers";
 import { Button, Card, EmptyState, inputClass, Notice, Skeleton } from "../../ui";
 
@@ -30,7 +32,21 @@ export function usePlay(state: PlayerState) {
   };
 }
 
-export function TrackRow({ track, onPlay, busy, enabled, playing }: { track: Track; onPlay: () => void; busy: boolean; enabled: boolean; playing?: boolean }) {
+export function TrackRow({
+  track,
+  onPlay,
+  busy,
+  enabled,
+  playing,
+  onDelete,
+}: {
+  track: Track;
+  onPlay: () => void;
+  busy: boolean;
+  enabled: boolean;
+  playing?: boolean;
+  onDelete?: () => void;
+}) {
   return (
     <li className={`group flex items-center gap-3 px-5 py-2.5 transition hover:bg-surface-2/60 ${playing ? "bg-accent-soft" : ""}`}>
       <Button
@@ -50,11 +66,24 @@ export function TrackRow({ track, onPlay, busy, enabled, playing }: { track: Tra
         </div>
       </div>
       <span className="font-mono text-xs tabular-nums text-muted">{formatDuration(track.duration_seconds)}</span>
+      {onDelete && (
+        <Button
+          size="icon"
+          variant="danger-ghost"
+          className="opacity-70 transition group-hover:opacity-100 focus-visible:opacity-100"
+          disabled={!enabled || playing}
+          onClick={onDelete}
+          aria-label={`Delete ${track.title}`}
+          title={playing ? "Stop it before deleting" : "Delete from the bucket"}
+        >
+          <Trash2 className="size-4" aria-hidden />
+        </Button>
+      )}
     </li>
   );
 }
 
-export function TrackLibrary({ state, enabled }: { state: PlayerState; enabled: boolean }) {
+export function TrackLibrary({ state, enabled, canManage = false }: { state: PlayerState; enabled: boolean; canManage?: boolean }) {
   const [input, setInput] = useState("");
   const [q, setQ] = useState("");
   useEffect(() => {
@@ -64,6 +93,18 @@ export function TrackLibrary({ state, enabled }: { state: PlayerState; enabled: 
 
   const library = useLibrary(q);
   const { play, pendingId, needsChannel } = usePlay(state);
+  const toast = useToast();
+  const client = useQueryClient();
+  const [deleting, setDeleting] = useState<Track | null>(null);
+  const remove = useMutation({
+    mutationFn: (track: Track) => bot.deleteTrack(track.id),
+    onSuccess: (_data, track) => {
+      toast("ok", `Deleted ${track.title}`);
+      setDeleting(null);
+      void client.invalidateQueries({ queryKey: ["bot", "music", "library"] });
+    },
+    onError: (error) => toast("danger", error instanceof BotError ? error.message : "Could not delete that track."),
+  });
 
   if (state.sources.r2 === false) {
     return (
@@ -123,10 +164,23 @@ export function TrackLibrary({ state, enabled }: { state: PlayerState; enabled: 
               busy={pendingId === track.id}
               playing={state.current?.id === track.id}
               onPlay={() => play(track)}
+              onDelete={canManage ? () => setDeleting(track) : undefined}
             />
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this track?"
+        confirmLabel="Delete"
+        busy={remove.isPending}
+        onClose={() => !remove.isPending && setDeleting(null)}
+        onConfirm={() => deleting && remove.mutate(deleting)}
+      >
+        <p>
+          <span className="font-medium text-text">{deleting?.title}</span> will be removed from the music bucket. This cannot be undone.
+        </p>
+      </ConfirmDialog>
     </Card>
   );
 }

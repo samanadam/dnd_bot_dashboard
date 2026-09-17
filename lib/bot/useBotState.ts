@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { bot, BotError } from "./client";
-import type { PlayerState } from "./types";
+import type { PlayerState, Soundboard, SoundboardState, TranscriptPage, TranscriptSegment } from "./types";
 
 // Every poll lives here so replacing polling with SSE later is a one-file change.
 
@@ -13,7 +13,56 @@ export const keys = {
   recording: ["bot", "recording"] as const,
   music: ["bot", "music", "state"] as const,
   library: (q: string) => ["bot", "music", "library", q] as const,
+  soundboard: ["bot", "soundboard"] as const,
+  transcript: (id: string) => ["bot", "transcript", id] as const,
 };
+
+// A four-hour session is a few thousand segments; this cap is far above that.
+const TRANSCRIPT_PAGE = 500;
+const TRANSCRIPT_MAX_PAGES = 60;
+
+export type Transcript = { session: TranscriptPage["session"]; segments: TranscriptSegment[]; truncated: boolean };
+
+export function useTranscript(sessionId: string) {
+  return useQuery({
+    queryKey: keys.transcript(sessionId),
+    queryFn: async (): Promise<Transcript> => {
+      const first = await bot.transcript(sessionId, 0, TRANSCRIPT_PAGE);
+      const segments = [...first.segments];
+      let pages = 1;
+      while (segments.length < first.total && pages < TRANSCRIPT_MAX_PAGES) {
+        const page = await bot.transcript(sessionId, segments.length, TRANSCRIPT_PAGE);
+        if (page.segments.length === 0) break;
+        segments.push(...page.segments);
+        pages += 1;
+      }
+      return { session: first.session, segments, truncated: segments.length < first.total };
+    },
+    staleTime: 5 * 60_000,
+    retry,
+  });
+}
+
+export function useSoundboard() {
+  return useQuery({
+    queryKey: keys.soundboard,
+    queryFn: bot.soundboard,
+    refetchInterval: interval(5_000),
+    retry,
+  });
+}
+
+/** Soundboard mutation: the bot answers with the new layer state. */
+export function useSoundboardMutation<TVars>(fn: (vars: TVars) => Promise<SoundboardState>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (state) => {
+      client.setQueryData<Soundboard>(keys.soundboard, (previous) => (previous ? { ...previous, ...state } : previous));
+    },
+    onSettled: () => void client.invalidateQueries({ queryKey: keys.music }),
+  });
+}
 
 function retry(failureCount: number, error: Error) {
   if (error instanceof BotError && !error.unreachable && error.status !== 429) return false;
