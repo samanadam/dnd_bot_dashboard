@@ -18,6 +18,8 @@ export type ProxyDeps = {
   limiter?: RateLimiter;
   log?: (entry: { event: "bot_call" | "bot_refused"; userId?: string; method: string; path: string; status: number; detail?: string }) => void;
   cache?: ReadCache;
+  // Required for dmOnly rules; without it they are refused.
+  isDm?: (userId: string) => boolean;
   now?: () => number;
 };
 
@@ -110,6 +112,10 @@ export async function handleBotRequest(
     return errorResponse(404, "not_found", "Unknown endpoint.");
   }
   const { rule, path } = match;
+  if (rule.dmOnly && !deps.isDm?.(userId)) {
+    log({ event: "bot_refused", userId, method, path: displayPath, status: 404, detail: "dm_only" });
+    return errorResponse(404, "not_found", "Unknown endpoint.");
+  }
 
   // 4. Rate limit, per user and bucket.
   const wait = (deps.limiter ?? sharedLimiter).take(`${userId}:${rule.bucket}`, LIMITS[rule.bucket]);

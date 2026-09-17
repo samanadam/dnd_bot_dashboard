@@ -21,6 +21,8 @@ export type Rule = {
   timeoutMs?: number;
   // Written to the audit log when true.
   audit?: boolean;
+  // Only users in DM_USER_IDS may call it; everyone else gets a plain 404.
+  dmOnly?: boolean;
 };
 
 const snowflake = z.string().regex(/^\d{17,20}$/, "must be a Discord id");
@@ -139,6 +141,24 @@ const rules: Rule[] = [
       .strict(),
   },
   { method: "POST", path: "music/join", bucket: "control", audit: true, body: channelBody },
+
+  // A roll made in the DM Screen, posted to Discord by the bot.
+  {
+    method: "POST",
+    path: "dice/announce",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    body: z
+      .object({
+        expression: z.string().regex(/^[0-9dDkKhHlL+\-% ]{1,100}$/, "must be dice notation"),
+        total: z.number().int().min(-100_000).max(100_000),
+        breakdown: z.string().trim().min(1).max(300),
+        label: z.string().trim().min(1).max(80).optional(),
+        channel_id: snowflake.optional(),
+      })
+      .strict(),
+  },
   { method: "POST", path: "music/leave", bucket: "control" },
 ];
 

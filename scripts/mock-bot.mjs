@@ -130,6 +130,7 @@ const routes = {
     return ok(state());
   },
   "POST music/join": (body) => (Object.assign(player, { connected: true, channel_id: body.channel_id, owner: active.size ? "recording" : "music" }), ok(state())),
+  "POST dice/announce": (body) => (console.log(`dice: ${body.label ?? ""} ${body.expression} = ${body.total} (${body.breakdown})`), ok({ sent: true, channel_id: "100000000000000001" })),
   "POST music/leave": () => (Object.assign(player, { connected: false, channel_id: null, owner: null, playing: false, current: null }), ok(state())),
 };
 

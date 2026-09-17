@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { audit } from "@/lib/audit";
 import { handleBotRequest } from "@/lib/bot/proxy";
+import { isDm } from "@/lib/dm/isDm";
 import { env } from "@/lib/env";
 
 // The ONLY place BOT_API_TOKEN is read. See lib/bot/proxy.ts for the pipeline.
@@ -15,6 +16,7 @@ async function handle(request: Request, context: RouteContext<"/api/bot/[...path
     botUrl: config.BOT_API_URL,
     botToken: config.BOT_API_TOKEN,
     log: audit,
+    isDm: (userId) => isDm(userId, config.DM_USER_IDS),
   });
 }
 

@@ -80,4 +80,6 @@ export type Stats = {
   music: unknown;
 };
 
+export type DiceAnnounce = { expression: string; total: number; breakdown: string; label?: string; channel_id?: string };
+
 export type ApiErrorBody = { error: { code: string; message: string } };

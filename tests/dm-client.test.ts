@@ -5,7 +5,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("dm client", () => {
   it("sends the portal header, same-origin credentials and JSON", async () => {
-    const fetchMock = vi.fn(async (..._args: unknown[]) => Response.json({ id: "x" }, { status: 201 }));
+    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(async () => Response.json({ id: "x" }, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     await dm.createCreature({ kind: "npc" } as never);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -16,7 +16,7 @@ describe("dm client", () => {
   });
 
   it("encodes ids in paths", async () => {
-    const fetchMock = vi.fn(async (..._args: unknown[]) => new Response(null, { status: 204 }));
+    const fetchMock = vi.fn<(...args: unknown[]) => Promise<Response>>(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
     await dm.deleteCreature("../x?y");
     expect(fetchMock.mock.calls[0][0]).toBe("/api/dm/creatures/..%2Fx%3Fy");

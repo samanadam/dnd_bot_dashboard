@@ -3,6 +3,7 @@
 import type {
   ActiveSession,
   ApiErrorBody,
+  DiceAnnounce,
   Health,
   LoopMode,
   PlayerState,
@@ -108,4 +109,5 @@ export const bot = {
   moveInQueue: (from: number, to: number) => call<PlayerState>("POST", "music/queue/move", { from, to }),
   join: (channel_id: string) => call<PlayerState>("POST", "music/join", { channel_id }),
   leave: () => call<PlayerState>("POST", "music/leave"),
+  announceDice: (body: DiceAnnounce) => call<{ sent: true; channel_id: string }>("POST", "dice/announce", body),
 };
