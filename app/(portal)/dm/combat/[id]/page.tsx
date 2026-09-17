@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CombatTracker } from "@/components/dm/combat/CombatTracker";
+import { SoundboardDrawer } from "@/components/dm/SoundboardDrawer";
 import { requireDm } from "@/lib/dm/access";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
@@ -28,6 +29,7 @@ export default async function EncounterPage(props: PageProps<"/dm/combat/[id]">)
       </Link>
       {/* Keyed by id so opening another encounter never reuses this one's local state. */}
       <CombatTracker key={stored.id} initial={stored} creatures={[...custom, ...listSrd()]} />
+      <SoundboardDrawer />
     </div>
   );
 }

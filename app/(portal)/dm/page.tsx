@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, Dices, Plus, Swords, Users } from "lucide-react";
+import { AudioLines, BookOpen, ChevronRight, Dices, Plus, Swords, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
@@ -34,6 +34,7 @@ export default async function DmHome() {
     { href: "/dm/bestiary", icon: BookOpen, title: "Bestiary", body: "Every SRD monster plus the ones you add from your books.", stat: `${listSrd().length + mine} monsters` },
     { href: "/dm/npcs", icon: Users, title: "NPCs", body: "The people of your world, with stat blocks and secrets.", stat: `${npcs} NPC${npcs === 1 ? "" : "s"}` },
     { href: "/dm/dice", icon: Dices, title: "Dice", body: "Roll anything and send the result to Discord.", stat: "d4 to d100" },
+    { href: "/dm/soundboard", icon: AudioLines, title: "Soundboard", body: "Ambience loops and sound effects over the music.", stat: "In voice" },
   ];
 
   return (
@@ -54,7 +55,7 @@ export default async function DmHome() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {tiles.map(({ href, icon: Icon, title, body, stat }) => (
           <Link
             key={href}

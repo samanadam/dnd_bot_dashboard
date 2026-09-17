@@ -12,7 +12,8 @@ export type IconName =
   | "scroll"
   | "book"
   | "users"
-  | "swords";
+  | "swords"
+  | "audio";
 
 export type ToolLink = { href: string; label: string; icon: IconName };
 
@@ -56,6 +57,7 @@ export const tools: Tool[] = [
       { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
       { href: "/dm/npcs", label: "NPCs", icon: "users" },
       { href: "/dm/dice", label: "Dice", icon: "dice" },
+      { href: "/dm/soundboard", label: "Sounds", icon: "audio" },
     ],
   },
   {

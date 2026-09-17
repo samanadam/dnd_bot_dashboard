@@ -137,7 +137,7 @@ export function AppShell({
           aria-label={current.name}
           className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
         >
-          <div className={`mx-auto grid max-w-md ${current.links.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+          <div className={`mx-auto grid max-w-md ${current.links.length >= 5 ? "grid-cols-5" : current.links.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
             {current.links.map((link) => {
               const active = isActive(pathname, link.href);
               return (
