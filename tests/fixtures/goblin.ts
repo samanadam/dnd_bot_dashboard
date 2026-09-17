@@ -1,0 +1,37 @@
+import type { StatBlock } from "@/lib/dm/statblock";
+
+export const goblin: StatBlock = {
+  name: "Goblin Warrior",
+  size: "Small",
+  type: "Fey (Goblinoid)",
+  alignment: "Chaotic Neutral",
+  ac: 15,
+  acNote: "leather armor, shield",
+  hp: 10,
+  hitDice: "3d6",
+  speed: "30 ft.",
+  abilities: { str: 8, dex: 15, con: 10, int: 10, wis: 8, cha: 8 },
+  saves: {},
+  skills: { stealth: 6 },
+  senses: "darkvision 60 ft., passive Perception 9",
+  languages: "Common, Goblin",
+  cr: "1/4",
+  xp: 50,
+  initiativeBonus: 2,
+  damageVulnerabilities: "",
+  damageResistances: "",
+  damageImmunities: "",
+  conditionImmunities: "",
+  traits: [],
+  actions: [
+    {
+      name: "Scimitar",
+      desc: "Melee Attack Roll: +4, reach 5 ft. 5 (1d6 + 2) Slashing damage.",
+      attack: { toHit: 4, damage: "1d6+2", damageType: "Slashing" },
+    },
+  ],
+  bonusActions: [{ name: "Nimble Escape", desc: "The goblin takes the Disengage or Hide action." }],
+  reactions: [],
+  legendaryActions: [],
+  legendaryDescription: "",
+};
