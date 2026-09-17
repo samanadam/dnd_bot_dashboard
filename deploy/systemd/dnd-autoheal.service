@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart unhealthy D&D containers
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/dnd-bot-dashboard/deploy/autoheal.sh

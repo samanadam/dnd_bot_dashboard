@@ -14,7 +14,8 @@
     "docker:up": "docker compose up -d --build",
     "docker:mock": "docker compose -f docker-compose.yml -f compose.mock.yml up -d --build",
     "docker:down": "docker compose -f docker-compose.yml -f compose.mock.yml down",
-    "docker:host": "docker compose -f docker-compose.yml -f compose.host.yml up -d"
+    "docker:host": "docker compose -f docker-compose.yml -f compose.host.yml up -d",
+    "test:ops": "sh tests/ops/run.sh"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.0",

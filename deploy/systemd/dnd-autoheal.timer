@@ -1,0 +1,9 @@
+[Unit]
+Description=Check D&D container health every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

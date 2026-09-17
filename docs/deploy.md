@@ -152,10 +152,38 @@ Walk the checklist at the end of [security.md](security.md). In short:
 ## Updating
 
 ```bash
-docker compose pull      # option A; for B load the new image again
-docker compose up -d     # with COMPOSE_FILE set in .env, otherwise the step 4 command
-docker image prune -f
+cd /opt/dnd-bot-dashboard && sh deploy/deploy.sh
 ```
+
+It pulls the code and the image, recreates the portal, waits up to two minutes
+for it to report healthy and otherwise puts the previous image back (and sends
+an alert, see below). Exit code 0 means the new version is live.
+
+With a locally loaded image (option B) run `docker compose up -d` instead.
+
+## Autoheal and alerts
+
+Docker marks a container unhealthy but never restarts it. `deploy/autoheal.sh`
+does, after three failed checks in a row (about six minutes). It never restarts
+the bot while a recording may be running; it alerts instead.
+
+Alerts go to a Discord webhook (channel settings > Integrations > Webhooks). The
+URL is a secret: it stays in a root-only file on the server.
+
+```bash
+sudo install -d -m 700 /etc/dnd-ops
+sudo sh -c 'read -r url; printf "%s
+" "$url" > /etc/dnd-ops/alert-webhook'   # paste the URL, Enter
+sudo chmod 600 /etc/dnd-ops/alert-webhook
+
+sudo cp deploy/systemd/dnd-autoheal.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dnd-autoheal.timer
+sudo sh -c '. deploy/lib/alert.sh; alert "test alert"'
+```
+
+For outages of the whole server, add an external uptime check (for example
+UptimeRobot) on `https://<your domain>/signin`.
 
 Rotating secrets: change `AUTH_SECRET` (signs everyone out) or `BOT_API_TOKEN`
 in `.env`, then run the step 4 command again.

@@ -49,6 +49,9 @@ jobs:
           } > .env.local
           npm run verify
 
+      - name: Ops script tests
+        run: npm run test:ops
+
   image:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

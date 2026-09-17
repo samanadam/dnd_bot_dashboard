@@ -1,0 +1,4 @@
+# Shell scripts and systemd units run on Linux; a CRLF would break them.
+*.sh text eol=lf
+deploy/** text eol=lf
+tests/ops/** text eol=lf
