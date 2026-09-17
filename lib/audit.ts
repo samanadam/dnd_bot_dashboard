@@ -3,7 +3,7 @@
 // explicitly; never pass tokens, cookies, headers or request bodies.
 
 type AuditEvent = {
-  event: "sign_in" | "session_revoked" | "bot_call" | "bot_refused";
+  event: "sign_in" | "session_revoked" | "bot_call" | "bot_refused" | "dm_write";
   userId?: string;
   outcome?: string;
   method?: string;
