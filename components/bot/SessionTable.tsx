@@ -1,7 +1,8 @@
 "use client";
 
 import type { UseQueryResult } from "@tanstack/react-query";
-import { History, LifeBuoy, Users } from "lucide-react";
+import { FileText, History, LifeBuoy, Users } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { bot } from "@/lib/bot/client";
 import type { SessionSummary } from "@/lib/bot/types";
@@ -20,6 +21,23 @@ function status(session: SessionSummary, activeIds: Set<string>): Status {
   if (!session.ended_at) return { label: "Interrupted", tone: "warn", recoverable: true };
   if (session.transcribed) return { label: "Transcribed", tone: "ok", recoverable: false };
   return { label: "Pending transcript", tone: "accent", recoverable: false };
+}
+
+/** Session title, linked to its transcript page once the recording has ended. */
+function SessionName({ session, s }: { session: SessionSummary; s: Status }) {
+  const name = session.name ?? "Untitled session";
+  if (!session.ended_at || session.cancelled || s.label === "Recording") {
+    return <div className="truncate font-medium">{name}</div>;
+  }
+  return (
+    <Link
+      href={`/bot/sessions/${encodeURIComponent(session.id)}`}
+      className="group/name inline-flex max-w-full items-center gap-1.5 font-medium hover:text-accent focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      <span className="truncate">{name}</span>
+      {session.transcribed && <FileText className="size-3.5 shrink-0 text-muted group-hover/name:text-accent" aria-label="Transcript available" />}
+    </Link>
+  );
 }
 
 function useSessionContext() {
@@ -110,7 +128,9 @@ export function SessionList({ query, limit }: { query: UseQueryResult<SessionSum
                 <span className="mt-0.5 text-[9px] uppercase text-muted">{date.toLocaleDateString(undefined, { month: "short" })}</span>
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{session.name ?? "Untitled session"}</div>
+                <div className="text-sm">
+                  <SessionName session={session} s={s} />
+                </div>
                 <div className="flex flex-wrap items-center gap-x-2.5 text-xs text-muted">
                   <span className="font-mono">{formatDuration(session.duration_seconds)}</span>
                   <span className="inline-flex items-center gap-1">
@@ -162,7 +182,7 @@ export function SessionTable({ query }: { query: UseQueryResult<SessionSummary[]
               return (
                 <tr key={session.id} className="transition hover:bg-surface-2/60">
                   <td className="px-5 py-3.5">
-                    <div className="font-medium">{session.name ?? "Untitled session"}</div>
+                    <SessionName session={session} s={s} />
                     <div className="text-xs text-muted">#{session.channel_name}</div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3.5 text-muted tabular-nums">{formatDateTime(session.started_at)}</td>
