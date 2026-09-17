@@ -96,3 +96,9 @@ docker compose up -d                     # COMPOSE_FILE in .env picks the stack
 3. If it calls a backend with a secret, give it its own route handler under
    `app/api/<tool>/` with its own allowlist, modelled on `lib/bot/proxy.ts`.
    Never widen the bot allowlist for another tool, and never share tokens.
+
+## Credits
+
+The bestiary bundles monsters from the System Reference Documents 5.1 and 5.2
+by Wizards of the Coast LLC, licensed under CC-BY-4.0. See
+[data/srd/NOTICE.md](data/srd/NOTICE.md).
