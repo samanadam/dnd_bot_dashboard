@@ -161,6 +161,44 @@ an alert, see below). Exit code 0 means the new version is live.
 
 With a locally loaded image (option B) run `docker compose up -d` instead.
 
+## DM Screen
+
+The bestiary, NPCs, combat tracker and dice are only for the Discord user ids in
+`DM_USER_IDS` (your own id: Discord Developer Mode, right-click yourself, Copy
+User ID). Everyone else, admins included, gets a 404.
+
+```bash
+echo "DM_USER_IDS=<your user id>" >> /opt/dnd-bot-dashboard/.env
+sh deploy/deploy.sh
+```
+
+"Send to Discord" posts through the bot. Set the channel on the bot and
+recreate it (only while nothing is recording):
+
+```bash
+echo "DICE_CHANNEL_ID=<text channel id>" >> /opt/dnd-bot/.env
+cd /opt/dnd-bot && docker compose up -d
+```
+
+DM data (your monsters, NPCs, encounters) lives in the `portal_data` Docker
+volume. `docker compose down -v` deletes it. A daily copy goes to R2 under
+`backups/portal/`, kept for 30 days:
+
+```bash
+sudo cp deploy/systemd/dnd-portal-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dnd-portal-backup.timer
+sudo systemctl start dnd-portal-backup.service && journalctl -u dnd-portal-backup -n 5
+```
+
+To restore, download `portal-YYYY-MM-DD.db` from the R2 bucket, then:
+
+```bash
+docker compose stop portal
+docker run --rm -v dnd-bot-dashboard_portal_data:/data -v "$PWD":/in alpine   sh -c 'cp /in/portal-YYYY-MM-DD.db /data/portal.db && rm -f /data/portal.db-wal /data/portal.db-shm && chown 1001:1001 /data/portal.db'
+docker compose start portal
+```
+
 ## Autoheal and alerts
 
 Docker marks a container unhealthy but never restarts it. `deploy/autoheal.sh`

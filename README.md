@@ -13,6 +13,14 @@ from a laptop or a phone at the table.
   transport, volume, loop, join / leave voice.
 - **Sessions**: full history, recovery of interrupted sessions.
 - **Settings**: 12 themes, per-device defaults, account and connection info.
+- **DM Screen** (only for ids in `DM_USER_IDS`):
+  - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
+    blocks where every bonus and damage roll is one click.
+  - **NPCs**: your campaign's people with stat blocks, private notes and tags.
+  - **Combat**: initiative tracker with turns, rounds, hit points, temporary hit
+    points, timed conditions and concentration; autosaves.
+  - **Dice**: cryptographically random rolls with advantage, keep/drop and an
+    optional "Send to Discord" through the bot.
 
 The security model is in [docs/security.md](docs/security.md). Read it before
 changing anything under `app/api`, `auth.ts`, `proxy.ts` or `lib/bot/allowlist.ts`.

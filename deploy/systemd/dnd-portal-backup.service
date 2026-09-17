@@ -1,0 +1,8 @@
+[Unit]
+Description=Copy the portal database to R2
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/dnd-bot-dashboard/deploy/backup-portal-db.sh
