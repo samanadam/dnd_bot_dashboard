@@ -3,7 +3,9 @@ import { signOut } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { Providers } from "@/components/Providers";
 import { requireUser } from "@/lib/session";
-import { tools } from "@/lib/tools/registry";
+import { isDm } from "@/lib/dm/isDm";
+import { env } from "@/lib/env";
+import { visibleTools } from "@/lib/tools/registry";
 
 export default async function PortalLayout({ children }: LayoutProps<"/">) {
   const user = await requireUser();
@@ -28,7 +30,7 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
 
   return (
     <Providers>
-      <AppShell tools={tools} user={{ name: user.name ?? null, image: user.image ?? null }} signOut={signOutButton}>
+      <AppShell tools={visibleTools(isDm(user.id, env().DM_USER_IDS))} user={{ name: user.name ?? null, image: user.image ?? null }} signOut={signOutButton}>
         {children}
       </AppShell>
     </Providers>

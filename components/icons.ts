@@ -1,4 +1,4 @@
-import { Dices, Gauge, History, Music2, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, Dices, Gauge, History, Music2, ScrollText, Sparkles, Swords, Users, type LucideIcon } from "lucide-react";
 import type { IconName } from "@/lib/tools/registry";
 
 export const ICON_BY_NAME: Record<IconName, LucideIcon> = {
@@ -7,4 +7,8 @@ export const ICON_BY_NAME: Record<IconName, LucideIcon> = {
   music: Music2,
   history: History,
   sparkles: Sparkles,
+  scroll: ScrollText,
+  book: BookOpen,
+  users: Users,
+  swords: Swords,
 };

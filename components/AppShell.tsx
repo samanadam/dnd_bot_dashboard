@@ -61,7 +61,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const bot = tools.find((tool) => tool.id === "bot");
-  const inBot = pathname.startsWith("/bot");
+  // Mobile bottom tabs follow the tool the user is in.
+  const current = tools.find((tool) => tool.status === "live" && tool.links.length > 1 && (pathname === tool.href || pathname.startsWith(`${tool.href}/`)));
 
   return (
     <div className="min-h-dvh lg:pl-72">
@@ -81,10 +82,10 @@ export function AppShell({
                 {tool.status === "live" ? (
                   <>
                     <div className="flex items-center justify-between px-3 py-1.5">
-                      <span className="flex items-center gap-2 text-sm font-medium">
+                      <Link href={tool.href} className="flex items-center gap-2 text-sm font-medium hover:text-accent">
                         <ToolIcon name={tool.icon} className="size-4 text-muted" />
                         {tool.name}
-                      </span>
+                      </Link>
                       {tool.id === "bot" && <PresenceDot />}
                     </div>
                     <div className="ml-5 mt-1 space-y-0.5 border-l border-border pl-3">
@@ -128,16 +129,16 @@ export function AppShell({
         </div>
       </header>
 
-      <main className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10 ${inBot ? "pb-28 lg:pb-10" : ""}`}>{children}</main>
+      <main className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10 ${current ? "pb-28 lg:pb-10" : ""}`}>{children}</main>
 
-      {/* Mobile bottom tabs for the bot */}
-      {bot && inBot && (
+      {/* Mobile bottom tabs for the current tool */}
+      {current && (
         <nav
-          aria-label="D&D Recorder"
+          aria-label={current.name}
           className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
         >
-          <div className="mx-auto grid max-w-md grid-cols-3">
-            {bot.links.map((link) => {
+          <div className={`mx-auto grid max-w-md ${current.links.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+            {current.links.map((link) => {
               const active = isActive(pathname, link.href);
               return (
                 <Link

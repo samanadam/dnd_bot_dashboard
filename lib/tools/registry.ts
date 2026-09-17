@@ -1,9 +1,18 @@
 // The portal hosts several tools. Adding one means: a folder under
-// app/(portal)/<id>, its own server-side proxy under app/api/<id>, and an entry
-// here. Each tool keeps its own secrets and allowlist; nothing is shared.
+// app/(portal)/<id>, its own server-side route handlers under app/api/<id>, and
+// an entry here. Each tool keeps its own secrets and allowlist; nothing is shared.
 
-// Icon names map to components in components/AppShell.tsx.
-export type IconName = "dice" | "gauge" | "music" | "history" | "sparkles";
+// Icon names map to components in components/icons.ts.
+export type IconName =
+  | "dice"
+  | "gauge"
+  | "music"
+  | "history"
+  | "sparkles"
+  | "scroll"
+  | "book"
+  | "users"
+  | "swords";
 
 export type ToolLink = { href: string; label: string; icon: IconName };
 
@@ -15,6 +24,9 @@ export type Tool = {
   icon: IconName;
   links: ToolLink[];
   status: "live" | "planned";
+  // Only shown to users in DM_USER_IDS. Hiding is cosmetic: pages and routes
+  // enforce the same rule on the server.
+  dmOnly?: boolean;
 };
 
 export const tools: Tool[] = [
@@ -32,6 +44,21 @@ export const tools: Tool[] = [
     ],
   },
   {
+    id: "dm",
+    name: "DM Screen",
+    description: "Bestiary, NPCs, initiative tracker and dice. Only you can see it.",
+    href: "/dm",
+    icon: "scroll",
+    status: "live",
+    dmOnly: true,
+    links: [
+      { href: "/dm/combat", label: "Combat", icon: "swords" },
+      { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
+      { href: "/dm/npcs", label: "NPCs", icon: "users" },
+      { href: "/dm/dice", label: "Dice", icon: "dice" },
+    ],
+  },
+  {
     id: "more",
     name: "More tools",
     description: "Room for the next campaign helper.",
@@ -41,3 +68,8 @@ export const tools: Tool[] = [
     links: [],
   },
 ];
+
+/** The tools a user may see. */
+export function visibleTools(showDm: boolean): Tool[] {
+  return tools.filter((tool) => !tool.dmOnly || showDm);
+}
