@@ -199,6 +199,37 @@ docker run --rm -v dnd-bot-dashboard_portal_data:/data -v "$PWD":/in alpine   sh
 docker compose start portal
 ```
 
+## Music uploads and the soundboard
+
+Uploading and deleting tracks, and the soundboard, are DM-only. Files go
+browser → portal → bot → R2; nothing is stored on the host. The bot checks the
+name, the first bytes and ffprobe's answer before anything reaches the bucket.
+
+Bucket layout under `MUSIC_R2_PREFIX` (default `music/`):
+
+| Where | What | Shown in |
+|---|---|---|
+| `music/` | Tracks | Music page library |
+| `music/ambience/` | Looping ambience | Soundboard |
+| `music/sfx/` | One-shot effects, 2 minutes at most | Soundboard |
+
+The size cap is `MUSIC_UPLOAD_MAX_MB` on the bot (default 150). Keep it well
+under the free space on the data disk: an upload passes through it, and raw
+capture must never run out of room. Uploads need `ffmpeg`/`ffprobe`, which the
+bot image already has.
+
+The soundboard mixes over the music on the same voice connection, so it obeys
+the same truce with the recorder: it never hangs up a connection a recording
+owns. Ambience comes back by itself after a voice reconnect; effects do not.
+
+## Transcripts
+
+Every signed-in portal user can read a delivered transcript at
+`/bot/sessions/<id>`, the same text the bot posts in the game channel. It is
+read from the session's own directory on the bot's data disk, so it survives
+long after the audio is cleaned up. Sessions the transcriber has not returned
+yet show "No transcript yet".
+
 ## Autoheal and alerts
 
 Docker marks a container unhealthy but never restarts it. `deploy/autoheal.sh`

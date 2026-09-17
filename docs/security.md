@@ -30,6 +30,10 @@ make sure only the right people can make the portal use it.
 | Malicious stat block or note text (XSS) | Stored and rendered as text only; React escapes it; no `dangerouslySetInnerHTML`; zod length caps on every field; nonce CSP | `lib/dm/statblock.ts`, `components/dm/*` |
 | SQL injection | Only prepared statements with parameters; ids validated before any query; rows re-validated with zod on read | `lib/dm/creatures.ts`, `lib/dm/encounters.ts` |
 | DM data loss | Named Docker volume (`portal_data`), WAL mode, daily off-site copy to R2 through the bot container | `docker-compose.yml`, `deploy/backup-portal-db.sh` |
+| Someone uploads a web shell or a huge file as "music" | Uploads are DM-only and rate-limited (6/min). The portal checks the folder, extension and declared size, and cuts a body off past its Content-Length. The bot rebuilds the file name, refuses anything whose first bytes do not match the extension, needs ffprobe to find real audio, refuses to overwrite, runs one upload at a time and stops when the disk is tight | `lib/bot/upload.ts`, `dnd_bot/uploads.py` |
+| A track id aimed at another part of the bucket (`outbox/…`) | Playing, layering and deleting all check the id against a live listing of the exact folder, so only listed audio files under the music prefix can be named | `dnd_bot/tracks.py`, `dnd_bot/uploads.py` |
+| A transcript leaking Discord user ids or server paths | The API builds each segment field by field (speaker label, times, text) and drops the JSON's `user_id`; warnings are path-redacted | `dnd_bot/transcripts.py`, `dnd_bot/api/middleware.py` |
+| Soundboard traffic drowning the bot's rate limit | Soundboard state polls only while the board is on screen, reads are shared for two seconds across users, and uploads sit in the bot's tight 10/min bucket | `components/dm/SoundboardDrawer.tsx`, `lib/bot/proxy.ts`, `dnd_bot/api/auth.py` |
 | Unlicensed book content in the public repo | Only SRD 5.1/5.2 (CC-BY-4.0) is bundled, with attribution; the import script refuses other Open5e documents. Book monsters live only in the server database | `scripts/import-srd.mts`, `data/srd/NOTICE.md` |
 
 ## Layers of the auth check

@@ -10,8 +10,11 @@ from a laptop or a phone at the table.
 - **Overview**: bot health, disk, storage, pending transcripts, live recordings
   with stop / cancel, start a recording, recent sessions.
 - **Music**: library, YouTube search (when the bot enables it), queue editing,
-  transport, volume, loop, join / leave voice.
-- **Sessions**: full history, recovery of interrupted sessions.
+  transport, volume, loop, join / leave voice. The DM can also upload tracks
+  (drag and drop, with progress) and delete them.
+- **Sessions**: full history, recovery of interrupted sessions, and the
+  transcript of a finished session with per-speaker filtering, search and
+  download.
 - **Settings**: 12 themes, per-device defaults, account and connection info.
 - **DM Screen** (only for ids in `DM_USER_IDS`):
   - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
@@ -21,6 +24,8 @@ from a laptop or a phone at the table.
     points, timed conditions and concentration; autosaves.
   - **Dice**: cryptographically random rolls with advantage, keep/drop and an
     optional "Send to Discord" through the bot.
+  - **Soundboard**: looping ambience and one-shot effects mixed over the music
+    in voice, with live per-sound volume; also a panel inside an encounter.
 
 The security model is in [docs/security.md](docs/security.md). Read it before
 changing anything under `app/api`, `auth.ts`, `proxy.ts` or `lib/bot/allowlist.ts`.
