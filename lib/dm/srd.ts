@@ -22,8 +22,8 @@ export type MonsterSummary = {
 type DataFile = { edition: Edition; monsters: Array<{ slug: string; statBlock: StatBlock }> };
 
 const FILES: Record<Edition, DataFile> = {
-  "2014": srd2014 as DataFile,
-  "2024": srd2024 as DataFile,
+  "2014": srd2014 as unknown as DataFile,
+  "2024": srd2024 as unknown as DataFile,
 };
 
 const bySlug = new Map<string, StatBlock>();
