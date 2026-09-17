@@ -30,7 +30,9 @@ ENV NODE_ENV=production \
 # Unprivileged user; the app files are owned by root and only readable by it,
 # so a compromised process cannot rewrite its own code.
 RUN addgroup -S -g 1001 portal && adduser -S -u 1001 -G portal portal \
- && mkdir -p /app/.next/cache && chown portal:portal /app/.next/cache
+ && mkdir -p /app/.next/cache /app/data \
+ && chown portal:portal /app/.next/cache /app/data \
+ && chmod 700 /app/data
 
 COPY --from=build /app/.next/standalone ./
 

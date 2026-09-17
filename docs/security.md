@@ -26,6 +26,11 @@ make sure only the right people can make the portal use it.
 | Tampered theme cookie | Only known theme ids are accepted; CSS values come from the built-in table, never from the cookie | `lib/theme.ts` |
 | Container compromise | Non-root user, read-only filesystem, all capabilities dropped, `no-new-privileges`, memory and process limits, port bound to loopback; no secrets in the image or build context | `Dockerfile`, `docker-compose.yml`, `.dockerignore` |
 | Edge proxy abuse | Caddy terminates TLS with automatic certificates, strips client-supplied `X-Forwarded-*`, caps request bodies at 64 KB, hides `/api/health`, answers unknown hostnames with nothing, and runs read-only with only `NET_BIND_SERVICE` | `deploy/Caddyfile`, `compose.caddy.yml` |
+| Another portal admin opens DM data | `DM_USER_IDS` allowlist checked before anything else; pages and API answer 404, so the DM tools do not reveal they exist. Empty list means nobody | `lib/dm/guard.ts`, `lib/dm/access.ts` |
+| Malicious stat block or note text (XSS) | Stored and rendered as text only; React escapes it; no `dangerouslySetInnerHTML`; zod length caps on every field; nonce CSP | `lib/dm/statblock.ts`, `components/dm/*` |
+| SQL injection | Only prepared statements with parameters; ids validated before any query; rows re-validated with zod on read | `lib/dm/creatures.ts`, `lib/dm/encounters.ts` |
+| DM data loss | Named Docker volume (`portal_data`), WAL mode, daily off-site copy to R2 through the bot container | `docker-compose.yml`, `deploy/backup-portal-db.sh` |
+| Unlicensed book content in the public repo | Only SRD 5.1/5.2 (CC-BY-4.0) is bundled, with attribution; the import script refuses other Open5e documents. Book monsters live only in the server database | `scripts/import-srd.mts`, `data/srd/NOTICE.md` |
 
 ## Layers of the auth check
 

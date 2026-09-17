@@ -25,6 +25,10 @@ services:
     tmpfs:
       - /tmp
       - /app/.next/cache:uid=1001,gid=1001
+    volumes:
+      # DM data (your monsters, NPCs, encounters). The only persistent writable
+      # path; backed up daily by deploy/backup-portal-db.sh.
+      - portal_data:/app/data
     cap_drop:
       - ALL
     security_opt:
@@ -46,3 +50,6 @@ services:
 #   bot:
 #     external: true
 #     name: <the bot's network>
+
+volumes:
+  portal_data:
