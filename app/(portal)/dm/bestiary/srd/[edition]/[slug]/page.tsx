@@ -27,6 +27,7 @@ export default async function SrdMonsterPage(props: Props) {
         back={{ href: "/dm/bestiary", label: "Bestiary" }}
         eyebrow={`SRD ${edition === "2024" ? "5.2 · 2024 rules" : "5.1 · 2014 rules"}`}
         title={block.name}
+        hideTitle
         action={
           <LinkButton href={`/dm/creatures/new?copy=${edition}/${slug}`} icon={Copy}>
             Copy to my monsters

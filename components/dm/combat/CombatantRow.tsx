@@ -2,7 +2,7 @@
 
 import { Brain, ChevronDown, Heart, HeartPulse, Minus, Plus, Shield, ShieldPlus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Button, inputClass } from "@/components/ui";
+import { Button, inputBaseClass } from "@/components/ui";
 import { CONDITIONS, conditionHint } from "@/lib/dm/conditions";
 import { healthState, type Combatant } from "@/lib/dm/encounter";
 import { formatModifier } from "@/lib/dm/statblock";
@@ -145,7 +145,7 @@ export function CombatantRow(props: Props) {
         <input
           id={`${rowId}-amount`}
           inputMode="numeric"
-          className={`${inputClass} h-9 w-20 text-center tabular-nums`}
+          className={`${inputBaseClass} h-9 w-20 px-2 text-center tabular-nums`}
           placeholder="0"
           value={amount}
           onChange={(event) => setAmount(event.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -205,7 +205,7 @@ export function CombatantRow(props: Props) {
               <input
                 id={`${rowId}-rounds`}
                 inputMode="numeric"
-                className={`${inputClass} h-8 w-14 text-center`}
+                className={`${inputBaseClass} h-8 w-14 px-2 text-center`}
                 placeholder="∞"
                 value={rounds}
                 onChange={(event) => setRounds(event.target.value.replace(/\D/g, "").slice(0, 3))}

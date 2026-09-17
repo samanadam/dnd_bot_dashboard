@@ -206,5 +206,8 @@ export function PageHeader({ title, description, action }: { title: string; desc
   );
 }
 
-export const inputClass =
-  "h-11 w-full rounded-xl border border-border bg-bg/60 px-3.5 text-sm text-text placeholder:text-faint transition focus:border-accent focus:bg-bg focus:outline-none focus:ring-4 focus:ring-accent-soft aria-[invalid=true]:border-danger";
+// Field styling without a size, for inputs that set their own height and width.
+export const inputBaseClass =
+  "rounded-xl border border-border bg-bg/60 px-3.5 text-sm text-text placeholder:text-faint transition focus:border-accent focus:bg-bg focus:outline-none focus:ring-4 focus:ring-accent-soft disabled:opacity-50 aria-[invalid=true]:border-danger";
+
+export const inputClass = `h-11 w-full ${inputBaseClass}`;

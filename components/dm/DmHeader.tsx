@@ -9,9 +9,12 @@ export function DmHeader({
   description,
   back,
   action,
+  hideTitle = false,
 }: {
   eyebrow?: string;
   title: string;
+  // For pages whose content already shows the title prominently (stat blocks).
+  hideTitle?: boolean;
   description?: ReactNode;
   back?: { href: string; label: string };
   action?: ReactNode;
@@ -26,7 +29,7 @@ export function DmHeader({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           {eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{eyebrow}</p> : null}
-          <h1 className="mt-1 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
+          <h1 className={hideTitle ? "sr-only" : "mt-1 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl"}>{title}</h1>
           {description ? <p className="mt-1.5 max-w-2xl text-sm text-muted">{description}</p> : null}
         </div>
         {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}

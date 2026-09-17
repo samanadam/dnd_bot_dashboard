@@ -3,7 +3,7 @@
 import { BookOpen, Heart, Search, Shield, X } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { EmptyState, inputClass } from "@/components/ui";
+import { EmptyState, inputBaseClass, inputClass } from "@/components/ui";
 import type { MonsterSummary } from "@/lib/dm/srd";
 import { CR_VALUES, crToNumber } from "@/lib/dm/statblock";
 
@@ -148,7 +148,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
           <label htmlFor="bestiary-type" className="sr-only">
             Creature type
           </label>
-          <select id="bestiary-type" className={`${inputClass} h-10 w-auto min-w-36`} value={type} onChange={(event) => setType(event.target.value)}>
+          <select id="bestiary-type" className={`${inputBaseClass} h-10 min-w-36`} value={type} onChange={(event) => setType(event.target.value)}>
             <option value="all">All types</option>
             {types.map((value) => (
               <option key={value} value={value}>
@@ -158,7 +158,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
           </select>
           <div className="flex items-center gap-1.5 text-xs text-muted">
             <label htmlFor="bestiary-cr-min">CR</label>
-            <select id="bestiary-cr-min" className={`${inputClass} h-10 w-20`} value={minCr} onChange={(event) => setMinCr(event.target.value)}>
+            <select id="bestiary-cr-min" className={`${inputBaseClass} h-10 w-20 px-2.5`} value={minCr} onChange={(event) => setMinCr(event.target.value)}>
               {CR_VALUES.map((cr) => (
                 <option key={cr} value={cr}>
                   {cr}
@@ -166,7 +166,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
               ))}
             </select>
             <label htmlFor="bestiary-cr-max">to</label>
-            <select id="bestiary-cr-max" className={`${inputClass} h-10 w-20`} value={maxCr} onChange={(event) => setMaxCr(event.target.value)}>
+            <select id="bestiary-cr-max" className={`${inputBaseClass} h-10 w-20 px-2.5`} value={maxCr} onChange={(event) => setMaxCr(event.target.value)}>
               {CR_VALUES.map((cr) => (
                 <option key={cr} value={cr}>
                   {cr}

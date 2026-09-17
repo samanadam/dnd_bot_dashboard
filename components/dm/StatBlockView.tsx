@@ -1,5 +1,6 @@
 import { Dices, Footprints, Heart, Shield, Swords, Zap } from "lucide-react";
 import type { ReactNode } from "react";
+import { RichText } from "./RichText";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -67,15 +68,15 @@ function Section({ title, intro, children }: { title: string; intro?: string; ch
   );
 }
 
-function FeatureEntry({ feature, owner, onRoll }: { feature: Feature; owner: string; onRoll?: RollFn }) {
+function FeatureEntry({ feature, onRoll }: { feature: Feature; onRoll?: RollFn }) {
   const attack = feature.attack;
   const damage = attack ? [attack.damage, attack.extraDamage].filter(Boolean).join("+") : "";
   return (
     <div className="text-sm leading-relaxed">
-      <p>
+      <div>
         <span className="font-display text-base font-semibold italic text-text">{feature.name}.</span>{" "}
-        <span className="whitespace-pre-line text-muted">{feature.desc}</span>
-      </p>
+        <RichText text={feature.desc} className="text-muted [&>span:first-child]:inline" />
+      </div>
       {attack ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <RollChip onRoll={onRoll} label={`${feature.name} to hit`} expression={`1d20${formatModifier(attack.toHit)}`} tone="attack">
@@ -92,7 +93,6 @@ function FeatureEntry({ feature, owner, onRoll }: { feature: Feature; owner: str
           ) : null}
         </div>
       ) : null}
-      <span className="sr-only">({owner})</span>
     </div>
   );
 }
@@ -202,27 +202,27 @@ export function StatBlockView({ block, onRoll, compact = false }: { block: StatB
 
       {block.traits.length ? (
         <Section title="Traits">
-          {block.traits.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} owner={block.name} onRoll={onRoll} />)}
+          {block.traits.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} onRoll={onRoll} />)}
         </Section>
       ) : null}
       {block.actions.length ? (
         <Section title="Actions">
-          {block.actions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} owner={block.name} onRoll={onRoll} />)}
+          {block.actions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} onRoll={onRoll} />)}
         </Section>
       ) : null}
       {block.bonusActions.length ? (
         <Section title="Bonus Actions">
-          {block.bonusActions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} owner={block.name} onRoll={onRoll} />)}
+          {block.bonusActions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} onRoll={onRoll} />)}
         </Section>
       ) : null}
       {block.reactions.length ? (
         <Section title="Reactions">
-          {block.reactions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} owner={block.name} onRoll={onRoll} />)}
+          {block.reactions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} onRoll={onRoll} />)}
         </Section>
       ) : null}
       {block.legendaryActions.length ? (
         <Section title="Legendary Actions" intro={block.legendaryDescription}>
-          {block.legendaryActions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} owner={block.name} onRoll={onRoll} />)}
+          {block.legendaryActions.map((feature, i) => <FeatureEntry key={`${feature.name}-${i}`} feature={feature} onRoll={onRoll} />)}
         </Section>
       ) : null}
     </article>

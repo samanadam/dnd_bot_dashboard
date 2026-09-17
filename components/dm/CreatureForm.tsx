@@ -3,7 +3,7 @@
 import { ChevronDown, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Button, Notice, inputClass } from "@/components/ui";
+import { Button, Notice, inputBaseClass, inputClass } from "@/components/ui";
 import { dm, DmError } from "@/lib/dm/client";
 import type { CreatureInput, CreatureKind } from "@/lib/dm/creatures";
 import {
@@ -128,7 +128,7 @@ function FeatureEditor({
             <input id={`${id}-name`} className={inputClass} value={feature.name} maxLength={120} onChange={(e) => onChange({ ...feature, name: e.target.value })} />
           </Labeled>
           <Labeled id={`${id}-desc`} label="Description" className="sm:col-span-6">
-            <textarea id={`${id}-desc`} className={`${inputClass} h-auto min-h-24 py-2.5 leading-relaxed`} value={feature.desc} maxLength={4000} onChange={(e) => onChange({ ...feature, desc: e.target.value })} />
+            <textarea id={`${id}-desc`} className={`${inputBaseClass} min-h-24 w-full py-2.5 leading-relaxed`} value={feature.desc} maxLength={4000} onChange={(e) => onChange({ ...feature, desc: e.target.value })} />
           </Labeled>
           <Labeled id={`${id}-hit`} label="To hit" hint="Leave empty if not an attack" className="sm:col-span-2">
             <input
@@ -200,7 +200,7 @@ function KeyValueEditor({
           <input
             id={`${id}-${key}`}
             inputMode="numeric"
-            className={`${inputClass} h-9 w-20 text-center tabular-nums`}
+            className={`${inputBaseClass} h-9 w-20 px-2 text-center tabular-nums`}
             value={String(value)}
             onChange={(e) => onChange(entries.map((entry, i) => (i === index ? [key, Math.max(-20, Math.min(40, toInt(e.target.value.replace(/[^0-9-]/g, ""), 0)))] : entry)))}
           />
@@ -214,7 +214,7 @@ function KeyValueEditor({
           </label>
           <select
             id={`${id}-add`}
-            className={`${inputClass} h-9`}
+            className={`${inputBaseClass} h-9 w-full`}
             value=""
             onChange={(e) => e.target.value && onChange([...entries, [e.target.value, 0]])}
           >
@@ -436,7 +436,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
               <Labeled id="cf-legendary-desc" label="Introduction">
                 <textarea
                   id="cf-legendary-desc"
-                  className={`${inputClass} h-auto min-h-16 py-2.5`}
+                  className={`${inputBaseClass} min-h-16 w-full py-2.5`}
                   value={block.legendaryDescription}
                   maxLength={1000}
                   onChange={(e) => set("legendaryDescription", e.target.value)}
@@ -463,7 +463,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       <Panel title="Private notes" description="Only you see these. Personality, secrets, where the party met them.">
         <div className="grid gap-4">
           <Labeled id="cf-notes" label="Notes">
-            <textarea id="cf-notes" className={`${inputClass} h-auto min-h-32 py-2.5 leading-relaxed`} value={notes} maxLength={20_000} onChange={(e) => setNotes(e.target.value)} />
+            <textarea id="cf-notes" className={`${inputBaseClass} min-h-32 w-full py-2.5 leading-relaxed`} value={notes} maxLength={20_000} onChange={(e) => setNotes(e.target.value)} />
           </Labeled>
           <Labeled id="cf-tags" label="Tags" hint="Comma separated, e.g. chapter 2, cult, Phandalin">
             <input id="cf-tags" className={inputClass} value={tags} maxLength={900} onChange={(e) => setTags(e.target.value)} />

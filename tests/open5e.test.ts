@@ -3,7 +3,7 @@ import goblin2014 from "./fixtures/open5e-srd_goblin.json";
 import lich2014 from "./fixtures/open5e-srd_lich.json";
 import goblin2024 from "./fixtures/open5e-srd-2024_goblin-warrior.json";
 import dragon2024 from "./fixtures/open5e-srd-2024_adult-red-dragon.json";
-import { normaliseOpen5e, slugFromKey, type Open5eCreature } from "@/lib/dm/open5e";
+import { attackFromDescription, normaliseOpen5e, slugFromKey, type Open5eCreature } from "@/lib/dm/open5e";
 import { statBlockSchema } from "@/lib/dm/statblock";
 
 const load = (raw: unknown) => normaliseOpen5e(raw as Open5eCreature);
@@ -14,7 +14,7 @@ describe("normaliseOpen5e", () => {
     expect(statBlockSchema.parse(block)).toEqual(block);
     expect(block).toMatchObject({ name: "Goblin Warrior", size: "Small", cr: "1/4" });
     expect(block.abilities.dex).toBe(15);
-    expect(block.actions.find((a) => a.name === "Scimitar")?.attack).toMatchObject({ toHit: 4, damage: "1d6+2" });
+    expect(block.actions.find((a) => a.name === "Scimitar")?.attack).toEqual({ toHit: 4, damage: "1d6+2", damageType: "Slashing" });
   });
 
   it("splits legendary actions and keeps only real speeds", () => {
@@ -34,8 +34,11 @@ describe("normaliseOpen5e", () => {
     });
   });
 
-  it("maps 2014 creatures", () => {
-    expect(load(goblin2014).cr).toBe("1/4");
+  it("maps 2014 creatures, taking attack numbers from the published text", () => {
+    const goblin = load(goblin2014);
+    expect(goblin.cr).toBe("1/4");
+    // Open5e's structured data says 1d6 thunder; the SRD says 1d6 + 2 slashing.
+    expect(goblin.actions.find((a) => a.name === "Scimitar")?.attack).toEqual({ toHit: 4, damage: "1d6+2", damageType: "Slashing" });
     const lich = load(lich2014);
     expect(lich.cr).toBe("21");
     expect(lich.traits.map((t) => t.name)).toContain("Spellcasting");
@@ -47,5 +50,20 @@ describe("slugFromKey", () => {
   it("strips the document prefix", () => {
     expect(slugFromKey("srd-2024_goblin-warrior")).toBe("goblin-warrior");
     expect(slugFromKey("srd_goblin")).toBe("goblin");
+  });
+});
+
+describe("attackFromDescription", () => {
+  it("reads 2014 and 2024 wording, extra damage, flat damage and negatives", () => {
+    expect(attackFromDescription("Melee Weapon Attack: +7 to hit, reach 5 ft. Hit: 11 (2d6 + 4) slashing damage plus 7 (2d6) fire damage.")).toEqual({
+      toHit: 7, damage: "2d6+4", damageType: "Slashing", extraDamage: "2d6", extraDamageType: "Fire",
+    });
+    expect(attackFromDescription("Melee Attack Roll: +4, reach 5 ft. 5 (1d6 + 2) Slashing damage.")).toEqual({ toHit: 4, damage: "1d6+2", damageType: "Slashing" });
+    expect(attackFromDescription("Melee Weapon Attack: +0 to hit, reach 5 ft. Hit: 1 piercing damage.")).toEqual({ toHit: 0, damage: "1", damageType: "Piercing" });
+    expect(attackFromDescription("Melee Weapon Attack: -1 to hit. Hit: 1 (1d4 - 1) bludgeoning damage.")).toEqual({ toHit: -1, damage: "1d4-1", damageType: "Bludgeoning" });
+    expect(attackFromDescription("The dragon exhales fire.")).toBeUndefined();
+    expect(
+      attackFromDescription("Melee Attack Roll: +4, reach 5 ft. 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing damage if the attack roll had Advantage."),
+    ).toEqual({ toHit: 4, damage: "1d6+2", damageType: "Slashing" });
   });
 });

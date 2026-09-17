@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DeleteCreatureButton } from "@/components/dm/DeleteCreatureButton";
 import { RollableStatBlock } from "@/components/dm/DiceProvider";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
+import { RichText } from "@/components/dm/RichText";
 import { requireDm } from "@/lib/dm/access";
 import { CREATURE_ID, CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
@@ -30,6 +31,7 @@ export default async function CustomCreaturePage(props: Props) {
         back={isNpc ? { href: "/dm/npcs", label: "NPCs" } : { href: "/dm/bestiary?source=custom", label: "Bestiary" }}
         eyebrow={isNpc ? "NPC" : "Your monster"}
         title={creature.statBlock.name}
+        hideTitle
         action={
           <>
             <DeleteCreatureButton id={creature.id} name={creature.statBlock.name} kind={creature.kind} />
@@ -47,7 +49,7 @@ export default async function CustomCreaturePage(props: Props) {
           <section className="rounded-3xl border border-border bg-surface p-5 shadow-card">
             <h2 className="font-display text-lg font-semibold">Notes</h2>
             {creature.notes ? (
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">{creature.notes}</p>
+              <RichText text={creature.notes} className="mt-2 block space-y-1 text-sm leading-relaxed text-muted" />
             ) : (
               <p className="mt-2 text-sm text-faint">No notes yet.</p>
             )}

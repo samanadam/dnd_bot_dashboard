@@ -82,8 +82,49 @@ function clip(value: string | null | undefined, max: number): string {
   return (value ?? "").trim().slice(0, max);
 }
 
+const TO_HIT = /(?:([+\-−]\d{1,2}) to hit|Attack Roll: ([+\-−]\d{1,2}))/;
+const DICE_DAMAGE = /\d+ \((\d{1,3}d\d{1,3})(?: ?([+\-−]) ?(\d{1,3}))?\) ([A-Za-z]+) damage/g;
+const FLAT_DAMAGE = /Hit: (\d{1,3}) ([A-Za-z]+) damage/;
+const CONDITIONAL = /\b(if|when|while|against)\b/i;
+
+const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+/**
+ * The attack numbers written in the description ("+4 to hit ... 5 (1d6 + 2)
+ * slashing damage"). The published text is the source of truth: Open5e's
+ * structured attack fields disagree with it for most 2014 monsters.
+ */
+export function attackFromDescription(desc: string): Feature["attack"] | undefined {
+  const hit = TO_HIT.exec(desc);
+  if (!hit) return undefined;
+  const toHit = Number((hit[1] ?? hit[2]).replace("−", "-"));
+  const damages = [...desc.matchAll(DICE_DAMAGE)]
+    // Conditional extra damage ("... if the attack roll had Advantage") is not
+    // part of every hit, so it is never rolled automatically.
+    .filter((match, index) => index === 0 || !CONDITIONAL.test(desc.slice((match.index ?? 0) + match[0].length).split(".")[0]))
+    .map((match) => ({
+      dice: `${match[1]}${match[3] ? `${match[2] === "+" ? "+" : "-"}${match[3]}` : ""}`,
+      type: capitalise(match[4]),
+    }));
+  if (damages.length === 0) {
+    const flat = FLAT_DAMAGE.exec(desc);
+    if (flat) damages.push({ dice: flat[1], type: capitalise(flat[2]) });
+  }
+  const [first, second] = damages;
+  return {
+    toHit,
+    ...(first ? { damage: first.dice, damageType: first.type } : {}),
+    ...(second ? { extraDamage: second.dice, extraDamageType: second.type } : {}),
+  };
+}
+
 function feature(action: { name: string; desc: string; attacks?: Open5eAttack[] | null }): Feature {
   const result: Feature = { name: clip(action.name, 120), desc: clip(action.desc, 4000) };
+  const fromText = attackFromDescription(result.desc);
+  if (fromText) {
+    result.attack = fromText;
+    return result;
+  }
   const attack = action.attacks?.[0];
   if (attack && typeof attack.to_hit_mod === "number") {
     const damage = dice(attack.damage_die_count, attack.damage_die_type, attack.damage_bonus);
