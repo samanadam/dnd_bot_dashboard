@@ -210,8 +210,7 @@ URL is a secret: it stays in a root-only file on the server.
 
 ```bash
 sudo install -d -m 700 /etc/dnd-ops
-sudo sh -c 'read -r url; printf "%s
-" "$url" > /etc/dnd-ops/alert-webhook'   # paste the URL, Enter
+sudo sh -c 'umask 077; read -r url; echo "$url" > /etc/dnd-ops/alert-webhook'   # paste the URL, Enter
 sudo chmod 600 /etc/dnd-ops/alert-webhook
 
 sudo cp deploy/systemd/dnd-autoheal.* /etc/systemd/system/
