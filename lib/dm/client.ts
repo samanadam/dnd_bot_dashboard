@@ -1,6 +1,8 @@
 "use client";
 
 import type { Creature, CreatureInput } from "./creatures";
+import type { Encounter } from "./encounter";
+import type { EncounterSummary, StoredEncounter } from "./encounters";
 import type { StatBlock } from "./statblock";
 
 // Browser client for /api/dm. Same conventions as lib/bot/client.ts: portal
@@ -19,6 +21,14 @@ export class DmError extends Error {
 }
 
 type ErrorBody = { error?: { code?: string; message?: string } };
+
+/** A save lost to a newer version; `current` is what the server holds now. */
+export class ConflictError extends DmError {
+  constructor(readonly current: StoredEncounter) {
+    super(409, "conflict", "This encounter was changed somewhere else.");
+    this.name = "ConflictError";
+  }
+}
 
 export async function dmCall<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
   let response: Response;
@@ -45,6 +55,9 @@ export async function dmCall<T>(method: "GET" | "POST" | "PUT" | "DELETE", path:
   if (response.status === 204) return undefined as T;
 
   const data: unknown = await response.json().catch(() => null);
+  if (response.status === 409 && data && typeof data === "object" && "current" in data && (data as { current: unknown }).current) {
+    throw new ConflictError((data as { current: StoredEncounter }).current);
+  }
   if (!response.ok) {
     const error = (data as ErrorBody | null)?.error;
     throw new DmError(response.status, error?.code ?? "internal_error", error?.message ?? `Request failed (${response.status}).`);
@@ -61,4 +74,11 @@ export const dm = {
   updateCreature: (id: string, input: CreatureInput) => dmCall<Creature>("PUT", `creatures/${enc(id)}`, input),
   deleteCreature: (id: string) => dmCall<void>("DELETE", `creatures/${enc(id)}`),
   getSrdBlock: (edition: "2014" | "2024", slug: string) => dmCall<StatBlock>("GET", `srd/${edition}/${enc(slug)}`),
+  listEncounters: () => dmCall<EncounterSummary[]>("GET", "encounters"),
+  createEncounter: (name: string) => dmCall<StoredEncounter>("POST", "encounters", { name }),
+  getEncounter: (id: string) => dmCall<StoredEncounter>("GET", `encounters/${enc(id)}`),
+  // Rejects with ConflictError when another tab saved first.
+  saveEncounter: (id: string, version: number, encounter: Encounter) =>
+    dmCall<StoredEncounter>("PUT", `encounters/${enc(id)}`, { version, encounter }),
+  deleteEncounter: (id: string) => dmCall<void>("DELETE", `encounters/${enc(id)}`),
 };

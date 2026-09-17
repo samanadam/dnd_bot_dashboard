@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { dm, DmError } from "@/lib/dm/client";
+import { ConflictError, dm, DmError } from "@/lib/dm/client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -30,6 +30,17 @@ describe("dm client", () => {
     const error = await dm.listCreatures().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(DmError);
     expect(error).toMatchObject({ status: 400, code: "bad_request", message: "Invalid statBlock.hp" });
+  });
+
+  it("turns an encounter conflict into ConflictError carrying the server state", async () => {
+    const current = { id: "e", version: 7, encounter: { name: "A", round: 2, turn: 0, combatants: [] }, updatedAt: "now" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: { code: "conflict", message: "changed" }, current }, { status: 409 })),
+    );
+    const error = await dm.saveEncounter("e", 6, current.encounter).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ConflictError);
+    expect((error as ConflictError).current.version).toBe(7);
   });
 
   it("reports network failures", async () => {
