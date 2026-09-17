@@ -1,6 +1,7 @@
 import { matchRule, type RateBucket } from "./allowlist";
 import type { Limit } from "../rateLimit";
 import { RateLimiter } from "../rateLimit";
+import { errorResponse, isSameOrigin, PORTAL_HEADER, readLimited } from "../requestGuard";
 
 // The request pipeline behind /api/bot/[...path]. Dependencies are injected so
 // every refusal path is unit-tested without a bot or a Discord session.
@@ -67,7 +68,7 @@ export class ReadCache {
 
 const sharedCache = new ReadCache();
 
-export const PORTAL_HEADER = "x-portal-request";
+export { PORTAL_HEADER };
 export const MAX_BODY_BYTES = 8 * 1024;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -79,27 +80,6 @@ export const LIMITS: Record<RateBucket, Limit> = {
 };
 
 const sharedLimiter = new RateLimiter();
-
-function errorResponse(status: number, code: string, message: string, headers?: HeadersInit) {
-  return Response.json(
-    { error: { code, message } },
-    { status, headers: { "Cache-Control": "no-store", ...headers } },
-  );
-}
-
-function isSameOrigin(request: Request): boolean {
-  const site = request.headers.get("sec-fetch-site");
-  if (site !== null) return site === "same-origin";
-  // Older browsers: fall back to comparing Origin with Host.
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
 
 export async function handleBotRequest(
   request: Request,
@@ -266,26 +246,6 @@ async function toSnapshot(response: Response): Promise<Snapshot> {
     body: await response.text(),
     retryAfter: response.headers.get("retry-after") ?? undefined,
   };
-}
-
-async function readLimited(request: Request, limit: number): Promise<string | null> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > limit) return null;
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
 async function normaliseUpstream(upstream: Response): Promise<Response> {

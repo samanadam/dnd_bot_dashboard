@@ -54,6 +54,16 @@ describe("env", () => {
     expect(config.ALLOWED_ROLE_IDS).toEqual(["222222222222222222", "333333333333333333"]);
   });
 
+  it("parses DM_USER_IDS and defaults to nobody", async () => {
+    expect((await loadEnv())().DM_USER_IDS).toEqual([]);
+    expect((await loadEnv({ DM_USER_IDS: "111111111111111111, 222222222222222222" }))().DM_USER_IDS).toEqual([
+      "111111111111111111",
+      "222222222222222222",
+    ]);
+    const bad = await loadEnv({ DM_USER_IDS: "me" });
+    expect(() => bad()).toThrow(/DM_USER_IDS/);
+  });
+
   it("allows plain http only on loopback", async () => {
     expect((await loadEnv({ BOT_API_URL: "http://127.0.0.1:8080/api/v1" }))().BOT_API_URL).toContain("127.0.0.1");
     const remote = await loadEnv({ BOT_API_URL: "http://bot.example/api/v1" });

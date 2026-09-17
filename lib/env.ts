@@ -40,6 +40,20 @@ const schema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(snowflake).min(1, "at least one role id is required")),
+  // Discord user ids allowed into the DM tools (bestiary, NPCs, combat, dice).
+  // Empty means nobody: the tools stay hidden until an id is set.
+  DM_USER_IDS: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? "")
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(snowflake)),
+  // Where the DM database lives. A Docker volume in production.
+  PORTAL_DATA_DIR: z.string().min(1).default("/app/data"),
 });
 
 const LOOPBACK = ["127.0.0.1", "localhost", "[::1]"];
