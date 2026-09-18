@@ -1,7 +1,7 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { env } from "@/lib/env";
-import { checkDiscordAccess, reverify } from "@/lib/discordAccess";
+import { checkDiscordAccess, reverify, type AccessResult } from "@/lib/discordAccess";
 import { audit } from "@/lib/audit";
 
 declare module "next-auth" {
@@ -22,8 +22,18 @@ declare module "@auth/core/jwt" {
 
 // Server components cannot rewrite the session cookie, so a fresh verification
 // is also remembered here to avoid re-asking Discord on every request.
+//
+// These maps are per module instance, and proxy.ts and the route handlers can
+// each have their own. So nothing here may need another instance to undo it:
+// a denial is a timestamp that only kills sessions verified before it, and a
+// fresh sign-in (verified later) passes everywhere without clearing anything.
 const verifiedCache = new Map<string, number>();
 const deniedUsers = new Map<string, number>();
+// When Discord first failed to answer for a user, while it keeps failing.
+const unverifiedSince = new Map<string, number>();
+// One Discord check per user at a time: a page load fires several requests at
+// once, and letting each ask Discord is how a rate limit turns into a sign-out.
+const inflightChecks = new Map<string, Promise<AccessResult>>();
 
 const SESSION_MAX_AGE_S = 12 * 60 * 60;
 
@@ -106,25 +116,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
 
         const userId = token.discordId;
         if (!userId || !token.discordAccessToken || !token.verifiedAt) return null;
-        if (deniedUsers.has(userId)) return null;
+        // Sessions verified before a denial stay dead; a later sign-in is new.
+        const deniedAt = deniedUsers.get(userId);
+        if (deniedAt !== undefined && token.verifiedAt <= deniedAt) return null;
 
         const known = Math.max(token.verifiedAt, verifiedCache.get(userId) ?? 0);
         const accessToken = token.discordAccessToken;
-        const next = await reverify({ verifiedAt: known }, Date.now(), async () => {
-          const result = await check(accessToken);
-          if (result.kind === "denied") {
-            audit({ event: "session_revoked", userId, outcome: result.reason });
+        const sharedCheck = () => {
+          let running = inflightChecks.get(userId);
+          if (!running) {
+            running = check(accessToken)
+              .then((result) => {
+                if (result.kind === "denied") audit({ event: "session_revoked", userId, outcome: result.reason });
+                return result;
+              })
+              .finally(() => inflightChecks.delete(userId));
+            inflightChecks.set(userId, running);
           }
-          return result;
-        });
+          return running;
+        };
+        const decision = await reverify({ verifiedAt: known, unverifiedSince: unverifiedSince.get(userId) }, Date.now(), sharedCheck);
 
-        if (next === null) {
-          deniedUsers.set(userId, Date.now());
+        if (decision.kind === "end") {
           verifiedCache.delete(userId);
+          unverifiedSince.delete(userId);
+          if (decision.reason === "denied") deniedUsers.set(userId, Date.now());
+          else audit({ event: "session_revoked", userId, outcome: "discord_unreachable" });
           return null;
         }
-        verifiedCache.set(userId, next);
-        return { ...token, verifiedAt: next };
+        verifiedCache.set(userId, decision.verifiedAt);
+        if (decision.unverifiedSince !== undefined) unverifiedSince.set(userId, decision.unverifiedSince);
+        else unverifiedSince.delete(userId);
+        return { ...token, verifiedAt: decision.verifiedAt };
       },
 
       session({ session, token }) {

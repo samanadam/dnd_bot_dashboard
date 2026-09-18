@@ -50,19 +50,34 @@ describe("reverify", () => {
 
   it("skips the check inside the interval", async () => {
     const check = vi.fn(denied);
-    expect(await reverify({ verifiedAt: 1000 }, 1000 + RECHECK_INTERVAL_MS - 1, check)).toBe(1000);
+    expect(await reverify({ verifiedAt: 1000 }, 1000 + RECHECK_INTERVAL_MS - 1, check)).toEqual({ kind: "keep", verifiedAt: 1000 });
     expect(check).not.toHaveBeenCalled();
   });
 
   it("refreshes on allowed and ends the session on denied", async () => {
     const now = RECHECK_INTERVAL_MS + 5000;
-    expect(await reverify({ verifiedAt: 0 }, now, allowed)).toBe(now);
-    expect(await reverify({ verifiedAt: 0 }, now, denied)).toBeNull();
+    expect(await reverify({ verifiedAt: 0 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now });
+    expect(await reverify({ verifiedAt: 0 }, now, denied)).toEqual({ kind: "end", reason: "denied" });
   });
 
-  it("tolerates a short Discord outage, then fails closed", async () => {
-    expect(await reverify({ verifiedAt: 0 }, RECHECK_INTERVAL_MS + 1, unknown)).toBe(0);
-    expect(await reverify({ verifiedAt: 0 }, MAX_UNVERIFIED_MS + 1, unknown)).toBeNull();
+  it("does not treat an idle session as unverified when Discord hiccups once", async () => {
+    // Last verified hours ago because nobody used the portal, then one failed check.
+    const now = 3 * 60 * 60_000;
+    expect(await reverify({ verifiedAt: 0 }, now, unknown)).toEqual({ kind: "keep", verifiedAt: 0, unverifiedSince: now });
+  });
+
+  it("tolerates a Discord outage for a while, then fails closed without calling it a denial", async () => {
+    const start = 60 * 60_000;
+    expect(await reverify({ verifiedAt: 0, unverifiedSince: start }, start + MAX_UNVERIFIED_MS - 1, unknown)).toMatchObject({ kind: "keep" });
+    expect(await reverify({ verifiedAt: 0, unverifiedSince: start }, start + MAX_UNVERIFIED_MS, unknown)).toEqual({
+      kind: "end",
+      reason: "unverified",
+    });
+  });
+
+  it("forgets the outage once Discord answers again", async () => {
+    const now = 60 * 60_000;
+    expect(await reverify({ verifiedAt: 0, unverifiedSince: now - 1000 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now });
   });
 });
 

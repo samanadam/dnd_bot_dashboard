@@ -67,20 +67,30 @@ export async function checkDiscordAccess({
 export const RECHECK_INTERVAL_MS = 5 * 60_000;
 export const MAX_UNVERIFIED_MS = 30 * 60_000;
 
-export type Verification = { verifiedAt: number };
+// `unverifiedSince`: when Discord first failed to answer for this session, if
+// it has not answered since.
+export type Verification = { verifiedAt: number; unverifiedSince?: number };
+
+export type Decision =
+  | { kind: "keep"; verifiedAt: number; unverifiedSince?: number }
+  // denied: Discord said no; the user's older sessions must die too.
+  // unverified: Discord stayed unreachable too long; signing in again is fine.
+  | { kind: "end"; reason: "denied" | "unverified" };
 
 /**
- * Pure decision for an existing session: returns the new verifiedAt to keep
- * the session, or null to end it.
+ * Pure decision for an existing session.
+ *
+ * The outage window is counted from the first check Discord failed to answer,
+ * not from the last successful one: a session that sat idle for hours and then
+ * meets one rate-limited answer is not "unverified for hours".
  */
-export async function reverify(
-  state: Verification,
-  now: number,
-  check: () => Promise<AccessResult>,
-): Promise<number | null> {
-  if (now - state.verifiedAt < RECHECK_INTERVAL_MS) return state.verifiedAt;
+export async function reverify(state: Verification, now: number, check: () => Promise<AccessResult>): Promise<Decision> {
+  if (now - state.verifiedAt < RECHECK_INTERVAL_MS) return { kind: "keep", verifiedAt: state.verifiedAt };
   const result = await check();
-  if (result.kind === "allowed") return now;
-  if (result.kind === "denied") return null;
-  return now - state.verifiedAt < MAX_UNVERIFIED_MS ? state.verifiedAt : null;
+  if (result.kind === "allowed") return { kind: "keep", verifiedAt: now };
+  if (result.kind === "denied") return { kind: "end", reason: "denied" };
+  const since = state.unverifiedSince ?? now;
+  return now - since < MAX_UNVERIFIED_MS
+    ? { kind: "keep", verifiedAt: state.verifiedAt, unverifiedSince: since }
+    : { kind: "end", reason: "unverified" };
 }
