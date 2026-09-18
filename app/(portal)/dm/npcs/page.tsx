@@ -1,8 +1,7 @@
-import { Plus, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { NpcDirectory } from "@/components/dm/NpcDirectory";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
-import { EmptyState } from "@/components/ui";
 import { requireDm } from "@/lib/dm/access";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
@@ -39,15 +38,9 @@ export default async function NpcsPage() {
           </LinkButton>
         }
       />
-      {npcs.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border py-6">
-          <EmptyState icon={Users} title="No NPCs yet">
-            Add the innkeeper, the villain and everyone in between. Only you can see them.
-          </EmptyState>
-        </div>
-      ) : (
-        <NpcDirectory npcs={npcs} />
-      )}
+      {/* The empty state lives in the client component: an icon component
+          cannot be passed from here into one. */}
+      <NpcDirectory npcs={npcs} />
     </div>
   );
 }

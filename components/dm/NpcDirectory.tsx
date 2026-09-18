@@ -1,9 +1,9 @@
 "use client";
 
-import { Heart, Search, Shield } from "lucide-react";
+import { Heart, Search, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { inputClass } from "@/components/ui";
+import { EmptyState, inputClass } from "@/components/ui";
 
 export type NpcCard = { id: string; name: string; type: string; cr: string; ac: number; hp: number; tags: string[]; teaser: string };
 
@@ -29,6 +29,16 @@ export function NpcDirectory({ npcs }: { npcs: NpcCard[] }) {
         (!q || npc.name.toLocaleLowerCase("en").includes(q) || npc.teaser.toLocaleLowerCase("en").includes(q) || npc.tags.some((t) => t.toLocaleLowerCase("en").includes(q))),
     );
   }, [npcs, query, tag]);
+
+  if (npcs.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border py-6">
+        <EmptyState icon={Users} title="No NPCs yet">
+          Add the innkeeper, the villain and everyone in between. Only you can see them.
+        </EmptyState>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
