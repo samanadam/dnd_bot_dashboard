@@ -222,6 +222,38 @@ The soundboard mixes over the music on the same voice connection, so it obeys
 the same truce with the recorder: it never hangs up a connection a recording
 owns. Ambience comes back by itself after a voice reconnect; effects do not.
 
+## Upgrading to campaigns, search, scenes and initiative
+
+This release needs a new bot and a new portal; the transcriber can follow.
+
+1. **Bot first.** Deploy it as usual. On start it applies two database
+   migrations (campaigns, initiative reports) on top of the existing data;
+   existing sessions keep working and show as "not in a campaign". Discord
+   picks up the new commands (`/campaign`, `/init`, and the `campaign` option on
+   `/session start` and `/character`) after the restart. Take a copy of the
+   bot database before the first start if you want a rollback point.
+2. **Then the portal**, with `deploy/deploy.sh`. Its own database gains three
+   migrations (campaign columns, scenes, prepared encounters) the first time it
+   starts. A copy from the daily R2 backup is your rollback point.
+3. **Transcriber (optional, any time).** Copy the new `contract.py` from the
+   bot repository into it. Until then it still works with the new bot, but it
+   does not write the campaign into transcripts. Sessions recorded before the
+   update, or with no campaign, are transcribed exactly as before.
+4. **Once it is up, do these checks:**
+   - `/campaign create` in Discord, then open **Campaigns** in the portal.
+   - Start a short recording, stop it, and file it under a campaign from the
+     Sessions page.
+   - Search a word from an old transcript. The first search prepares the index
+     and may ask you to search again in a moment.
+   - On the Sound page, save what is playing as a scene and play it back; drag
+     the seek bar on a real track.
+   - In a test encounter, run `/init 15` as a player and apply it in the
+     tracker.
+
+If a step fails, the previous portal image is restored by `deploy.sh`. The bot
+migrations only add tables and columns, so rolling the bot image back to the
+previous version is safe: it ignores what it does not know.
+
 ## Transcripts
 
 Every signed-in portal user can read a delivered transcript at

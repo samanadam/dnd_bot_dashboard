@@ -10,11 +10,18 @@ from a laptop or a phone at the table.
 - **Overview**: bot health, disk, storage, pending transcripts, live recordings
   with stop / cancel, start a recording, recent sessions.
 - **Music**: library, YouTube search (when the bot enables it), queue editing,
-  transport, volume, loop, join / leave voice. The DM can also upload tracks
+  transport with a seek bar, volume, loop, join / leave voice. The DM can also upload tracks
   (drag and drop, with progress) and delete them.
 - **Sessions**: full history, recovery of interrupted sessions, and the
   transcript of a finished session with per-speaker filtering, search and
   download.
+- **Search**: find what was said across every transcript, filtered by
+  campaign, and open the transcript at that line.
+- **Campaigns**: keep several games on one Discord server apart. Each has its
+  own voice channel, character names, a list of names the transcriber should
+  expect, and "heard, should read" fixes. Sessions, NPCs, encounters and scenes
+  follow the campaign picked in the switcher. A session recorded with no
+  campaign can be filed later, even after it is transcribed.
 - **Settings**: 12 themes, per-device defaults, account and connection info.
 - **DM Screen** (only for ids in `DM_USER_IDS`):
   - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
@@ -24,6 +31,14 @@ from a laptop or a phone at the table.
     points, timed conditions and concentration; autosaves.
   - **Dice**: cryptographically random rolls with advantage, keep/drop and an
     optional "Send to Discord" through the bot.
+  - **Sound**: music, looping ambience and one-shot effects on one page, mixed
+    in voice, with **scenes**: saved combinations (music plus sounds, with
+    volumes) in categories, played with one tap.
+  - **Prepared encounters**: build a fight ahead of time, with allies, and launch
+    a fresh copy at full hit points when it starts.
+  - **Player rolls**: players report their initiative in Discord with `/init`;
+    you apply each total in the tracker (typing it in by hand still works).
+  - **Dice picker**: tap dice and a bonus to build the roll, then roll.
   - **Soundboard**: looping ambience and one-shot effects mixed over the music
     in voice, with live per-sound volume; also a panel inside an encounter.
 
