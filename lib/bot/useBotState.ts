@@ -160,6 +160,19 @@ export function useCampaignMutation<TVars, TData>(fn: (vars: TVars) => Promise<T
   });
 }
 
+/** Renaming or deleting a session changes every list that mentions it. */
+export function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSettled: () => {
+      for (const queryKey of [keys.stats, keys.queue, keys.campaigns, ["bot", "campaign"], ["bot", "sessions"], ["bot", "search"], ["bot", "transcript"]]) {
+        void client.invalidateQueries({ queryKey });
+      }
+    },
+  });
+}
+
 export function useActiveRecordings() {
   return useQuery({ queryKey: keys.recording, queryFn: bot.recording, refetchInterval: interval(8_000), retry });
 }

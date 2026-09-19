@@ -12,6 +12,7 @@ import { CampaignSelect } from "../CampaignSelect";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useToast } from "../Providers";
 import { Badge, Button, EmptyState, Skeleton } from "../ui";
+import { useSessionActions } from "./SessionActions";
 
 type Status = { label: string; tone: "danger" | "neutral" | "warn" | "ok" | "accent"; recoverable: boolean };
 
@@ -67,12 +68,13 @@ function CampaignTag({ session, canManage }: { session: SessionSummary; canManag
   );
 }
 
-function useSessionContext() {
+function useSessionContext(canManage: boolean) {
   const { online } = useBotOnline();
   const active = useActiveRecordings();
   const toast = useToast();
   const [recovering, setRecovering] = useState<SessionSummary | null>(null);
   const recover = useRecordingMutation(bot.recoverRecording);
+  const actions = useSessionActions(canManage);
   const activeIds = new Set((active.data ?? []).map((session) => session.session_id));
 
   const dialog = (
@@ -111,7 +113,19 @@ function useSessionContext() {
       </Button>
     ) : null;
 
-  return { activeIds, dialog, recoverButton };
+  const manageButtons = (session: SessionSummary, s: Status) => actions.buttons(session, s.label === "Recording");
+
+  return {
+    activeIds,
+    dialog: (
+      <>
+        {dialog}
+        {actions.dialogs}
+      </>
+    ),
+    recoverButton,
+    manageButtons,
+  };
 }
 
 function QueryState({ query }: { query: UseQueryResult<SessionSummary[]> }) {
@@ -146,7 +160,7 @@ export function SessionList({
   limit?: number;
   canManage?: boolean;
 }) {
-  const { activeIds, dialog, recoverButton } = useSessionContext();
+  const { activeIds, dialog, recoverButton, manageButtons } = useSessionContext(canManage);
   if (!query.data?.length) return <QueryState query={query} />;
   const rows = limit ? query.data.slice(0, limit) : query.data;
 
@@ -183,6 +197,7 @@ export function SessionList({
                   {s.label}
                 </Badge>
                 {recoverButton(session, s)}
+                {manageButtons(session, s)}
               </div>
             </li>
           );
@@ -195,7 +210,7 @@ export function SessionList({
 
 /** Full table on wider screens, row list on phones. */
 export function SessionTable({ query, canManage = false }: { query: UseQueryResult<SessionSummary[]>; canManage?: boolean }) {
-  const { activeIds, dialog, recoverButton } = useSessionContext();
+  const { activeIds, dialog, recoverButton, manageButtons } = useSessionContext(canManage);
   if (!query.data?.length) return <QueryState query={query} />;
 
   return (
@@ -238,6 +253,7 @@ export function SessionTable({ query, canManage = false }: { query: UseQueryResu
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-2">
                       {recoverButton(session, s)}
+                      {manageButtons(session, s)}
                       <Badge tone={s.tone} dot>
                         {s.label}
                       </Badge>

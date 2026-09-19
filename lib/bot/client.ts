@@ -153,6 +153,15 @@ export const bot = {
     call<CampaignDetail>("POST", `campaigns/${id}/corrections`, { corrections }),
   assignSession: (sessionId: string, campaignId: string | null) =>
     call<SessionSummary>("POST", `sessions/${encodeURIComponent(sessionId)}/campaign`, { campaign_id: campaignId }),
+  renameSession: (sessionId: string, name: string) =>
+    call<SessionSummary>("POST", `sessions/${encodeURIComponent(sessionId)}/update`, { name }),
+  // The bot only deletes when the body repeats the id it was aimed at.
+  deleteSession: (sessionId: string) =>
+    call<{ deleted: string; files_removed: number; bytes_freed: number }>(
+      "POST",
+      `sessions/${encodeURIComponent(sessionId)}/delete`,
+      { confirm_id: sessionId },
+    ),
   transcript: (sessionId: string, offset: number, limit = 500) =>
     call<TranscriptPage>("GET", `sessions/${encodeURIComponent(sessionId)}/transcript?offset=${offset}&limit=${limit}`),
 };
