@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { campaignIdSchema, parseSelectionStrict } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
 import { encounterSchema } from "./encounter";
 import { ENCOUNTER_ID, type EncounterRepo } from "./encounters";
@@ -7,7 +8,14 @@ import { json, noContent, type AuditLog } from "./http";
 
 export type EncounterRouteDeps = DmGuardDeps & { encounters: () => EncounterRepo; log?: AuditLog };
 
-const createSchema = z.object({ name: z.string().trim().min(1).max(80) }).strict();
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    campaignId: campaignIdSchema.nullable().optional(),
+    kind: z.enum(["live", "prepared"]).optional(),
+  })
+  .strict();
+const campaignSchema = z.object({ campaignId: campaignIdSchema.nullable() }).strict();
 const saveSchema = z.object({ version: z.number().int().min(1), encounter: encounterSchema }).strict();
 const missing = () => errorResponse(404, "not_found", "No such encounter.");
 
@@ -15,7 +23,10 @@ export function encounterCollection(deps: EncounterRouteDeps) {
   return {
     async GET(request: Request): Promise<Response> {
       const guard = await guardDm(request, deps);
-      return guard.ok ? json(deps.encounters().list()) : guard.response;
+      if (!guard.ok) return guard.response;
+      const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
+      if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
+      return json(deps.encounters().list(campaign.selection));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -25,9 +36,43 @@ export function encounterCollection(deps: EncounterRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = createSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
-      const created = deps.encounters().create(parsed.data.name);
+      const created = deps.encounters().create(parsed.data.name, parsed.data.campaignId ?? null, parsed.data.kind ?? "live");
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/encounters", status: 201 });
       return json(created, 201);
+    },
+  };
+}
+
+/** POST /api/dm/encounters/:id/launch: run a prepared encounter as a fresh copy. */
+export function encounterLaunch(deps: EncounterRouteDeps) {
+  return {
+    async POST(request: Request, id: string): Promise<Response> {
+      const guard = await guardDm(request, deps);
+      if (!guard.ok) return guard.response;
+      if (!ENCOUNTER_ID.test(id)) return missing();
+      const launched = deps.encounters().launch(id);
+      if (launched === null) return missing();
+      if (launched === "not_prepared") return errorResponse(409, "conflict", "Only a prepared encounter can be launched.");
+      deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/encounters/:id/launch", status: 201 });
+      return json(launched, 201);
+    },
+  };
+}
+
+/** PUT /api/dm/encounters/:id/campaign: move an encounter to another campaign. */
+export function encounterCampaign(deps: EncounterRouteDeps) {
+  return {
+    async PUT(request: Request, id: string): Promise<Response> {
+      const guard = await guardDm(request, deps);
+      if (!guard.ok) return guard.response;
+      if (!ENCOUNTER_ID.test(id)) return missing();
+      const body = await readDmJson(request);
+      if (!body.ok) return body.response;
+      const parsed = campaignSchema.safeParse(body.json);
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!deps.encounters().setCampaign(id, parsed.data.campaignId)) return missing();
+      deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/encounters/:id/campaign", status: 204 });
+      return noContent();
     },
   };
 }

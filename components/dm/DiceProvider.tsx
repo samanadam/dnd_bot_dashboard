@@ -6,8 +6,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useToast } from "@/components/Providers";
 import { Button, inputClass } from "@/components/ui";
 import { BotError, bot } from "@/lib/bot/client";
+import { emptyTray, toExpression, type Tray } from "@/lib/dice/pick";
 import { DiceError, naturalD20, rollDice, withAdvantage, type RollResult } from "@/lib/dice/roll";
 import type { StatBlock } from "@/lib/dm/statblock";
+import { DicePicker } from "./DicePicker";
 import { StatBlockView } from "./StatBlockView";
 
 // Dice for the whole DM Screen: one provider holds the history and renders the
@@ -216,6 +218,12 @@ export function DiceRoller({ autoFocus = false, onRolled }: { autoFocus?: boolea
   const { roll } = useDice();
   const [expression, setExpression] = useState("1d20");
   const [mode, setMode] = useState<Mode>("normal");
+  const [tray, setTray] = useState<Tray>(emptyTray);
+  // Picking dice writes the expression; typing takes it back by hand.
+  const pick = (next: Tray) => {
+    setTray(next);
+    setExpression(toExpression(next) || "1d20");
+  };
 
   const apply = (value: string) => (mode === "normal" ? value : withAdvantage(value, mode));
   const doRoll = (value: string, label = "") => {
@@ -244,12 +252,16 @@ export function DiceRoller({ autoFocus = false, onRolled }: { autoFocus?: boolea
           autoComplete="off"
           spellCheck={false}
           placeholder="2d6+3"
-          onChange={(event) => setExpression(event.target.value)}
+          onChange={(event) => {
+            setTray(emptyTray);
+            setExpression(event.target.value);
+          }}
         />
         <Button type="submit" variant="primary" icon={Dices}>
           Roll
         </Button>
       </form>
+      <DicePicker tray={tray} onChange={pick} />
       <div role="radiogroup" aria-label="Advantage" className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-bg/40 p-1">
         {(
           [

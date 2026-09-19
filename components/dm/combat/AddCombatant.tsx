@@ -13,7 +13,7 @@ import { CrMedal } from "../BestiaryBrowser";
 
 type HpMode = "average" | "roll";
 
-function fromBlock(block: StatBlock, kind: "monster" | "npc", ref: CreatureRef, hpMode: HpMode): NewCombatant {
+function fromBlock(block: StatBlock, kind: "monster" | "npc", ref: CreatureRef, hpMode: HpMode, friendly: boolean): NewCombatant {
   let hp = block.hp;
   if (hpMode === "roll" && block.hitDice) {
     try {
@@ -34,6 +34,7 @@ function fromBlock(block: StatBlock, kind: "monster" | "npc", ref: CreatureRef, 
     tempHp: 0,
     conditions: [],
     concentration: false,
+    friendly,
     notes: "",
   };
 }
@@ -44,6 +45,7 @@ export function AddCombatant({ creatures, onAdd, disabled }: { creatures: Monste
   const deferred = useDeferredValue(query);
   const [count, setCount] = useState(1);
   const [hpMode, setHpMode] = useState<HpMode>("average");
+  const [friendly, setFriendly] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [player, setPlayer] = useState({ name: "", bonus: "", ac: "", hp: "" });
 
@@ -75,7 +77,7 @@ export function AddCombatant({ creatures, onAdd, disabled }: { creatures: Monste
         block = await dm.getSrdBlock(summary.edition, summary.slug);
         ref = { source: "srd", edition: summary.edition, slug: summary.slug };
       }
-      onAdd(Array.from({ length: count }, () => fromBlock(block, kind, ref, hpMode)));
+      onAdd(Array.from({ length: count }, () => fromBlock(block, kind, ref, hpMode, friendly)));
       toast("ok", count > 1 ? `Added ${count} × ${block.name}.` : `Added ${block.name}.`);
       setQuery("");
       setCount(1);
@@ -140,6 +142,10 @@ export function AddCombatant({ creatures, onAdd, disabled }: { creatures: Monste
             </button>
           ))}
         </div>
+        <label className="flex w-fit items-center gap-2 text-xs text-muted">
+          <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={friendly} onChange={(event) => setFriendly(event.target.checked)} />
+          Add as allies (on the party side)
+        </label>
         {deferred.trim().length >= 2 ? (
           results.length ? (
             <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
@@ -184,6 +190,7 @@ export function AddCombatant({ creatures, onAdd, disabled }: { creatures: Monste
               tempHp: 0,
               conditions: [],
               concentration: false,
+              friendly: false,
               notes: "",
             },
           ]);

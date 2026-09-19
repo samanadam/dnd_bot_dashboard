@@ -29,6 +29,22 @@ const sessions = [
   { id: "2026-09-09-2015-b2c3d4e5", name: "Session 2", channel_name: "table", started_at: hoursAgo(170), ended_at: hoursAgo(167), duration_seconds: 10800, transcribed: true, cancelled: false, speakers: ["DM", "Aria", "Borin"], speaker_count: 3 },
   { id: "2026-09-02-2000-c3d4e5f6", name: null, channel_name: "table", started_at: hoursAgo(340), ended_at: null, duration_seconds: null, transcribed: false, cancelled: false, speakers: ["DM"], speaker_count: 1 },
 ];
+const campaigns = [
+  { id: "a1b2c3d4e5f6", name: "Curse of Strahd", channel_id: null, language: "tr", archived: false, terms: ["Barovia", "Ireena"], corrections: [{ heard: "bar ovya", correct: "Barovia" }], characters: [{ character_name: "Thorin", member: "Eren" }] },
+  { id: "f6e5d4c3b2a1", name: "Sunless Citadel", channel_id: null, language: null, archived: false, terms: [], corrections: [], characters: [] },
+];
+const campaignView = (c) => ({ id: c.id, name: c.name, channel_id: c.channel_id, language: c.language, archived: c.archived, session_count: sessions.filter((s) => s.campaign_id === c.id).length });
+const withCampaign = (s) => ({ campaign_id: null, ...s, campaign_name: campaigns.find((c) => c.id === s.campaign_id)?.name ?? null });
+const initiative = [
+  { id: 1, label: "Aria", value: 17, at: new Date().toISOString() },
+  { id: 2, label: "Borin", value: 9, at: new Date().toISOString() },
+];
+const queueView = () => ({
+  can_sync: true,
+  items: sessions
+    .filter((s) => s.ended_at && !s.transcribed && !s.cancelled)
+    .map((s) => ({ session_id: s.id, name: s.name, campaign_id: withCampaign(s).campaign_id, campaign_name: withCampaign(s).campaign_name, status: "waiting", queued_at: s.ended_at, waiting_seconds: 3600 * 20, stalled: false })),
+});
 const active = new Map();
 const player = {
   connected: false, channel_id: null, owner: null, playing: false, paused: false,
@@ -65,11 +81,49 @@ const routes = {
       storage: { backend: "r2", reachable: true },
       music: { enabled: true },
     }),
-  "GET sessions": (_body, query) => ok(sessions.slice(0, Number(query.get("limit") ?? 25))),
+  "GET sessions": (_body, query) => {
+    const wanted = query.get("campaign");
+    const rows = sessions.filter((s) => !wanted || (wanted === "unassigned" ? !s.campaign_id : s.campaign_id === wanted));
+    return ok(rows.slice(0, Number(query.get("limit") ?? 25)).map(withCampaign));
+  },
+  "GET transcripts/search": (_body, query) => {
+    const q = (query.get("q") ?? "").trim();
+    const done = sessions.filter((s) => s.transcribed);
+    return ok({
+      query: q,
+      still_indexing: 0,
+      results: done.map((s, i) => ({
+        session_id: s.id, session_name: s.name, started_at: s.started_at, campaign_id: withCampaign(s).campaign_id, campaign_name: withCampaign(s).campaign_name,
+        seq: i + 1, speaker: "Aria", clock: "00:12:0" + i, start: 720 + i, snippet: `the party met the [[${q}]] near the old mill`,
+      })),
+    });
+  },
+  "GET transcription": () => ok(queueView()),
+  "POST transcription/sync": () => ok({ uploaded: 1, fetched: 0, ...queueView() }),
+  "POST music/seek": (body) => {
+    if (!player.current) return fail(409, "conflict", "Nothing is playing.");
+    state();
+    player.position_seconds = Math.min(player.current.duration_seconds ?? Infinity, body.position_seconds);
+    positionAnchor = Date.now();
+    return ok(state());
+  },
+  "GET initiative": () => ok(initiative),
+  "POST initiative/clear": (body) => {
+    const before = initiative.length;
+    for (let i = initiative.length - 1; i >= 0; i--) if (body.id === undefined || initiative[i].id === body.id) initiative.splice(i, 1);
+    return ok({ removed: before - initiative.length });
+  },
+  "GET campaigns": (_body, query) => ok(campaigns.filter((c) => query.get("archived") === "1" || !c.archived).map(campaignView)),
+  "POST campaigns": (body) => {
+    if (campaigns.some((c) => c.name.toLowerCase() === String(body.name).toLowerCase())) return fail(409, "conflict", "A campaign with that name exists.");
+    const created = { id: randomUUID().replaceAll("-", "").slice(0, 12), name: body.name, channel_id: body.channel_id ?? null, language: body.language ?? null, archived: false, terms: [], corrections: [], characters: [] };
+    campaigns.push(created);
+    return ok(campaignView(created), 201);
+  },
   "GET recording": () => ok([...active.values()].map(activeView)),
   "POST recording/start": (body) => {
     if (active.has(body.channel_id)) return fail(409, "conflict", "Already recording in that channel.");
-    const session = { session_id: randomUUID(), name: body.name ?? null, channel_id: body.channel_id, channel_name: "table", started: Date.now(), speakers: ["DM", "Aria"], warnings: [] };
+    const session = { session_id: randomUUID(), name: body.name ?? null, channel_id: body.channel_id, channel_name: "table", started: Date.now(), speakers: ["DM", "Aria"], warnings: [], campaign_id: body.campaign_id ?? campaigns.find((c) => c.channel_id === body.channel_id)?.id ?? null };
     active.set(body.channel_id, session);
     return ok(activeView(session), 201);
   },
@@ -78,7 +132,7 @@ const routes = {
     if (!session) return fail(404, "not_found", "Nothing is recording in that channel.");
     active.delete(body.channel_id);
     const duration = Math.floor((Date.now() - session.started) / 1000);
-    sessions.unshift({ id: session.session_id, name: session.name, channel_name: session.channel_name, started_at: new Date(session.started).toISOString(), ended_at: new Date().toISOString(), duration_seconds: duration, transcribed: false, cancelled: false, speakers: session.speakers, speaker_count: session.speakers.length });
+    sessions.unshift({ id: session.session_id, name: session.name, channel_name: session.channel_name, started_at: new Date(session.started).toISOString(), ended_at: new Date().toISOString(), duration_seconds: duration, transcribed: false, cancelled: false, speakers: session.speakers, speaker_count: session.speakers.length, campaign_id: session.campaign_id });
     return ok({ session_id: session.session_id, name: session.name ?? "Untitled", duration_seconds: duration, speakers: session.speakers, warnings: [], enqueued: true });
   },
   "POST recording/cancel": (body) => {
@@ -260,6 +314,7 @@ function transcript(id, query) {
       language: "tr", timezone: "Europe/Istanbul", duration_seconds: session.duration_seconds,
       word_count: segments.reduce((sum, s) => sum + s.text.split(" ").length, 0),
       speakers: ["Aria", "Borin", "DM"], warnings: [],
+      campaign_id: withCampaign(session).campaign_id, campaign_name: withCampaign(session).campaign_name,
     },
     total: segments.length, offset, limit, segments: segments.slice(offset, offset + limit),
   });
@@ -280,7 +335,32 @@ createServer(async (req, res) => {
     const body = raw ? JSON.parse(raw) : {};
     const index = path.match(/^music\/queue\/(\d+)$/);
     const transcriptPath = path.match(/^sessions\/([a-z0-9-]+)\/transcript$/);
-    if (req.method === "GET" && transcriptPath) {
+    const campaignPath = path.match(/^campaigns\/([a-f0-9]{12})(?:\/(update|terms|corrections))?$/);
+    const assignPath = path.match(/^sessions\/([a-z0-9-]+)\/campaign$/);
+    if (campaignPath) {
+      const target = campaigns.find((c) => c.id === campaignPath[1]);
+      if (!target) result = fail(404, "not_found", "No such campaign.");
+      else if (req.method === "GET" && !campaignPath[2]) result = ok({ ...campaignView(target), terms: target.terms, corrections: target.corrections, characters: target.characters });
+      else if (req.method === "POST" && campaignPath[2] === "update") {
+        Object.assign(target, body);
+        result = ok(campaignView(target));
+      } else if (req.method === "POST" && campaignPath[2] === "terms") {
+        target.terms = body.terms;
+        result = ok({ ...campaignView(target), terms: target.terms, corrections: target.corrections, characters: target.characters });
+      } else if (req.method === "POST" && campaignPath[2] === "corrections") {
+        target.corrections = body.corrections;
+        result = ok({ ...campaignView(target), terms: target.terms, corrections: target.corrections, characters: target.characters });
+      } else result = fail(404, "not_found", "No such route.");
+    } else if (req.method === "POST" && assignPath) {
+      const target = sessions.find((s) => s.id === assignPath[1]);
+      if (!target) result = fail(404, "not_found", "No such session.");
+      else if (!target.ended_at) result = fail(409, "conflict", "That session is still being recorded.");
+      else if (body.campaign_id && !campaigns.some((c) => c.id === body.campaign_id)) result = fail(404, "not_found", "No such campaign.");
+      else {
+        target.campaign_id = body.campaign_id;
+        result = ok(withCampaign(target));
+      }
+    } else if (req.method === "GET" && transcriptPath) {
       result = transcript(transcriptPath[1], url.searchParams);
     } else if (req.method === "DELETE" && index) {
       player.queue.splice(Number(index[1]), 1);

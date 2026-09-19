@@ -1,3 +1,4 @@
+import { parseSelectionStrict } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
 import { CREATURE_ID, creatureInputSchema, creatureKindSchema, type CreatureRepo } from "./creatures";
 import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
@@ -18,7 +19,9 @@ export function creatureCollection(deps: CreatureRouteDeps) {
       const raw = new URL(request.url).searchParams.get("kind");
       const kind = raw === null ? undefined : creatureKindSchema.safeParse(raw);
       if (kind && !kind.success) return errorResponse(400, "bad_request", "Invalid kind.");
-      return json(deps.repo().list(kind?.data));
+      const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
+      if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
+      return json(deps.repo().list(kind?.data, campaign.selection));
     },
 
     async POST(request: Request): Promise<Response> {

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { EncounterList } from "@/components/dm/combat/EncounterList";
+import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { DmHeader } from "@/components/dm/DmHeader";
+import { selectedCampaign } from "@/lib/campaign/selected";
 import { requireDm } from "@/lib/dm/access";
 import { getDatabase } from "@/lib/dm/database";
 import { EncounterRepo } from "@/lib/dm/encounters";
@@ -16,8 +18,9 @@ export default async function CombatPage() {
         eyebrow="DM Screen"
         title="Combat"
         description="Initiative, turns, hit points and conditions, with every stat block one click away. Changes save automatically."
+        action={<CampaignSwitcher />}
       />
-      <EncounterList encounters={new EncounterRepo(getDatabase()).list()} />
+      <EncounterList encounters={new EncounterRepo(getDatabase()).list(await selectedCampaign())} />
     </div>
   );
 }

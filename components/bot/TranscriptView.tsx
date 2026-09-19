@@ -1,12 +1,14 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronLeft, Clock, Download, FileText, Languages, MessagesSquare, Search, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, ChevronLeft, Clock, Download, FileText, Languages, MessagesSquare, Search, Users, X } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { BotError } from "@/lib/bot/client";
+import { bot, BotError } from "@/lib/bot/client";
 import type { TranscriptSegment } from "@/lib/bot/types";
-import { useTranscript, type Transcript } from "@/lib/bot/useBotState";
+import { useCampaignMutation, useTranscript, type Transcript } from "@/lib/bot/useBotState";
 import { formatDateTime, formatDuration } from "@/lib/format";
+import { CampaignSelect } from "../CampaignSelect";
+import { useToast } from "../Providers";
 import { Button, EmptyState, inputClass, Notice, Skeleton } from "../ui";
 
 // Speaker identity colours, fixed order, mid lightness so they read on both
@@ -87,8 +89,19 @@ function Stat({ icon: Icon, children }: { icon: typeof Clock; children: React.Re
   );
 }
 
-export function TranscriptView({ sessionId }: { sessionId: string }) {
+export function TranscriptView({
+  sessionId,
+  canManage = false,
+  focusSeq = null,
+}: {
+  sessionId: string;
+  canManage?: boolean;
+  // Line to open at, from a search result.
+  focusSeq?: number | null;
+}) {
   const query = useTranscript(sessionId);
+  const toast = useToast();
+  const assign = useCampaignMutation((campaignId: string | null) => bot.assignSession(sessionId, campaignId));
   const [search, setSearch] = useState("");
   const needle = useDeferredValue(search.trim().toLocaleLowerCase());
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -122,6 +135,12 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
     const target = listRef.current?.querySelector<HTMLElement>(`[data-index="${matches[Math.min(cursor, matches.length - 1)]}"]`);
     target?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [cursor, matches]);
+
+  const loaded = Boolean(transcript);
+  useEffect(() => {
+    if (focusSeq === null || !loaded) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-index="${focusSeq}"]`)?.scrollIntoView({ block: "center" });
+  }, [focusSeq, loaded]);
 
   const back = (
     <Link href="/bot/sessions" className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
@@ -189,7 +208,31 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
           <Stat icon={Users}>{session.speakers.length} speakers</Stat>
           <Stat icon={MessagesSquare}>{session.word_count.toLocaleString()} words</Stat>
           {session.language && <Stat icon={Languages}>{session.language.toUpperCase()}</Stat>}
+          {!canManage && session.campaign_name ? <Stat icon={BookOpen}>{session.campaign_name}</Stat> : null}
         </div>
+
+        {canManage ? (
+          <div className="mt-4 max-w-sm">
+            <label className="text-xs font-medium text-muted" htmlFor="transcript-campaign">
+              Campaign
+            </label>
+            <div className="mt-1.5">
+              <CampaignSelect
+                id="transcript-campaign"
+                label="Campaign"
+                noneLabel="Not in a campaign"
+                value={session.campaign_id}
+                disabled={assign.isPending}
+                onChange={(next) =>
+                  assign.mutate(next, {
+                    onSuccess: () => toast("ok", "Saved. Speaker names and fixes now follow this campaign."),
+                    onError: (error) => toast("danger", error instanceof BotError ? error.message : "Could not change the campaign."),
+                  })
+                }
+              />
+            </div>
+          </div>
+        ) : null}
 
         {speakers.length > 0 && (
           <div className="mt-5">
@@ -303,7 +346,7 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
                 data-index={index}
                 className={`grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 px-4 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_3rem] sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:px-6 ${
                   continued ? "pb-2 pt-0" : "border-t border-border pb-2 pt-3 first:border-t-0"
-                } ${current ? "bg-warn/10" : ""}`}
+                } ${current || index === focusSeq ? "bg-warn/10" : ""}`}
               >
                 <span className="pt-0.5 font-mono text-xs tabular-nums text-faint">{segment.clock ?? ""}</span>
                 <div className="min-w-0">

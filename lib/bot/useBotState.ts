@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { bot, BotError } from "./client";
 import type { PlayerState, Soundboard, SoundboardState, TranscriptPage, TranscriptSegment } from "./types";
 
@@ -9,7 +9,12 @@ import type { PlayerState, Soundboard, SoundboardState, TranscriptPage, Transcri
 export const keys = {
   health: ["bot", "health"] as const,
   stats: ["bot", "stats"] as const,
-  sessions: (limit: number) => ["bot", "sessions", limit] as const,
+  sessions: (limit: number, campaign: string | null) => ["bot", "sessions", limit, campaign ?? "all"] as const,
+  search: (q: string, campaign: string | null) => ["bot", "search", q, campaign ?? "all"] as const,
+  queue: ["bot", "transcription"] as const,
+  initiative: ["bot", "initiative"] as const,
+  campaigns: ["bot", "campaigns"] as const,
+  campaign: (id: string) => ["bot", "campaign", id] as const,
   recording: ["bot", "recording"] as const,
   music: ["bot", "music", "state"] as const,
   library: (q: string) => ["bot", "music", "library", q] as const,
@@ -89,12 +94,69 @@ export function useStats() {
   return useQuery({ queryKey: keys.stats, queryFn: bot.stats, refetchInterval: interval(15_000), retry });
 }
 
-export function useSessions(limit = 25) {
+/** `campaign` is a campaign id, "unassigned", or null for every session. */
+export function useSessions(limit = 25, campaign: string | null = null) {
   return useQuery({
-    queryKey: keys.sessions(limit),
-    queryFn: () => bot.sessions(limit),
+    queryKey: keys.sessions(limit, campaign),
+    queryFn: () => bot.sessions(limit, campaign ?? undefined),
     refetchInterval: interval(30_000),
     retry,
+  });
+}
+
+export function useTranscriptSearch(q: string, campaign: string | null) {
+  return useQuery({
+    queryKey: keys.search(q, campaign),
+    queryFn: () => bot.searchTranscripts(q, campaign ?? undefined),
+    enabled: q.trim().length >= 2,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    retry,
+  });
+}
+
+export function useTranscriptionQueue() {
+  return useQuery({ queryKey: keys.queue, queryFn: bot.transcription, refetchInterval: interval(30_000), retry });
+}
+
+/** Sync now: on success the queue, stats and sessions are refreshed. */
+export function useSyncTranscription() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: bot.syncTranscription,
+    onSuccess: (data) => client.setQueryData(keys.queue, { items: data.items, can_sync: data.can_sync }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: keys.stats });
+      void client.invalidateQueries({ queryKey: ["bot", "sessions"] });
+    },
+  });
+}
+
+/** Every campaign, archived ones included; callers filter what they show. */
+export function useCampaigns() {
+  return useQuery({
+    queryKey: keys.campaigns,
+    queryFn: () => bot.campaigns(true),
+    staleTime: 30_000,
+    retry,
+  });
+}
+
+export function useCampaign(id: string) {
+  return useQuery({ queryKey: keys.campaign(id), queryFn: () => bot.campaign(id), staleTime: 15_000, retry });
+}
+
+/** Campaign edits and session assignment change what several lists show. */
+export function useCampaignMutation<TVars, TData>(fn: (vars: TVars) => Promise<TData>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: keys.campaigns });
+      void client.invalidateQueries({ queryKey: ["bot", "campaign"] });
+      void client.invalidateQueries({ queryKey: ["bot", "sessions"] });
+      void client.invalidateQueries({ queryKey: ["bot", "transcript"] });
+    },
   });
 }
 

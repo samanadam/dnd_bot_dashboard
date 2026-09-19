@@ -4,7 +4,9 @@ import { Circle, Radio } from "lucide-react";
 import { useState } from "react";
 import { bot } from "@/lib/bot/client";
 import { useActiveRecordings, useBotOnline, useBotPresence, useRecordingMutation } from "@/lib/bot/useBotState";
+import { useCampaigns } from "@/lib/bot/useBotState";
 import { useLocalValue } from "@/lib/useLocalValue";
+import { CampaignSelect } from "../CampaignSelect";
 import { useToast } from "../Providers";
 import { Button, Card, Field, inputClass } from "../ui";
 
@@ -22,6 +24,8 @@ export function StartRecording() {
   const channelId = botChannel && !edited ? botChannel : storedChannelId;
   const [textChannelId, setTextChannelId] = useLocalValue("portal.bot.textChannelId");
   const [name, setName] = useState("");
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const campaigns = useCampaigns();
   const start = useRecordingMutation(bot.startRecording);
 
   const channel = channelId.trim();
@@ -29,6 +33,8 @@ export function StartRecording() {
   const channelValid = SNOWFLAKE.test(channel);
   const textValid = textChannel === "" || SNOWFLAKE.test(textChannel);
   const alreadyRecording = active.data?.some((session) => session.channel_id === channel) ?? false;
+  // What the bot will do when no campaign is chosen here: the channel's own.
+  const channelDefault = campaigns.data?.find((campaign) => campaign.channel_id === channel && !campaign.archived) ?? null;
 
   return (
     <Card title="Start recording" subtitle="Joins the channel and records everyone in it" icon={Circle}>
@@ -42,6 +48,7 @@ export function StartRecording() {
               channel_id: channel,
               ...(name.trim() ? { name: name.trim() } : {}),
               ...(textChannel ? { text_channel_id: textChannel } : {}),
+              ...(campaignId ? { campaign_id: campaignId } : {}),
             },
             {
               onSuccess: (session) => {
@@ -85,6 +92,18 @@ export function StartRecording() {
             onChange={(event) => setName(event.target.value)}
             placeholder="Session 12: The Sunken Keep"
           />
+        </Field>
+        <Field
+          label="Campaign"
+          hint={
+            campaignId
+              ? "Filed under this campaign, whatever the channel."
+              : channelDefault
+                ? `Left alone, this recording is filed under ${channelDefault.name}.`
+                : "Left alone, this recording is not filed under any campaign. You can file it later."
+          }
+        >
+          <CampaignSelect label="Campaign" noneLabel={channelDefault ? `Channel default (${channelDefault.name})` : "None"} value={campaignId} onChange={setCampaignId} />
         </Field>
         <Field label="Text channel id" hint="Optional. Where the transcript is posted.">
           <input

@@ -1,7 +1,9 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, CloudOff, Dices, Flag, Loader, Play, Plus, Swords, TriangleAlert, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { dm, DmError } from "@/lib/dm/client";
 import { Button, EmptyState, Notice } from "@/components/ui";
 import { secureRng } from "@/lib/dice/random";
 import {
@@ -24,6 +26,7 @@ import {
 import type { StoredEncounter } from "@/lib/dm/encounters";
 import type { MonsterSummary } from "@/lib/dm/srd";
 import { AddCombatant } from "./AddCombatant";
+import { PlayerRolls } from "./PlayerRolls";
 import { CombatantRow } from "./CombatantRow";
 import { SidePanel } from "./SidePanel";
 import { useEncounter, type SaveStatus } from "./useEncounter";
@@ -54,6 +57,10 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
 
+  const router = useRouter();
+  const prepared = initial.kind === "prepared";
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const started = encounter.round > 0;
   const active = started ? encounter.combatants[encounter.turn] : undefined;
   const selected = encounter.combatants.find((c) => c.id === selectedId) ?? active ?? encounter.combatants[0];
@@ -145,7 +152,27 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
             >
               Roll initiative
             </Button>
-            {started ? (
+            {prepared ? (
+              <Button
+                variant="primary"
+                size="lg"
+                icon={Play}
+                busy={launching}
+                disabled={locked || encounter.combatants.length === 0}
+                onClick={async () => {
+                  setLaunching(true);
+                  setLaunchError(null);
+                  try {
+                    router.push(`/dm/combat/${(await dm.launchEncounter(initial.id)).id}`);
+                  } catch (error) {
+                    setLaunchError(error instanceof DmError ? error.message : "Could not launch the encounter.");
+                    setLaunching(false);
+                  }
+                }}
+              >
+                Launch a fresh copy
+              </Button>
+            ) : started ? (
               <>
                 <Button size="icon" icon={ChevronLeft} aria-label="Previous turn (P)" disabled={locked} onClick={() => apply(previousTurn)} />
                 <Button variant="primary" size="lg" icon={ChevronRight} disabled={locked} onClick={() => apply(nextTurn)}>
@@ -160,12 +187,20 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
             )}
           </div>
         </div>
-        {!started && missingPlayers.length > 0 && encounter.combatants.length > 0 ? (
+        {prepared ? (
+          <p className="mt-3 text-xs text-muted">
+            This is a prepared encounter. Build it now; launching makes a new copy at full hit points and leaves this one to use again.
+          </p>
+        ) : null}
+        {launchError ? <p className="mt-3 text-xs text-danger">{launchError}</p> : null}
+        {!prepared && !started && missingPlayers.length > 0 && encounter.combatants.length > 0 ? (
           <p className="mt-3 text-xs text-muted">
             Type the players&apos; initiative into their boxes, then start. Anyone without initiative goes last.
           </p>
         ) : null}
       </section>
+
+      {!prepared ? <PlayerRolls combatants={encounter.combatants} apply={apply} disabled={locked} /> : null}
 
       {adding ? (
         <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-5">

@@ -3,7 +3,9 @@
 import { ChevronDown, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { CampaignSelect } from "@/components/CampaignSelect";
 import { Button, Notice, inputBaseClass, inputClass } from "@/components/ui";
+import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import type { CreatureInput, CreatureKind } from "@/lib/dm/creatures";
 import {
@@ -244,6 +246,11 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
   const [tags, setTags] = useState((initial?.tags ?? []).join(", "));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A new NPC starts in the campaign being looked at; an existing one keeps its own.
+  const [picked] = useCampaignSelection();
+  const [campaignId, setCampaignId] = useState<string | null>(
+    initial?.campaignId !== undefined ? initial.campaignId : picked && picked !== "unassigned" ? picked : null,
+  );
 
   const set = <K extends keyof StatBlock>(key: K, value: StatBlock[K]) => setBlock((current) => ({ ...current, [key]: value }));
   const setList = (key: ListKey, items: Feature[]) => set(key, items);
@@ -255,6 +262,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       statBlock: block,
       notes,
       tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))].slice(0, 20),
+      ...(kind === "npc" ? { campaignId } : {}),
     };
     const check = statBlockSchema.safeParse(block);
     if (!check.success) {
@@ -282,6 +290,12 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       }}
     >
       {error ? <Notice title="Not saved yet">{error}</Notice> : null}
+
+      {kind === "npc" ? (
+        <Panel title="Campaign">
+          <CampaignSelect label="Campaign" noneLabel="Not in a campaign" value={campaignId} onChange={setCampaignId} />
+        </Panel>
+      ) : null}
 
       <Panel title="Identity">
         <div className="grid gap-4 sm:grid-cols-6">

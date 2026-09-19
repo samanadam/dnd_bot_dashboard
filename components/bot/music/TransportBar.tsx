@@ -20,6 +20,10 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
   const skip = useMusicMutation(() => bot.skip(), (s) => ({ ...s, current: s.queue[0] ?? null, queue: s.queue.slice(1), position_seconds: 0 }));
   const stop = useMusicMutation(() => bot.stop(), (s) => ({ ...s, playing: false, paused: false, current: null, position_seconds: 0 }));
   const loop = useMusicMutation((mode: LoopMode) => bot.loop(mode), (s, mode) => ({ ...s, loop: mode }));
+  const seek = useMusicMutation((seconds: number) => bot.seek(seconds), (s, seconds) => ({ ...s, position_seconds: seconds }));
+  // Held here, not in the progress bar: the bar remounts on every poll, which
+  // would throw away a drag that is still in progress.
+  const [dragging, setDragging] = useState<number | null>(null);
   const join = useMusicMutation((channelId: string) => bot.join(channelId));
   const leave = useMusicMutation(() => bot.leave());
 
@@ -65,6 +69,16 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
                 position={state.position_seconds}
                 duration={current.duration_seconds}
                 running={isPlaying}
+                dragging={dragging}
+                onDrag={setDragging}
+                onSeek={
+                  enabled
+                    ? (seconds) => {
+                        setDragging(null);
+                        seek.mutate(seconds);
+                      }
+                    : undefined
+                }
               />
             )}
           </div>
@@ -152,7 +166,22 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
   );
 }
 
-function Progress({ position, duration, running }: { position: number; duration: number | null; running: boolean }) {
+function Progress({
+  position,
+  duration,
+  running,
+  dragging,
+  onDrag,
+  onSeek,
+}: {
+  position: number;
+  duration: number | null;
+  running: boolean;
+  dragging: number | null;
+  onDrag: (seconds: number | null) => void;
+  // Called once, when the slider is let go; dragging only moves the marker.
+  onSeek?: (seconds: number) => void;
+}) {
   // Remounted (via key) whenever the server reports a new position, so the
   // anchor is always the latest reported value.
   const [anchorAt] = useState(() => Date.now());
@@ -164,9 +193,41 @@ function Progress({ position, duration, running }: { position: number; duration:
     return () => clearInterval(id);
   }, [running]);
 
-  const shown = running ? position + (now - anchorAt) / 1000 : position;
+  const shown = dragging ?? (running ? position + (now - anchorAt) / 1000 : position);
   const clamped = duration ? Math.min(shown, duration) : shown;
   const pct = duration ? Math.min(100, (clamped / duration) * 100) : 0;
+  const commit = () => {
+    if (dragging === null) return;
+    if (onSeek) onSeek(Math.min(dragging, Math.max(0, (duration ?? dragging) - 1)));
+    else onDrag(null);
+  };
+
+  if (onSeek && duration) {
+    return (
+      <div className="mt-4">
+        <label className="block">
+          <span className="sr-only">Track position</span>
+          <input
+            type="range"
+            min={0}
+            max={Math.floor(duration)}
+            step={1}
+            value={Math.floor(clamped)}
+            aria-valuetext={`${formatDuration(clamped)} of ${formatDuration(duration)}`}
+            className="h-2 w-full cursor-pointer accent-[var(--accent)]"
+            onChange={(event) => onDrag(Number(event.target.value))}
+            onPointerUp={commit}
+            onKeyUp={commit}
+            onBlur={commit}
+          />
+        </label>
+        <div className="mt-1.5 flex justify-between font-mono text-xs tabular-nums text-muted">
+          <span>{formatDuration(clamped)}</span>
+          <span>{formatDuration(duration)}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4">

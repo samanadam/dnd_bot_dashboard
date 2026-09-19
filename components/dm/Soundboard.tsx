@@ -10,7 +10,7 @@ import type { SoundKind, SoundLayer, Track } from "@/lib/bot/types";
 import { useBotPresence, useSoundboard, useSoundboardMutation } from "@/lib/bot/useBotState";
 import { useLocalValue } from "@/lib/useLocalValue";
 
-function useVoiceTarget() {
+export function useVoiceTarget() {
   const presence = useBotPresence();
   const [remembered] = useLocalValue("portal.bot.voiceChannelId");
   const inVoice = presence.kind === "in_voice" || presence.kind === "recording";

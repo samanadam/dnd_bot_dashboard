@@ -16,7 +16,7 @@ describe("EncounterRepo", () => {
     expect(repo.save(created.id, 1, created.encounter)).toBe("conflict");
     expect(repo.save("00000000-0000-4000-8000-000000000000", 1, created.encounter)).toBeNull();
     expect(repo.save("../x", 1, created.encounter)).toBeNull();
-    expect(repo.list()).toEqual([{ id: created.id, name: "Road ambush", round: 2, combatants: 0, updatedAt: expect.any(String) }]);
+    expect(repo.list()).toEqual([{ id: created.id, name: "Road ambush", round: 2, combatants: 0, campaignId: null, kind: "live", updatedAt: expect.any(String) }]);
     expect(repo.remove(created.id)).toBe(true);
     expect(repo.get(created.id)).toBeNull();
   });

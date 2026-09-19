@@ -13,7 +13,8 @@ export type IconName =
   | "book"
   | "users"
   | "swords"
-  | "audio";
+  | "audio"
+  | "search";
 
 export type ToolLink = { href: string; label: string; icon: IconName };
 
@@ -42,6 +43,8 @@ export const tools: Tool[] = [
       { href: "/bot", label: "Overview", icon: "gauge" },
       { href: "/bot/music", label: "Music", icon: "music" },
       { href: "/bot/sessions", label: "Sessions", icon: "history" },
+      { href: "/bot/search", label: "Search", icon: "search" },
+      { href: "/bot/campaigns", label: "Campaigns", icon: "book" },
     ],
   },
   {
@@ -57,7 +60,7 @@ export const tools: Tool[] = [
       { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
       { href: "/dm/npcs", label: "NPCs", icon: "users" },
       { href: "/dm/dice", label: "Dice", icon: "dice" },
-      { href: "/dm/soundboard", label: "Sounds", icon: "audio" },
+      { href: "/dm/soundboard", label: "Sound", icon: "audio" },
     ],
   },
   {

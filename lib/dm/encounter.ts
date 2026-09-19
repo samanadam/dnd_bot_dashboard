@@ -27,6 +27,9 @@ export const combatantSchema = z
     tempHp: z.number().int().min(0).max(10_000),
     conditions: z.array(conditionSchema).max(12),
     concentration: z.boolean(),
+    // On the party side: a friendly NPC or a summoned ally. Older encounters
+    // have no such field and read as false.
+    friendly: z.boolean().default(false),
     notes: z.string().max(2000),
   })
   .strict();
@@ -55,6 +58,27 @@ const mapOne = (enc: Encounter, id: string, fn: (c: Combatant) => Combatant): En
   ...enc,
   combatants: enc.combatants.map((c) => (c.id === id ? fn(c) : c)),
 });
+
+/**
+ * A fresh, not-yet-started copy of an encounter: initiative cleared, everyone
+ * at full hit points, no temporary hit points, conditions or concentration.
+ * Used to launch a prepared encounter without touching the template.
+ */
+export function launchCopy(enc: Encounter): Encounter {
+  return {
+    ...enc,
+    round: 0,
+    turn: 0,
+    combatants: enc.combatants.map((c) => ({
+      ...c,
+      initiative: null,
+      hp: c.maxHp,
+      tempHp: 0,
+      conditions: [],
+      concentration: false,
+    })),
+  };
+}
 
 export function newEncounter(name: string): Encounter {
   return { name, round: 0, turn: 0, combatants: [] };

@@ -20,7 +20,13 @@ export default async function EditCreaturePage(props: PageProps<"/dm/creatures/[
       <DmHeader back={{ href: `/dm/bestiary/custom/${creature.id}`, label: creature.statBlock.name }} eyebrow="Edit" title={creature.statBlock.name} />
       <CreatureForm
         id={creature.id}
-        initial={{ kind: creature.kind, statBlock: creature.statBlock, notes: creature.notes, tags: creature.tags }}
+        initial={{
+          kind: creature.kind,
+          statBlock: creature.statBlock,
+          notes: creature.notes,
+          tags: creature.tags,
+          campaignId: creature.campaignId,
+        }}
       />
     </div>
   );

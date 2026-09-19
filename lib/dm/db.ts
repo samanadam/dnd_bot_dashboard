@@ -23,6 +23,24 @@ const MIGRATIONS: readonly string[] = [
      updated_at TEXT NOT NULL
    );
    CREATE INDEX encounters_updated ON encounters (updated_at);`,
+  // Campaigns live in the bot; the portal only remembers which one an NPC or an
+  // encounter belongs to. NULL means unassigned. No foreign key on purpose.
+  `ALTER TABLE creatures ADD COLUMN campaign_id TEXT;
+   ALTER TABLE encounters ADD COLUMN campaign_id TEXT;
+   CREATE INDEX creatures_campaign ON creatures (campaign_id);
+   CREATE INDEX encounters_campaign ON encounters (campaign_id);`,
+  `CREATE TABLE scenes (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     category TEXT NOT NULL DEFAULT '',
+     campaign_id TEXT,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX scenes_campaign ON scenes (campaign_id);`,
+  // live: an encounter being run. prepared: a template, launched as a fresh copy.
+  `ALTER TABLE encounters ADD COLUMN kind TEXT NOT NULL DEFAULT 'live' CHECK (kind IN ('live', 'prepared'));`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

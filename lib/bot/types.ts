@@ -19,6 +19,25 @@ export type SessionSummary = {
   cancelled: boolean;
   speakers: string[];
   speaker_count: number;
+  campaign_id: string | null;
+  campaign_name: string | null;
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  // The voice channel that files its sessions here by default.
+  channel_id: string | null;
+  language: string | null;
+  archived: boolean;
+  session_count: number;
+};
+
+export type CampaignDetail = Campaign & {
+  terms: string[];
+  corrections: { heard: string; correct: string }[];
+  // Labels only: Discord user ids never reach the portal.
+  characters: { character_name: string; member: string | null }[];
 };
 
 export type ActiveSession = {
@@ -31,6 +50,8 @@ export type ActiveSession = {
   speakers: string[];
   speaker_count: number;
   warnings: string[];
+  campaign_id: string | null;
+  campaign_name: string | null;
 };
 
 export type StopResult = {
@@ -132,11 +153,46 @@ export type TranscriptPage = {
     word_count: number;
     speakers: string[];
     warnings: string[];
+    campaign_id: string | null;
+    campaign_name: string | null;
   };
   total: number;
   offset: number;
   limit: number;
   segments: TranscriptSegment[];
 };
+
+export type SearchHit = {
+  session_id: string;
+  session_name: string | null;
+  started_at: string;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  // Index of the line in the transcript, for opening it at that spot.
+  seq: number;
+  speaker: string;
+  clock: string | null;
+  start: number | null;
+  // The matched words are wrapped in [[ and ]].
+  snippet: string;
+};
+
+export type SearchResponse = { query: string; results: SearchHit[]; still_indexing: number };
+
+export type QueueItem = {
+  session_id: string;
+  name: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  // uploading: still on the bot. waiting: in the bucket or with the transcriber.
+  status: "uploading" | "waiting" | "transcribing";
+  queued_at: string;
+  waiting_seconds: number | null;
+  stalled: boolean;
+};
+
+export type TranscriptionQueue = { items: QueueItem[]; can_sync: boolean };
+
+export type InitiativeReport = { id: number; label: string; value: number; at: string };
 
 export type ApiErrorBody = { error: { code: string; message: string } };

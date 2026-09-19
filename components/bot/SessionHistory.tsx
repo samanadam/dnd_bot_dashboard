@@ -3,15 +3,19 @@
 import { AlertTriangle, BarChart3, Clock, FileText, History } from "lucide-react";
 import { useState } from "react";
 import { useSessions, useStats } from "@/lib/bot/useBotState";
+import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { CampaignSwitcher } from "../CampaignSelect";
 import { Card, PageHeader, Skeleton, StatCard } from "../ui";
 import { SessionChart } from "./SessionChart";
 import { SessionTable } from "./SessionTable";
+import { TranscriptionQueue } from "./TranscriptionQueue";
 
 const LIMITS = [25, 50, 100, 200];
 
-export function SessionHistory() {
+export function SessionHistory({ canManage = false }: { canManage?: boolean }) {
   const [limit, setLimit] = useState(25);
-  const sessions = useSessions(limit);
+  const [campaign] = useCampaignSelection();
+  const sessions = useSessions(limit, campaign);
   const stats = useStats();
 
   const list = sessions.data ?? [];
@@ -20,7 +24,11 @@ export function SessionHistory() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sessions" description="Every recording the bot has made, and what happened to it." />
+      <PageHeader
+        title="Sessions"
+        description="Every recording the bot has made, and what happened to it."
+        action={<CampaignSwitcher />}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Sessions shown" icon={History} value={sessions.data ? list.length : "—"} />
@@ -39,6 +47,8 @@ export function SessionHistory() {
           hint="Interrupted, or live right now"
         />
       </div>
+
+      <TranscriptionQueue canManage={canManage} />
 
       <Card title="Session length" subtitle="Last 12 finished sessions" icon={BarChart3}>
         {sessions.isPending ? <Skeleton className="h-40" /> : <SessionChart sessions={list} />}
@@ -65,7 +75,7 @@ export function SessionHistory() {
           </label>
         }
       >
-        <SessionTable query={sessions} />
+        <SessionTable query={sessions} canManage={canManage} />
       </Card>
     </div>
   );

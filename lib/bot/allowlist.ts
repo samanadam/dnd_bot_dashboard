@@ -24,6 +24,8 @@ export type Rule = {
   audit?: boolean;
   // Only users in DM_USER_IDS may call it; everyone else gets a plain 404.
   dmOnly?: boolean;
+  // Bodies are capped at 8 KB unless a rule says otherwise (glossary lists).
+  maxBodyBytes?: number;
 };
 
 const snowflake = z.string().regex(/^\d{17,20}$/, "must be a Discord id");
@@ -39,6 +41,9 @@ const intString = (min: number, max: number) =>
     .refine((value) => Number(value) >= min && Number(value) <= max, {
       message: `must be between ${min} and ${max}`,
     });
+
+const campaignId = z.string().regex(/^[a-f0-9]{12}$/, "invalid campaign id");
+const languageCode = z.string().regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "must be a code such as tr or en");
 
 const source = z.enum(["r2", "youtube"]);
 const trackId = z
@@ -57,9 +62,39 @@ const rules: Rule[] = [
     method: "GET",
     path: "sessions",
     bucket: "read",
-    query: z.object({ limit: intString(1, 200).optional() }).strict(),
+    query: z
+      .object({
+        limit: intString(1, 200).optional(),
+        campaign: z.union([campaignId, z.literal("unassigned")]).optional(),
+      })
+      .strict(),
   },
   { method: "GET", path: "recording", bucket: "read" },
+  // Search reads every delivered transcript; the first call after a change may
+  // have to index some, so it gets a longer timeout than a plain read.
+  {
+    method: "GET",
+    path: "transcripts/search",
+    bucket: "read",
+    timeoutMs: 30_000,
+    query: z
+      .object({
+        q: z.string().trim().min(1).max(200),
+        campaign: z.union([campaignId, z.literal("unassigned")]).optional(),
+        limit: intString(1, 100).optional(),
+      })
+      .strict(),
+  },
+  { method: "GET", path: "transcription", bucket: "read" },
+  // Runs an upload pass and a download pass now; large sessions take a while.
+  {
+    method: "POST",
+    path: "transcription/sync",
+    bucket: "control",
+    timeoutMs: 120_000,
+    audit: true,
+    dmOnly: true,
+  },
   {
     method: "GET",
     path: "sessions/:session/transcript",
@@ -86,6 +121,7 @@ const rules: Rule[] = [
         channel_id: snowflake,
         name: z.string().trim().min(1).max(100).optional(),
         text_channel_id: snowflake.optional(),
+        campaign_id: campaignId.optional(),
       })
       .strict(),
   },
@@ -97,6 +133,78 @@ const rules: Rule[] = [
     bucket: "recording",
     audit: true,
     body: z.object({ session_id: sessionId }).strict(),
+  },
+
+  // Campaigns. Anyone signed in may read them (the session list names them);
+  // changing them, or filing a session under one, belongs to the DM.
+  {
+    method: "GET",
+    path: "campaigns",
+    bucket: "read",
+    query: z.object({ archived: z.literal("1").optional() }).strict(),
+  },
+  { method: "GET", path: "campaigns/:campaign", bucket: "read" },
+  {
+    method: "POST",
+    path: "campaigns",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    body: z
+      .object({
+        name: z.string().trim().min(1).max(60),
+        channel_id: snowflake.optional(),
+        language: languageCode.optional(),
+      })
+      .strict(),
+  },
+  {
+    method: "POST",
+    path: "campaigns/:campaign/update",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    body: z
+      .object({
+        name: z.string().trim().min(1).max(60).optional(),
+        channel_id: snowflake.nullable().optional(),
+        language: languageCode.nullable().optional(),
+        archived: z.boolean().optional(),
+      })
+      .strict()
+      .refine((value) => Object.keys(value).length > 0, { message: "nothing to update" }),
+  },
+  {
+    method: "POST",
+    path: "campaigns/:campaign/terms",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    maxBodyBytes: 16 * 1024,
+    body: z.object({ terms: z.array(z.string().trim().min(1).max(60)).max(100) }).strict(),
+  },
+  {
+    method: "POST",
+    path: "campaigns/:campaign/corrections",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    maxBodyBytes: 48 * 1024,
+    body: z
+      .object({
+        corrections: z
+          .array(z.object({ heard: z.string().trim().min(1).max(80), correct: z.string().trim().min(1).max(80) }).strict())
+          .max(200),
+      })
+      .strict(),
+  },
+  {
+    method: "POST",
+    path: "sessions/:session/campaign",
+    bucket: "control",
+    audit: true,
+    dmOnly: true,
+    body: z.object({ campaign_id: campaignId.nullable() }).strict(),
   },
 
   { method: "GET", path: "music/state", bucket: "read" },
@@ -138,6 +246,12 @@ const rules: Rule[] = [
   ...(["pause", "resume", "skip", "stop"] as const).map(
     (action): Rule => ({ method: "POST", path: `music/${action}`, bucket: "control" }),
   ),
+  {
+    method: "POST",
+    path: "music/seek",
+    bucket: "control",
+    body: z.object({ position_seconds: z.number().min(0).max(86_400) }).strict(),
+  },
   {
     method: "POST",
     path: "music/volume",
@@ -183,6 +297,16 @@ const rules: Rule[] = [
       .strict(),
   },
   { method: "POST", path: "music/leave", bucket: "control" },
+
+  // Initiative totals players reported with /init. The DM reads and clears them.
+  { method: "GET", path: "initiative", bucket: "read", dmOnly: true },
+  {
+    method: "POST",
+    path: "initiative/clear",
+    bucket: "control",
+    dmOnly: true,
+    body: z.object({ id: z.number().int().min(1).max(2_147_483_647).optional() }).strict(),
+  },
 
   // Library changes and the soundboard are the DM's.
   {
@@ -255,7 +379,9 @@ export function matchRule(method: string, segments: readonly string[]): Match | 
         ? /^\d{1,4}$/.test(segments[i])
         : part === ":session"
           ? SESSION_SEGMENT.test(segments[i])
-          : part === segments[i],
+          : part === ":campaign"
+            ? /^[a-f0-9]{12}$/.test(segments[i])
+            : part === segments[i],
     );
     if (ok) return { rule, path: segments.join("/") };
   }

@@ -1,7 +1,9 @@
 import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { NpcDirectory } from "@/components/dm/NpcDirectory";
+import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
+import { selectedCampaign } from "@/lib/campaign/selected";
 import { requireDm } from "@/lib/dm/access";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function NpcsPage() {
   await requireDm();
   const npcs = new CreatureRepo(getDatabase())
-    .list("npc")
+    .list("npc", await selectedCampaign())
     .map((npc) => ({
       id: npc.id,
       name: npc.statBlock.name,
@@ -33,9 +35,12 @@ export default async function NpcsPage() {
         title="NPCs"
         description="The people of your world: stat blocks, private notes and tags to find them again."
         action={
-          <LinkButton href="/dm/creatures/new?kind=npc" icon={Plus} variant="primary">
-            New NPC
-          </LinkButton>
+          <>
+            <CampaignSwitcher />
+            <LinkButton href="/dm/creatures/new?kind=npc" icon={Plus} variant="primary">
+              New NPC
+            </LinkButton>
+          </>
         }
       />
       {/* The empty state lives in the client component: an icon component

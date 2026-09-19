@@ -4,10 +4,11 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { FileText, History, LifeBuoy, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { bot } from "@/lib/bot/client";
+import { bot, BotError } from "@/lib/bot/client";
 import type { SessionSummary } from "@/lib/bot/types";
 import { formatDateTime, formatDuration } from "@/lib/format";
-import { useActiveRecordings, useBotOnline, useRecordingMutation } from "@/lib/bot/useBotState";
+import { useActiveRecordings, useBotOnline, useCampaignMutation, useRecordingMutation } from "@/lib/bot/useBotState";
+import { CampaignSelect } from "../CampaignSelect";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { useToast } from "../Providers";
 import { Badge, Button, EmptyState, Skeleton } from "../ui";
@@ -37,6 +38,32 @@ function SessionName({ session, s }: { session: SessionSummary; s: Status }) {
       <span className="truncate">{name}</span>
       {session.transcribed && <FileText className="size-3.5 shrink-0 text-muted group-hover/name:text-accent" aria-label="Transcript available" />}
     </Link>
+  );
+}
+
+/** Which campaign a session is filed under; the DM can change it, even after transcription. */
+function CampaignTag({ session, canManage }: { session: SessionSummary; canManage: boolean }) {
+  const toast = useToast();
+  const assign = useCampaignMutation((campaignId: string | null) => bot.assignSession(session.id, campaignId));
+  // A live or unfinished recording cannot be filed yet.
+  const editable = canManage && Boolean(session.ended_at) && !session.cancelled;
+  if (!editable) {
+    return session.campaign_name ? <span className="text-xs text-muted">{session.campaign_name}</span> : null;
+  }
+  return (
+    <CampaignSelect
+      compact
+      label={`Campaign for ${session.name ?? "this session"}`}
+      noneLabel="Not in a campaign"
+      value={session.campaign_id}
+      disabled={assign.isPending}
+      onChange={(next) =>
+        assign.mutate(next, {
+          onSuccess: () => toast("ok", next ? "Filed under the campaign." : "Removed from its campaign."),
+          onError: (error) => toast("danger", error instanceof BotError ? error.message : "Could not change the campaign."),
+        })
+      }
+    />
   );
 }
 
@@ -110,7 +137,15 @@ function QueryState({ query }: { query: UseQueryResult<SessionSummary[]> }) {
 }
 
 /** Compact row list. Used on the overview and on phones. */
-export function SessionList({ query, limit }: { query: UseQueryResult<SessionSummary[]>; limit?: number }) {
+export function SessionList({
+  query,
+  limit,
+  canManage = false,
+}: {
+  query: UseQueryResult<SessionSummary[]>;
+  limit?: number;
+  canManage?: boolean;
+}) {
   const { activeIds, dialog, recoverButton } = useSessionContext();
   if (!query.data?.length) return <QueryState query={query} />;
   const rows = limit ? query.data.slice(0, limit) : query.data;
@@ -139,6 +174,9 @@ export function SessionList({ query, limit }: { query: UseQueryResult<SessionSum
                   </span>
                   <span>#{session.channel_name}</span>
                 </div>
+                <div className="mt-1">
+                  <CampaignTag session={session} canManage={canManage} />
+                </div>
               </div>
               <div className="flex flex-col items-end gap-1.5">
                 <Badge tone={s.tone} dot>
@@ -156,14 +194,14 @@ export function SessionList({ query, limit }: { query: UseQueryResult<SessionSum
 }
 
 /** Full table on wider screens, row list on phones. */
-export function SessionTable({ query }: { query: UseQueryResult<SessionSummary[]> }) {
+export function SessionTable({ query, canManage = false }: { query: UseQueryResult<SessionSummary[]>; canManage?: boolean }) {
   const { activeIds, dialog, recoverButton } = useSessionContext();
   if (!query.data?.length) return <QueryState query={query} />;
 
   return (
     <>
       <div className="md:hidden">
-        <SessionList query={query} />
+        <SessionList query={query} canManage={canManage} />
       </div>
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
@@ -172,6 +210,7 @@ export function SessionTable({ query }: { query: UseQueryResult<SessionSummary[]
               <th className="px-5 py-3 font-medium">Session</th>
               <th className="px-3 py-3 font-medium">Started</th>
               <th className="px-3 py-3 font-medium">Length</th>
+              <th className="px-3 py-3 font-medium">Campaign</th>
               <th className="px-3 py-3 font-medium">Speakers</th>
               <th className="px-5 py-3 text-right font-medium">Status</th>
             </tr>
@@ -187,6 +226,9 @@ export function SessionTable({ query }: { query: UseQueryResult<SessionSummary[]
                   </td>
                   <td className="whitespace-nowrap px-3 py-3.5 text-muted tabular-nums">{formatDateTime(session.started_at)}</td>
                   <td className="px-3 py-3.5 font-mono tabular-nums">{formatDuration(session.duration_seconds)}</td>
+                  <td className="px-3 py-3.5">
+                    <CampaignTag session={session} canManage={canManage} />
+                  </td>
                   <td className="px-3 py-3.5">
                     <div className="flex items-center gap-2">
                       <span className="tabular-nums">{session.speaker_count}</span>

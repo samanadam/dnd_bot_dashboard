@@ -84,6 +84,7 @@ export function CombatantRow(props: Props) {
         <button type="button" onClick={props.onSelect} className="min-w-0 flex-1 text-left" aria-describedby={`${rowId}-hp`}>
           <span className="flex items-center gap-2">
             <span className={`truncate font-display text-lg font-semibold leading-tight ${state === "down" ? "line-through decoration-danger/70" : ""}`}>{c.name}</span>
+            {c.friendly && c.kind !== "player" ? <span className="shrink-0 rounded-full border border-ok/40 bg-ok/10 px-1.5 text-[10px] font-medium text-ok">Ally</span> : null}
             {c.concentration ? (
               <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[10px] font-semibold text-accent" title="Concentrating">
                 <Brain className="size-3" aria-hidden /> Conc.

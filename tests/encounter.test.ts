@@ -12,7 +12,7 @@ function ids() {
 
 const base = (over: Partial<NewCombatant> = {}): NewCombatant => ({
   name: "Goblin", kind: "monster", ref: null, initiative: null, initiativeBonus: 2, ac: 15, hp: 7, maxHp: 7,
-  tempHp: 0, conditions: [], concentration: false, notes: "", ...over,
+  tempHp: 0, conditions: [], concentration: false, friendly: false, notes: "", ...over,
 });
 
 function party(): Encounter {

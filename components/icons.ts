@@ -1,4 +1,4 @@
-import { AudioLines, BookOpen, Dices, Gauge, History, Music2, ScrollText, Sparkles, Swords, Users, type LucideIcon } from "lucide-react";
+import { AudioLines, BookOpen, Dices, Gauge, History, Music2, ScrollText, Search, Sparkles, Swords, Users, type LucideIcon } from "lucide-react";
 import type { IconName } from "@/lib/tools/registry";
 
 export const ICON_BY_NAME: Record<IconName, LucideIcon> = {
@@ -12,4 +12,5 @@ export const ICON_BY_NAME: Record<IconName, LucideIcon> = {
   users: Users,
   swords: Swords,
   audio: AudioLines,
+  search: Search,
 };

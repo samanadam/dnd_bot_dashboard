@@ -3,6 +3,7 @@
 import type { Creature, CreatureInput } from "./creatures";
 import type { Encounter } from "./encounter";
 import type { EncounterSummary, StoredEncounter } from "./encounters";
+import type { Scene, SceneInput } from "./scenes";
 import type { StatBlock } from "./statblock";
 
 // Browser client for /api/dm. Same conventions as lib/bot/client.ts: portal
@@ -75,10 +76,18 @@ export const dm = {
   deleteCreature: (id: string) => dmCall<void>("DELETE", `creatures/${enc(id)}`),
   getSrdBlock: (edition: "2014" | "2024", slug: string) => dmCall<StatBlock>("GET", `srd/${edition}/${enc(slug)}`),
   listEncounters: () => dmCall<EncounterSummary[]>("GET", "encounters"),
-  createEncounter: (name: string) => dmCall<StoredEncounter>("POST", "encounters", { name }),
+  createEncounter: (name: string, campaignId: string | null = null, kind: "live" | "prepared" = "live") =>
+    dmCall<StoredEncounter>("POST", "encounters", { name, campaignId, kind }),
+  launchEncounter: (id: string) => dmCall<StoredEncounter>("POST", `encounters/${enc(id)}/launch`),
+  setEncounterCampaign: (id: string, campaignId: string | null) =>
+    dmCall<void>("PUT", `encounters/${enc(id)}/campaign`, { campaignId }),
   getEncounter: (id: string) => dmCall<StoredEncounter>("GET", `encounters/${enc(id)}`),
   // Rejects with ConflictError when another tab saved first.
   saveEncounter: (id: string, version: number, encounter: Encounter) =>
     dmCall<StoredEncounter>("PUT", `encounters/${enc(id)}`, { version, encounter }),
   deleteEncounter: (id: string) => dmCall<void>("DELETE", `encounters/${enc(id)}`),
+  listScenes: (campaign?: string) => dmCall<Scene[]>("GET", campaign ? `scenes?campaign=${enc(campaign)}` : "scenes"),
+  createScene: (input: SceneInput) => dmCall<Scene>("POST", "scenes", input),
+  updateScene: (id: string, input: SceneInput) => dmCall<Scene>("PUT", `scenes/${enc(id)}`, input),
+  deleteScene: (id: string) => dmCall<void>("DELETE", `scenes/${enc(id)}`),
 };

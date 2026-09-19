@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { UploadTracks } from "@/components/bot/music/UploadTracks";
 import { DmHeader } from "@/components/dm/DmHeader";
+import { DmMusic } from "@/components/dm/DmMusic";
+import { Scenes } from "@/components/dm/Scenes";
 import { Soundboard } from "@/components/dm/Soundboard";
 import { requireDm } from "@/lib/dm/access";
 
@@ -12,9 +15,16 @@ export default async function SoundboardPage() {
     <div className="space-y-6">
       <DmHeader
         eyebrow="DM Screen"
-        title="Soundboard"
-        description="Rain, crowds and thunder, mixed over the music in the voice channel. Ambience loops until you stop it; effects play once."
+        title="Sound"
+        description="Music, ambience and effects in one place, mixed in the voice channel. Save a mood as a scene and bring it back with one tap."
+        action={<CampaignSwitcher />}
       />
+      <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
+        <Scenes />
+      </section>
+      <section aria-label="Music" className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
+        <DmMusic />
+      </section>
       <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
         <Soundboard />
       </section>

@@ -155,7 +155,7 @@ export async function handleBotRequest(
   // 6. Body: size-capped, JSON only, validated and re-serialised.
   let body: string | undefined;
   if (method !== "GET") {
-    const text = await readLimited(request, MAX_BODY_BYTES);
+    const text = await readLimited(request, rule.maxBodyBytes ?? MAX_BODY_BYTES);
     if (text === null) return errorResponse(413, "payload_too_large", "Request body too large.");
     if (rule.body) {
       const contentType = request.headers.get("content-type") ?? "";
