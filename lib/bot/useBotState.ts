@@ -9,6 +9,8 @@ import type { PlayerState, Soundboard, SoundboardState, TranscriptPage, Transcri
 export const keys = {
   health: ["bot", "health"] as const,
   stats: ["bot", "stats"] as const,
+  // Under ["bot", "sessions"], so every session change refreshes it too.
+  trash: ["bot", "sessions", "trash"] as const,
   sessions: (limit: number, campaign: string | null) => ["bot", "sessions", limit, campaign ?? "all"] as const,
   search: (q: string, campaign: string | null) => ["bot", "search", q, campaign ?? "all"] as const,
   queue: ["bot", "transcription"] as const,
@@ -171,6 +173,11 @@ export function useSessionMutation<TVars, TData>(fn: (vars: TVars) => Promise<TD
       }
     },
   });
+}
+
+/** The trash is only readable by the DM; other users never ask for it. */
+export function useTrash(enabled: boolean) {
+  return useQuery({ queryKey: keys.trash, queryFn: bot.trash, enabled, refetchInterval: interval(60_000), retry });
 }
 
 export function useActiveRecordings() {

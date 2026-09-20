@@ -9,6 +9,7 @@ import { Card, PageHeader, Skeleton, StatCard } from "../ui";
 import { SessionChart } from "./SessionChart";
 import { SessionTable } from "./SessionTable";
 import { TranscriptionQueue } from "./TranscriptionQueue";
+import { TrashCard } from "./TrashCard";
 
 const LIMITS = [25, 50, 100, 200];
 
@@ -77,6 +78,8 @@ export function SessionHistory({ canManage = false }: { canManage?: boolean }) {
       >
         <SessionTable query={sessions} canManage={canManage} />
       </Card>
+
+      {canManage ? <TrashCard /> : null}
     </div>
   );
 }

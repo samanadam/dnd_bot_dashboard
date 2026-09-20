@@ -23,6 +23,9 @@ export type SessionSummary = {
   campaign_name: string | null;
 };
 
+// A session in the trash: restorable until purge_at, then removed for good.
+export type TrashedSession = SessionSummary & { deleted_at: string; purge_at: string | null };
+
 export type Campaign = {
   id: string;
   name: string;

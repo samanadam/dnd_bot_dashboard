@@ -13,6 +13,7 @@ import type {
   LoopMode,
   PlayerState,
   SessionSummary,
+  TrashedSession,
   Soundboard,
   SoundboardState,
   SoundKind,
@@ -155,13 +156,18 @@ export const bot = {
     call<SessionSummary>("POST", `sessions/${encodeURIComponent(sessionId)}/campaign`, { campaign_id: campaignId }),
   renameSession: (sessionId: string, name: string) =>
     call<SessionSummary>("POST", `sessions/${encodeURIComponent(sessionId)}/update`, { name }),
-  // The bot only deletes when the body repeats the id it was aimed at.
-  deleteSession: (sessionId: string) =>
-    call<{ deleted: string; files_removed: number; bytes_freed: number }>(
+  // The bot only acts when the body repeats the id it was aimed at.
+  trashSession: (sessionId: string) =>
+    call<TrashedSession>("POST", `sessions/${encodeURIComponent(sessionId)}/trash`, { confirm_id: sessionId }),
+  restoreSession: (sessionId: string) =>
+    call<SessionSummary>("POST", `sessions/${encodeURIComponent(sessionId)}/restore`, { confirm_id: sessionId }),
+  purgeSession: (sessionId: string) =>
+    call<{ purged: string; files_removed: number; bytes_freed: number }>(
       "POST",
-      `sessions/${encodeURIComponent(sessionId)}/delete`,
+      `sessions/${encodeURIComponent(sessionId)}/purge`,
       { confirm_id: sessionId },
     ),
+  trash: () => call<TrashedSession[]>("GET", "sessions/trash"),
   transcript: (sessionId: string, offset: number, limit = 500) =>
     call<TranscriptPage>("GET", `sessions/${encodeURIComponent(sessionId)}/transcript?offset=${offset}&limit=${limit}`),
 };
