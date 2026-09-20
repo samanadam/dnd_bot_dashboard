@@ -126,11 +126,11 @@ export const bot = {
 
   deleteTrack: (id: string) => call<{ deleted: string }>("POST", "music/delete", { id }),
   soundboard: () => call<Soundboard>("GET", "soundboard"),
-  // `source: "youtube"` takes a plain watch link; the bot saves the audio first.
+  // `source: "youtube"` or `"soundcloud"` takes that source's plain link; the bot saves the audio first.
   playSound: (input: { kind: SoundKind; id: string; source?: TrackSource; volume?: number; channel_id?: string }) =>
     call<SoundboardState>("POST", "soundboard/play", input),
-  // Saves a YouTube sound ahead of time so it starts at once later.
-  prepareSound: (input: { kind: SoundKind; id: string }) => call<Track>("POST", "soundboard/prepare", input),
+  // Saves a YouTube or SoundCloud sound ahead of time so it starts at once later.
+  prepareSound: (input: { kind: SoundKind; id: string; source?: "youtube" | "soundcloud" }) => call<Track>("POST", "soundboard/prepare", input),
   stopSound: (input: { layer_id?: string; kind?: SoundKind } = {}) => call<SoundboardState>("POST", "soundboard/stop", input),
   soundVolume: (layer_id: string, volume: number) => call<SoundboardState>("POST", "soundboard/volume", { layer_id, volume }),
   searchTranscripts: (q: string, campaign?: string, limit = 30) => {

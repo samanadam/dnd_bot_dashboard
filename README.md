@@ -9,7 +9,7 @@ from a laptop or a phone at the table.
   command in Discord, and the controls use the channel the bot is in.
 - **Overview**: bot health, disk, storage, pending transcripts, live recordings
   with stop / cancel, start a recording, recent sessions.
-- **Music**: library, YouTube search (when the bot enables it), queue editing,
+- **Music**: library, YouTube and SoundCloud search (when the bot enables them), queue editing,
   transport with a seek bar, volume, loop, join / leave voice. The DM can also upload tracks
   (drag and drop, with progress) and delete them.
 - **Sessions**: full history, recovery of interrupted sessions, and the
@@ -34,13 +34,14 @@ from a laptop or a phone at the table.
   - **Sound**: music, looping ambience and one-shot effects on one page, mixed
     in voice, with **scenes**: saved combinations (music plus sounds, with
     volumes) in categories, played with one tap.
-  - **YouTube library**: paste a link or search, then save it as music, an
+  - **YouTube and SoundCloud library**: paste a link or search, then save it as music, an
     ambience loop or an effect, filed under a category and, if you like, a
     campaign. Music plays now, next or at the end of the queue; ambience
     toggles as a loop; effects fire once. The bot saves each ambience or effect
     the first time so it starts at once afterwards ("Get all ready" does it
-    ahead of the game). Saved sounds can be added to scenes. Needs YouTube
-    turned on in the bot (`MUSIC_YTDLP_ENABLED`).
+    ahead of the game). Saved sounds can be added to scenes. Needs the bot's
+    link resolver turned on (`MUSIC_YTDLP_ENABLED`); SoundCloud works from
+    a server where YouTube asks for a sign-in.
   - **Prepared encounters**: build a fight ahead of time, with allies, and launch
     a fresh copy at full hit points when it starts.
   - **Player rolls**: players report their initiative in Discord with `/init`;

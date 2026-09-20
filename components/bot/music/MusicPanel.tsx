@@ -3,12 +3,13 @@
 import { Music2 } from "lucide-react";
 import { useBotOnline, useMusicState } from "@/lib/bot/useBotState";
 import { BotError } from "@/lib/bot/client";
+import { WEB_SOURCES } from "@/lib/webAudio";
 import { EmptyState, PageHeader, Skeleton } from "../../ui";
 import { QueueList } from "./QueueList";
 import { TrackLibrary } from "./TrackLibrary";
 import { TransportBar } from "./TransportBar";
 import { UploadTracks } from "./UploadTracks";
-import { YouTubeSearch } from "./YouTubeSearch";
+import { WebSearch } from "./WebSearch";
 
 export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
   const { online } = useBotOnline();
@@ -53,7 +54,9 @@ export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="space-y-6">
           <TrackLibrary state={state} enabled={enabled} canManage={canManage} />
-          {state.sources.youtube && <YouTubeSearch state={state} enabled={enabled} />}
+          {WEB_SOURCES.filter((name) => state.sources[name]).map((name) => (
+            <WebSearch key={name} source={name} state={state} enabled={enabled} />
+          ))}
         </div>
         <div className="space-y-6">
           <QueueList state={state} enabled={enabled} />

@@ -32,7 +32,7 @@ describe("scene layers from YouTube", () => {
   });
 
   it("refuses an unknown source and stray fields", () => {
-    expect(sceneSchema.safeParse(scene([layer({ source: "soundcloud" })])).success).toBe(false);
+    expect(sceneSchema.safeParse(scene([layer({ source: "spotify" })])).success).toBe(false);
     expect(sceneSchema.safeParse(scene([layer({ extra: 1 })])).success).toBe(false);
   });
 

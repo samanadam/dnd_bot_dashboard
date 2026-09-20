@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
-import { WATCH_LINK } from "@/lib/youtube";
+import { isTrackLink, isWebSource, WEB_SOURCES } from "@/lib/webAudio";
 
 // A scene is a saved arrangement of sound: optionally a music track, plus
 // looping ambience and one-shot effects. The portal stores it; playing it is the
@@ -21,14 +21,15 @@ export const MAX_LAYERS = 12;
 export const MAX_SCENES = 200;
 
 // A layer with no source is a sound from the bucket, as every scene saved before
-// YouTube sounds existed. A YouTube layer must hold the exact watch link the bot
-// accepts, so a stored scene cannot smuggle any other URL into a later bot call.
+// web sounds existed. A YouTube or SoundCloud layer must hold the exact link the
+// bot accepts for that source, so a stored scene cannot smuggle any other URL
+// into a later bot call.
 const layerSchema = z
-  .object({ kind: z.enum(["ambience", "sfx"]), id: trackId, title, volume, source: z.enum(["r2", "youtube"]).optional() })
+  .object({ kind: z.enum(["ambience", "sfx"]), id: trackId, title, volume, source: z.enum(["r2", ...WEB_SOURCES]).optional() })
   .strict()
-  .refine((layer) => layer.source !== "youtube" || WATCH_LINK.test(layer.id), {
+  .refine((layer) => !isWebSource(layer.source) || isTrackLink(layer.source, layer.id), {
     path: ["id"],
-    message: "must be a plain YouTube video link",
+    message: "must be a plain link for that source",
   });
 
 export const sceneSchema = z
@@ -39,7 +40,7 @@ export const sceneSchema = z
     // Stop the sounds already playing before this scene starts.
     replace: z.boolean(),
     music: z
-      .object({ source: z.enum(["r2", "youtube"]), id: trackId, title, volume: volume.nullable() })
+      .object({ source: z.enum(["r2", ...WEB_SOURCES]), id: trackId, title, volume: volume.nullable() })
       .strict()
       .nullable(),
     layers: z.array(layerSchema).max(MAX_LAYERS),

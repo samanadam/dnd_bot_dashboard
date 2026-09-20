@@ -49,7 +49,7 @@ const active = new Map();
 const player = {
   connected: false, channel_id: null, owner: null, playing: false, paused: false,
   volume: 1, loop: "off", position_seconds: 0, current: null, queue: [],
-  sources: { r2: true, youtube: true },
+  sources: { r2: true, youtube: true, soundcloud: true },
 };
 let positionAnchor = Date.now();
 
@@ -156,11 +156,16 @@ const routes = {
   "POST music/search": (body) => {
     // A pasted watch link resolves to that one video, the way the real resolver does.
     const link = /^https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})$/.exec(body.query);
-    if (link) return ok([{ id: body.query, title: `Video ${link[1]}`, source: "youtube", duration_seconds: 95 }]);
+    if (link && body.source === "youtube") return ok([{ id: body.query, title: `Video ${link[1]}`, source: "youtube", duration_seconds: 95 }]);
+    const cloud = SOUNDCLOUD.exec(body.query);
+    if (cloud && body.source === "soundcloud") return ok([{ id: body.query, title: `Track ${cloud[2]}`, source: "soundcloud", duration_seconds: 95 }]);
+    if (body.source === "soundcloud") {
+      return ok([1, 2, 3].map((n) => ({ id: `https://soundcloud.com/mock-artist/${createHash("sha1").update(`${body.query}:${n}`).digest("hex").slice(0, 8)}`, title: `${body.query} (track ${n})`, source: "soundcloud", duration_seconds: 240 * n })));
+    }
     return ok([1, 2, 3].map((n) => ({ id: `https://www.youtube.com/watch?v=${createHash("sha1").update(`${body.query}:${n}`).digest("base64url").slice(0, 11)}`, title: `${body.query} (result ${n})`, source: "youtube", duration_seconds: 180 * n })));
   },
   "POST music/play": (body) => {
-    const track = library.find((t) => t.id === body.id) ?? (body.source === "youtube" ? { id: body.id, title: body.id, source: "youtube", duration_seconds: 240 } : null);
+    const track = library.find((t) => t.id === body.id) ?? (body.source === "youtube" || body.source === "soundcloud" ? { id: body.id, title: body.id, source: body.source, duration_seconds: 240 } : null);
     if (!track) return fail(404, "not_found", "Unknown track.");
     if (!player.connected) {
       if (!body.channel_id) return fail(409, "conflict", "The bot is not in a voice channel. Give a channel_id.");
@@ -203,11 +208,11 @@ const routes = {
   // YouTube sounds are saved once on the bot, then played from disk. The mock
   // pretends: any plain watch link works, and one over the limit is refused.
   "POST soundboard/prepare": (body) => {
-    const track = youtubeSound(body);
+    const track = webSound(body);
     return typeof track === "string" ? fail(502, "resolver_failed", track) : ok(track);
   },
   "POST soundboard/play": (body) => {
-    const track = body.source === "youtube" ? youtubeSound(body) : sounds[body.kind]?.find((t) => t.id === body.id);
+    const track = body.source === "youtube" || body.source === "soundcloud" ? webSound(body) : sounds[body.kind]?.find((t) => t.id === body.id);
     if (typeof track === "string") return fail(502, "resolver_failed", track);
     if (!track) return fail(404, "not_found", `No such ${body.kind} sound.`);
     if (!player.connected) {
@@ -244,7 +249,15 @@ const routes = {
   },
 };
 
-function youtubeSound(body) {
+const SOUNDCLOUD = /^https:\/\/soundcloud\.com\/([a-z0-9_-]{1,120})\/([a-z0-9_-]{1,120})$/;
+
+function webSound(body) {
+  if (body.source === "soundcloud") {
+    const cloud = SOUNDCLOUD.exec(body.id ?? "");
+    if (!cloud) return "Ambience and effects need a plain SoundCloud track link.";
+    if (cloud[2].startsWith("long")) return `That is longer than the ${body.kind === "sfx" ? "60 second" : "30 minute"} limit for ${body.kind === "sfx" ? "effects" : "ambience"}.`;
+    return { id: body.id, title: `Track ${cloud[2]}`, source: "soundcloud", duration_seconds: 12 };
+  }
   const link = /^https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})$/.exec(body.id ?? "");
   if (!link) return "Ambience and effects need a plain YouTube video link.";
   // Ids starting with "long" stand in for a video over the length limit.

@@ -5,17 +5,19 @@ import { Globe, Search } from "lucide-react";
 import { useState } from "react";
 import { bot } from "@/lib/bot/client";
 import type { PlayerState } from "@/lib/bot/types";
+import { WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
 import { Button, Card, EmptyState, inputClass } from "../../ui";
 import { TrackRow, usePlay } from "./TrackLibrary";
 
-// Only rendered when the bot reports state.sources.youtube === true.
-export function YouTubeSearch({ state, enabled }: { state: PlayerState; enabled: boolean }) {
+// One per service; only rendered when the bot reports state.sources[source] === true.
+export function WebSearch({ source, state, enabled }: { source: WebSource; state: PlayerState; enabled: boolean }) {
+  const label = WEB_SOURCE_LABEL[source];
   const [query, setQuery] = useState("");
-  const search = useMutation({ mutationFn: (q: string) => bot.search("youtube", q) });
+  const search = useMutation({ mutationFn: (q: string) => bot.search(source, q) });
   const { play, pendingId } = usePlay(state);
 
   return (
-    <Card title="YouTube" subtitle="Search and play anything" icon={Globe} padded={false}>
+    <Card title={label} subtitle="Search and play anything" icon={Globe} padded={false}>
       <form
         className="flex gap-2 p-5"
         onSubmit={(event) => {
@@ -29,7 +31,7 @@ export function YouTubeSearch({ state, enabled }: { state: PlayerState; enabled:
             type="search"
             className={`${inputClass} pl-10`}
             placeholder="Tavern music, boss battle, rain…"
-            aria-label="Search YouTube"
+            aria-label={`Search ${label}`}
             maxLength={200}
             value={query}
             onChange={(event) => setQuery(event.target.value)}

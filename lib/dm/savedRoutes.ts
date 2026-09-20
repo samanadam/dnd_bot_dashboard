@@ -11,7 +11,7 @@ const missing = () => errorResponse(404, "not_found", "No such saved link.");
 function refusal(result: Extract<SaveResult, { ok: false }>): Response {
   if (result.reason === "missing") return missing();
   if (result.reason === "limit") return errorResponse(409, "conflict", "That is the most links you can keep. Delete one first.");
-  return errorResponse(409, "conflict", "That video is already saved in this list.");
+  return errorResponse(409, "conflict", "That link is already saved in this list.");
 }
 
 export function savedCollection(deps: SavedRouteDeps) {

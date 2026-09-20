@@ -17,7 +17,7 @@ export default async function SoundboardPage() {
       <DmHeader
         eyebrow="DM Screen"
         title="Sound"
-        description="Music, ambience and effects in one place, mixed in the voice channel. Save YouTube links, and save a mood as a scene to bring it back with one tap."
+        description="Music, ambience and effects in one place, mixed in the voice channel. Save YouTube and SoundCloud links, and save a mood as a scene to bring it back with one tap."
         action={<CampaignSwitcher />}
       />
       <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">

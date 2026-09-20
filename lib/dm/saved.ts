@@ -1,14 +1,18 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
-import { UNSAFE_TEXT, VIDEO_ID } from "@/lib/youtube";
+import { UNSAFE_TEXT } from "@/lib/youtube";
+import { isRef, WEB_SOURCES, type WebSource } from "@/lib/webAudio";
 
-// Saved YouTube links: music for the queue, ambience loops and one-shot effects.
-// The portal keeps the list; the bot only ever plays what it is handed.
+// Saved YouTube and SoundCloud links: music for the queue, ambience loops and
+// one-shot effects. The portal keeps the list; the bot only ever plays what it is
+// handed.
 //
-// What is stored is the 11-character video id, never a URL. It is matched
+// What is stored is a reference, never a URL: the 11-character video id for
+// YouTube, the lower-case `artist/track` path for SoundCloud. It is matched
 // against one strict pattern on the way in and again on the way out, so nothing
-// in this table can carry a host, a path or an option flag into a bot call.
+// in this table can carry a host, a query string or an option flag into a bot
+// call.
 
 export const SAVED_KINDS = ["music", "ambience", "sfx"] as const;
 export type SavedKind = (typeof SAVED_KINDS)[number];
@@ -24,8 +28,9 @@ const safeText = (max: number) =>
 
 export const savedSchema = z
   .object({
+    source: z.enum(WEB_SOURCES),
     kind: z.enum(SAVED_KINDS),
-    videoId: z.string().regex(VIDEO_ID, "not a YouTube video id"),
+    ref: z.string().max(241),
     title: safeText(200).refine((value) => value.length > 0, "a title is required"),
     // Whole seconds; null when the bot did not report a length.
     durationSeconds: z.number().int().min(1).max(86_400).nullable(),
@@ -34,8 +39,10 @@ export const savedSchema = z
     // Left out on an update it is unchanged; null files the link under no campaign.
     campaignId: campaignIdSchema.nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => isRef(value.source, value.ref), { path: ["ref"], message: "not a valid link for that source" });
 
+export type { WebSource };
 export type SavedInput = z.infer<typeof savedSchema>;
 export type SavedTrack = Omit<SavedInput, "campaignId"> & {
   id: string;
@@ -48,8 +55,9 @@ export const SAVED_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 
 type Row = {
   id: string;
+  source: string;
   kind: string;
-  video_id: string;
+  ref: string;
   title: string;
   duration_seconds: number | null;
   category: string;
@@ -75,8 +83,9 @@ export class SavedRepo {
   private toItem(row: Row | undefined): SavedTrack | null {
     if (!row) return null;
     const parsed = savedSchema.safeParse({
+      source: row.source,
       kind: row.kind,
-      videoId: row.video_id,
+      ref: row.ref,
       title: row.title,
       durationSeconds: row.duration_seconds,
       category: row.category,
@@ -85,8 +94,9 @@ export class SavedRepo {
     if (!parsed.success) return null;
     return {
       id: row.id,
+      source: parsed.data.source,
       kind: parsed.data.kind,
-      videoId: parsed.data.videoId,
+      ref: parsed.data.ref,
       title: parsed.data.title,
       durationSeconds: parsed.data.durationSeconds,
       category: parsed.data.category,
@@ -123,9 +133,9 @@ export class SavedRepo {
     try {
       this.db
         .prepare(
-          "INSERT INTO saved_tracks (id, kind, video_id, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO saved_tracks (id, source, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .run(id, value.kind, value.videoId, value.title, value.durationSeconds, value.category, value.campaignId ?? null, at, at);
+        .run(id, value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, value.campaignId ?? null, at, at);
     } catch (error) {
       if (isUniqueViolation(error)) return { ok: false, reason: "duplicate" };
       throw error;
@@ -142,13 +152,13 @@ export class SavedRepo {
       const result =
         value.campaignId === undefined
           ? this.db
-              .prepare("UPDATE saved_tracks SET kind = ?, video_id = ?, title = ?, duration_seconds = ?, category = ?, updated_at = ? WHERE id = ?")
-              .run(value.kind, value.videoId, value.title, value.durationSeconds, value.category, at, id)
+              .prepare("UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, category = ?, updated_at = ? WHERE id = ?")
+              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, at, id)
           : this.db
               .prepare(
-                "UPDATE saved_tracks SET kind = ?, video_id = ?, title = ?, duration_seconds = ?, category = ?, campaign_id = ?, updated_at = ? WHERE id = ?",
+                "UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, category = ?, campaign_id = ?, updated_at = ? WHERE id = ?",
               )
-              .run(value.kind, value.videoId, value.title, value.durationSeconds, value.category, value.campaignId, at, id);
+              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, value.campaignId, at, id);
       if (Number(result.changes) === 0) return { ok: false, reason: "missing" };
     } catch (error) {
       if (isUniqueViolation(error)) return { ok: false, reason: "duplicate" };

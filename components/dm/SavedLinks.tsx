@@ -14,7 +14,7 @@ import { dm, DmError } from "@/lib/dm/client";
 import { SAVED_KINDS, type SavedKind, type SavedTrack } from "@/lib/dm/saved";
 import { SAVED_KEY, useSaved } from "@/lib/dm/useSaved";
 import { formatDuration } from "@/lib/format";
-import { parseYouTubeLink, videoIdFromTrack, watchUrl } from "@/lib/youtube";
+import { detectLink, refFromTrack, trackUrl, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
 import { useVoiceTarget } from "./Soundboard";
 
 const KIND_LABEL: Record<SavedKind, string> = { music: "Music", ambience: "Ambience", sfx: "Effects" };
@@ -29,14 +29,15 @@ function errorText(error: unknown, fallback: string) {
   return error instanceof BotError || error instanceof DmError ? error.message : fallback;
 }
 
-function IconLink({ videoId, title }: { videoId: string; title: string }) {
+function IconLink({ source, reference, title }: { source: WebSource; reference: string; title: string }) {
+  const label = WEB_SOURCE_LABEL[source];
   return (
     <a
-      href={watchUrl(videoId)}
+      href={trackUrl(source, reference)}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`Open ${title} on YouTube`}
-      title="Open on YouTube"
+      aria-label={`Open ${title} on ${label}`}
+      title={`Open on ${label}`}
       className="inline-grid size-9 shrink-0 place-items-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <ExternalLink className="size-4" aria-hidden />
@@ -52,7 +53,7 @@ function EditRow({ item, categories, onDone }: { item: SavedTrack; categories: s
   const save = useMutation({
     // The campaign is left out on purpose: an edit here keeps it as it is.
     mutationFn: () =>
-      dm.updateSaved(item.id, { kind: item.kind, videoId: item.videoId, title, durationSeconds: item.durationSeconds, category }),
+      dm.updateSaved(item.id, { source: item.source, kind: item.kind, ref: item.ref, title, durationSeconds: item.durationSeconds, category }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: SAVED_KEY });
       onDone();
@@ -91,8 +92,8 @@ function EditRow({ item, categories, onDone }: { item: SavedTrack; categories: s
 }
 
 /**
- * Saved YouTube links: music for the queue, ambience loops and one-shot effects,
- * filed under categories. The list lives in the portal; playing is the browser
+ * Saved YouTube and SoundCloud links: music for the queue, ambience loops and
+ * one-shot effects, filed under categories. The list lives in the portal; playing is the browser
  * calling the same bot endpoints as everything else on this page.
  */
 export function SavedLinks() {
@@ -106,6 +107,7 @@ export function SavedLinks() {
   const saved = useSaved(selection);
 
   const [kind, setKind] = useState<SavedKind>("music");
+  const [picked, setPicked] = useState<WebSource | null>(null);
   const [text, setText] = useState("");
   const [category, setCategory] = useState("");
   const [filter, setFilter] = useState("");
@@ -114,7 +116,11 @@ export function SavedLinks() {
   const [deleting, setDeleting] = useState<SavedTrack | null>(null);
   const [preparing, setPreparing] = useState<string | null>(null);
 
-  const youtubeOn = music.data ? music.data.sources.youtube === true : true;
+  // Until the bot answers, assume a source is on; afterwards only what it reports.
+  const sourceOn = (name: WebSource) => (music.data ? music.data.sources[name] === true : true);
+  const anyOn = WEB_SOURCES.some(sourceOn);
+  const source: WebSource = picked ?? (sourceOn("youtube") ? "youtube" : "soundcloud");
+  const sourceLabel = WEB_SOURCE_LABEL[source];
   const channel = voice.channelId ? { channel_id: voice.channelId } : {};
   const layers = useMemo(() => board.data?.layers ?? [], [board.data]);
   const items = useMemo(() => saved.data ?? [], [saved.data]);
@@ -147,24 +153,24 @@ export function SavedLinks() {
   }
 
   const playMusic = (item: SavedTrack, position: QueuePosition) =>
-    run(item.id, () => bot.play({ source: "youtube", id: watchUrl(item.videoId), position, ...channel }), position === "now" ? `Playing ${item.title}` : `Queued ${item.title}`);
+    run(item.id, () => bot.play({ source: item.source, id: trackUrl(item.source, item.ref), position, ...channel }), position === "now" ? `Playing ${item.title}` : `Queued ${item.title}`);
 
-  const ambienceLayer = (item: SavedTrack) => layers.find((layer) => layer.kind === "ambience" && layer.track_id === watchUrl(item.videoId));
+  const ambienceLayer = (item: SavedTrack) => layers.find((layer) => layer.kind === "ambience" && layer.track_id === trackUrl(item.source, item.ref));
 
   const toggleAmbience = (item: SavedTrack) => {
     const active = ambienceLayer(item);
     return run(item.id, () =>
       active
         ? bot.stopSound({ layer_id: active.id })
-        : bot.playSound({ kind: "ambience", id: watchUrl(item.videoId), source: "youtube", ...channel }),
+        : bot.playSound({ kind: "ambience", id: trackUrl(item.source, item.ref), source: item.source, ...channel }),
     );
   };
 
   const fireEffect = (item: SavedTrack) =>
-    run(item.id, () => bot.playSound({ kind: "sfx", id: watchUrl(item.videoId), source: "youtube", ...channel }));
+    run(item.id, () => bot.playSound({ kind: "sfx", id: trackUrl(item.source, item.ref), source: item.source, ...channel }));
 
   const prepareOne = (item: SavedTrack) =>
-    run(item.id, () => bot.prepareSound({ kind: item.kind as SoundKind, id: watchUrl(item.videoId) }), `${item.title} is ready.`);
+    run(item.id, () => bot.prepareSound({ kind: item.kind as SoundKind, id: trackUrl(item.source, item.ref), source: item.source }), `${item.title} is ready.`);
 
   async function prepareAll() {
     const sounds = mine.filter((item) => item.kind !== "music");
@@ -172,7 +178,7 @@ export function SavedLinks() {
     for (const [index, item] of sounds.entries()) {
       setPreparing(`${index + 1}/${sounds.length}`);
       try {
-        await bot.prepareSound({ kind: item.kind as SoundKind, id: watchUrl(item.videoId) });
+        await bot.prepareSound({ kind: item.kind as SoundKind, id: trackUrl(item.source, item.ref), source: item.source });
       } catch {
         failed += 1;
       }
@@ -181,24 +187,28 @@ export function SavedLinks() {
     toast(failed ? "danger" : "ok", failed ? `${sounds.length - failed} ready, ${failed} could not be saved.` : `${sounds.length} sounds are ready.`);
   }
 
-  // A pasted link is looked up as that one video; anything else is a search.
+  // A pasted link is looked up as that one item, on whichever service it names;
+  // anything else is a search on the chosen service.
   const lookup = useMutation({
-    mutationFn: (query: string) => {
-      const id = parseYouTubeLink(query);
-      return bot.search("youtube", id ? watchUrl(id) : query);
+    mutationFn: async (query: string): Promise<{ source: WebSource; tracks: Track[] }> => {
+      const found = detectLink(query);
+      const name = found?.source ?? source;
+      const tracks = await bot.search(name, found ? trackUrl(found.source, found.ref) : query);
+      return { source: name, tracks };
     },
-    onError: (error) => toast("danger", errorText(error, "YouTube did not answer.")),
+    onError: (error) => toast("danger", errorText(error, `${sourceLabel} did not answer.`)),
   });
 
-  async function save(track: Track, videoId: string) {
-    setPending(videoId);
+  async function save(track: Track, name: WebSource, ref: string) {
+    setPending(ref);
     try {
-      // A sound is downloaded first: it proves the video fits the limits, and
+      // A sound is downloaded first: it proves the track fits the limits, and
       // the first play at the table is then instant.
-      if (kind !== "music") await bot.prepareSound({ kind, id: watchUrl(videoId) });
+      if (kind !== "music") await bot.prepareSound({ kind, id: trackUrl(name, ref), source: name });
       await dm.createSaved({
+        source: name,
         kind,
-        videoId,
+        ref,
         title: track.title,
         durationSeconds: track.duration_seconds ? Math.max(1, Math.round(track.duration_seconds)) : null,
         category,
@@ -224,10 +234,10 @@ export function SavedLinks() {
   const sounds = mine.filter((item) => item.kind !== "music").length;
 
   return (
-    <section aria-label="Saved YouTube links" className="space-y-4">
+    <section aria-label="Saved links" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
-          <Link2 className="size-5 text-accent" aria-hidden /> YouTube library
+          <Link2 className="size-5 text-accent" aria-hidden /> YouTube and SoundCloud
         </h2>
         <div role="tablist" aria-label="Kind of sound" className="inline-flex rounded-xl border border-border bg-surface-2 p-1">
           {SAVED_KINDS.map((value) => {
@@ -257,33 +267,46 @@ export function SavedLinks() {
         </div>
       </div>
 
-      {!youtubeOn ? (
-        <Notice tone="warn" title="YouTube is turned off on the bot">
-          Saved links cannot be played or added until the bot has YouTube enabled.
+      {!anyOn ? (
+        <Notice tone="warn" title="Web music is turned off on the bot">
+          Saved links cannot be played or added until the bot has YouTube or SoundCloud enabled.
+        </Notice>
+      ) : !sourceOn(source) ? (
+        <Notice tone="warn" title={`${sourceLabel} is turned off on the bot`}>
+          Pick another service to search, or paste a link.
         </Notice>
       ) : null}
       {!voice.ready && voice.presence.kind !== "loading" ? <Notice tone="warn">Playing goes through the bot, which is not in a voice channel yet.</Notice> : null}
 
       <div role="tabpanel" className="space-y-4">
         <form
-          className="grid gap-3 rounded-2xl border border-border bg-surface-2 p-3 sm:grid-cols-[1fr_11rem_auto]"
+          className="grid gap-3 rounded-2xl border border-border bg-surface-2 p-3 sm:grid-cols-[1fr_9rem_11rem_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             if (text.trim()) lookup.mutate(text.trim());
           }}
         >
-          <Field label="Paste a link or search YouTube" hint={KIND_HINT[kind]}>
+          <Field label={`Paste a link or search ${sourceLabel}`} hint={KIND_HINT[kind]}>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
               <input
                 type="search"
                 className={`${inputClass} h-10 pl-10`}
-                placeholder={kind === "music" ? "https://youtu.be/… or tavern music" : kind === "ambience" ? "rain on a roof, 10 hours" : "door slam sound effect"}
+                placeholder={kind === "music" ? "A link, or tavern music" : kind === "ambience" ? "rain on a roof, 10 hours" : "door slam sound effect"}
                 maxLength={200}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
               />
             </div>
+          </Field>
+          <Field label="Service">
+            <select className={`${inputClass} h-10`} value={source} onChange={(event) => setPicked(event.target.value as WebSource)}>
+              {WEB_SOURCES.map((name) => (
+                <option key={name} value={name} disabled={!sourceOn(name)}>
+                  {WEB_SOURCE_LABEL[name]}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Category">
             <input className={`${inputClass} h-10`} value={category} maxLength={40} list="saved-categories" placeholder="Taverns" onChange={(event) => setCategory(event.target.value)} />
@@ -294,36 +317,39 @@ export function SavedLinks() {
             </datalist>
           </Field>
           <div className="flex items-end">
-            <Button type="submit" variant="primary" icon={Search} className="h-10 w-full" busy={lookup.isPending} disabled={!youtubeOn || !text.trim()}>
+            <Button type="submit" variant="primary" icon={Search} className="h-10 w-full" busy={lookup.isPending} disabled={!anyOn || !text.trim()}>
               Find
             </Button>
           </div>
         </form>
 
         {lookup.data ? (
-          lookup.data.length === 0 ? (
+          lookup.data.tracks.length === 0 ? (
             <p className="text-sm text-faint">Nothing found.</p>
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border" aria-label="Results">
-              {lookup.data.map((track) => {
-                const videoId = videoIdFromTrack(track.id);
-                const already = videoId !== null && items.some((item) => item.kind === kind && item.videoId === videoId && (item.campaignId ?? null) === campaignForNew);
+              {lookup.data.tracks.map((track) => {
+                const from = lookup.data.source;
+                const ref = refFromTrack(from, track.id);
+                const already = ref !== null && items.some((item) => item.source === from && item.kind === kind && item.ref === ref && (item.campaignId ?? null) === campaignForNew);
                 return (
                   <li key={track.id} className="flex items-center gap-3 px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium" title={track.title}>
                         {track.title}
                       </div>
-                      <div className="text-xs text-muted">{formatDuration(track.duration_seconds)}</div>
+                      <div className="text-xs text-muted">
+                        {formatDuration(track.duration_seconds)} · {WEB_SOURCE_LABEL[from]}
+                      </div>
                     </div>
-                    {videoId ? <IconLink videoId={videoId} title={track.title} /> : null}
+                    {ref ? <IconLink source={from} reference={ref} title={track.title} /> : null}
                     <Button
                       size="sm"
                       variant="primary"
                       icon={already ? undefined : Save}
-                      busy={videoId !== null && pending === videoId}
-                      disabled={!videoId || already || pending !== null}
-                      onClick={() => videoId && void save(track, videoId)}
+                      busy={ref !== null && pending === ref}
+                      disabled={!ref || already || pending !== null}
+                      onClick={() => ref && void save(track, from, ref)}
                     >
                       {already ? "Saved" : kind === "music" ? "Save" : "Save and get ready"}
                     </Button>
@@ -340,7 +366,7 @@ export function SavedLinks() {
             <input type="search" className={`${inputClass} h-9 pl-9`} placeholder={`Find in ${KIND_LABEL[kind].toLowerCase()}`} aria-label={`Find in ${KIND_LABEL[kind].toLowerCase()}`} maxLength={80} value={filter} onChange={(event) => setFilter(event.target.value)} />
           </div>
           {kind !== "music" ? (
-            <Button size="sm" icon={CloudDownload} busy={preparing !== null} disabled={sounds === 0 || !youtubeOn} onClick={() => void prepareAll()}>
+            <Button size="sm" icon={CloudDownload} busy={preparing !== null} disabled={sounds === 0 || !anyOn} onClick={() => void prepareAll()}>
               {preparing ? `Getting ready ${preparing}` : "Get all ready"}
             </Button>
           ) : null}
@@ -353,7 +379,7 @@ export function SavedLinks() {
         ) : groups.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border">
             <EmptyState icon={Icon} title={needle ? "Nothing matches" : `No ${KIND_LABEL[kind].toLowerCase()} saved yet`}>
-              {needle ? "Try another word." : "Paste a YouTube link or search above, then choose Save."}
+              {needle ? "Try another word." : "Paste a YouTube or SoundCloud link, or search above, then choose Save."}
             </EmptyState>
           </div>
         ) : (
@@ -370,7 +396,7 @@ export function SavedLinks() {
                     <li
                       key={item.id}
                       className={`flex items-center gap-2 rounded-2xl border p-2 pl-3 ${
-                        (item.kind === "ambience" && ambienceLayer(item)) || (item.kind === "music" && music.data?.current?.id === watchUrl(item.videoId))
+                        (item.kind === "ambience" && ambienceLayer(item)) || (item.kind === "music" && music.data?.current?.id === trackUrl(item.source, item.ref))
                           ? "border-accent bg-accent-soft"
                           : "border-border bg-surface-2"
                       }`}
@@ -379,13 +405,15 @@ export function SavedLinks() {
                         <div className="truncate text-sm font-medium" title={item.title}>
                           {item.title}
                         </div>
-                        <div className="text-xs text-muted">{formatDuration(item.durationSeconds)}</div>
+                        <div className="text-xs text-muted">
+                          {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
+                        </div>
                       </div>
                       {item.kind === "music" ? (
                         <>
-                          <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || pending !== null || !youtubeOn} onClick={() => void playMusic(item, "now")} />
-                          <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || pending !== null || !youtubeOn} onClick={() => void playMusic(item, "next")} />
-                          <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || pending !== null || !youtubeOn} onClick={() => void playMusic(item, "end")} />
+                          <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
+                          <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
+                          <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
                         </>
                       ) : item.kind === "ambience" ? (
                         <Button
@@ -395,20 +423,20 @@ export function SavedLinks() {
                           aria-pressed={Boolean(ambienceLayer(item))}
                           aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
                           busy={pending === item.id}
-                          disabled={!voice.ready || pending !== null || !youtubeOn}
+                          disabled={!voice.ready || pending !== null || !sourceOn(item.source)}
                           onClick={() => void toggleAmbience(item)}
                         >
                           {ambienceLayer(item) ? "Stop" : "Loop"}
                         </Button>
                       ) : (
-                        <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || pending !== null || !youtubeOn} onClick={() => void fireEffect(item)}>
+                        <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
                           Play
                         </Button>
                       )}
                       {item.kind !== "music" ? (
-                        <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={pending !== null || !youtubeOn} onClick={() => void prepareOne(item)} />
+                        <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={pending !== null || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
                       ) : null}
-                      <IconLink videoId={item.videoId} title={item.title} />
+                      <IconLink source={item.source} reference={item.ref} title={item.title} />
                       <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />
                       <Button size="icon" variant="danger-ghost" aria-label={`Delete ${item.title}`} icon={Trash2} onClick={() => setDeleting(item)} />
                     </li>
@@ -428,7 +456,7 @@ export function SavedLinks() {
         onClose={() => !remove.isPending && setDeleting(null)}
         onConfirm={() => deleting && remove.mutate(deleting)}
       >
-        <p>Only the saved link is removed. Scenes that use the same video are not affected.</p>
+        <p>Only the saved link is removed. Scenes that use the same track are not affected.</p>
       </ConfirmDialog>
     </section>
   );

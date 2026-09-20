@@ -10,8 +10,9 @@ const CAMPAIGN = "0123456789ab";
 const OTHER = "ba9876543210";
 
 const input = (over: Record<string, unknown> = {}) => ({
+  source: "youtube",
   kind: "music",
-  videoId: "dQw4w9WgXcQ",
+  ref: "dQw4w9WgXcQ",
   title: "Tavern theme",
   durationSeconds: 215,
   category: "Taverns",
@@ -31,11 +32,11 @@ describe("saved link schema", () => {
 
   it.each([
     ["kind", { kind: "video" }],
-    ["short id", { videoId: "short" }],
-    ["long id", { videoId: "dQw4w9WgXcQx" }],
-    ["id with a slash", { videoId: "dQw4w9Wg/cQ" }],
-    ["id that is a url", { videoId: "https://youtu.be/dQw4w9WgXcQ" }],
-    ["id with a newline", { videoId: "dQw4w9WgXc\n" }],
+    ["short id", { ref: "short" }],
+    ["long id", { ref: "dQw4w9WgXcQx" }],
+    ["id with a slash", { ref: "dQw4w9Wg/cQ" }],
+    ["id that is a url", { ref: "https://youtu.be/dQw4w9WgXcQ" }],
+    ["id with a newline", { ref: "dQw4w9WgXc\n" }],
     ["empty title", { title: "   " }],
     ["long title", { title: "x".repeat(201) }],
     ["control character in the title", { title: "Tavern\u0000" }],
@@ -74,7 +75,7 @@ describe("saved link repository", () => {
     const created = saved.create(savedSchema.parse(input()));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    expect(created.item).toMatchObject({ kind: "music", videoId: "dQw4w9WgXcQ", title: "Tavern theme", campaignId: null });
+    expect(created.item).toMatchObject({ source: "youtube", kind: "music", ref: "dQw4w9WgXcQ", title: "Tavern theme", campaignId: null });
     expect(saved.get(created.item.id)?.title).toBe("Tavern theme");
 
     const updated = saved.update(created.item.id, savedSchema.parse(input({ title: "Renamed", category: "Battle" })));
@@ -90,13 +91,13 @@ describe("saved link repository", () => {
     new SavedRepo(db).create(savedSchema.parse(input()));
     const row = db.prepare("SELECT * FROM saved_tracks").get() as Record<string, unknown>;
     expect(JSON.stringify(row)).not.toMatch(/https?:|youtube\.com|youtu\.be/);
-    expect(row.video_id).toBe("dQw4w9WgXcQ");
+    expect(row.ref).toBe("dQw4w9WgXcQ");
   });
 
   it("lists by kind, then category, then title, ignoring case", () => {
     const saved = repo();
     const add = (over: Record<string, unknown>, n: number) =>
-      saved.create(savedSchema.parse(input({ videoId: `aaaaaaaaaa${n}`, ...over })));
+      saved.create(savedSchema.parse(input({ ref: `aaaaaaaaaa${n}`, ...over })));
     add({ kind: "sfx", category: "Doors", title: "Slam" }, 1);
     add({ kind: "music", category: "battle", title: "b" }, 2);
     add({ kind: "music", category: "Battle", title: "a" }, 3);
@@ -132,7 +133,7 @@ describe("saved link repository", () => {
   it("scopes by campaign, keeps the campaign on a plain update, and can clear it", () => {
     const saved = repo();
     const one = saved.create(savedSchema.parse(input({ campaignId: CAMPAIGN })));
-    saved.create(savedSchema.parse(input({ videoId: "bbbbbbbbbbb" })));
+    saved.create(savedSchema.parse(input({ ref: "bbbbbbbbbbb" })));
     if (!one.ok) throw new Error("setup");
     expect(saved.list(CAMPAIGN)).toHaveLength(1);
     expect(saved.list("unassigned")).toHaveLength(1);
@@ -148,7 +149,7 @@ describe("saved link repository", () => {
     const db = openDatabase(":memory:");
     const saved = new SavedRepo(db);
     const insert = db.prepare(
-      "INSERT INTO saved_tracks (id, kind, video_id, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, 'music', ?, 't', NULL, '', NULL, 'x', 'x')",
+      "INSERT INTO saved_tracks (id, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, 'music', ?, 't', NULL, '', NULL, 'x', 'x')",
     );
     for (let i = 0; i < MAX_SAVED; i++) insert.run(crypto.randomUUID(), String(i).padStart(11, "a"));
     expect(saved.create(savedSchema.parse(input()))).toEqual({ ok: false, reason: "limit" });
@@ -231,7 +232,7 @@ describe("saved link routes", () => {
   it("filters by campaign and refuses a malformed campaign", async () => {
     const { collection } = setup();
     await collection.POST(req("POST", undefined, input({ campaignId: CAMPAIGN })));
-    await collection.POST(req("POST", undefined, input({ videoId: "bbbbbbbbbbb" })));
+    await collection.POST(req("POST", undefined, input({ ref: "bbbbbbbbbbb" })));
     const scoped = await collection.GET(req("GET", `https://portal.example/api/dm/saved?campaign=${CAMPAIGN}`));
     expect(await scoped.json()).toHaveLength(1);
     expect((await collection.GET(req("GET", "https://portal.example/api/dm/saved?campaign=nope"))).status).toBe(400);
@@ -247,9 +248,9 @@ describe("saved link routes", () => {
 
   it("rejects bad bodies with 400 and names the field", async () => {
     const { collection, saved } = setup();
-    const bad = await collection.POST(req("POST", undefined, input({ videoId: "https://evil.example/x" })));
+    const bad = await collection.POST(req("POST", undefined, input({ ref: "https://evil.example/x" })));
     expect(bad.status).toBe(400);
-    expect((await bad.json()).error.message).toContain("videoId");
+    expect((await bad.json()).error.message).toContain("ref");
     expect((await collection.POST(req("POST", undefined, { ...input(), extra: 1 }))).status).toBe(400);
     expect((await collection.POST(req("POST", undefined, "{not json"))).status).toBe(400);
     expect(saved.list()).toEqual([]);
@@ -297,7 +298,7 @@ describe("saved link routes", () => {
   it("rate limits writes", async () => {
     const { collection } = setup();
     let last = 0;
-    for (let i = 0; i < 125; i++) last = (await collection.POST(req("POST", undefined, { ...input(), videoId: "bad" }))).status;
+    for (let i = 0; i < 125; i++) last = (await collection.POST(req("POST", undefined, { ...input(), ref: "bad" }))).status;
     expect(last).toBe(429);
   });
 });

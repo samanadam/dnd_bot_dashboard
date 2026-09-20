@@ -5,6 +5,7 @@ import { useState } from "react";
 import { bot } from "@/lib/bot/client";
 import type { PlayerState } from "@/lib/bot/types";
 import { formatDuration } from "@/lib/format";
+import { sourceLabel } from "@/lib/webAudio";
 import { useMusicMutation } from "@/lib/bot/useBotState";
 import { ConfirmDialog } from "../../ConfirmDialog";
 import { Badge, Button, Card, EmptyState } from "../../ui";
@@ -59,7 +60,7 @@ export function QueueList({ state, enabled }: { state: PlayerState; enabled: boo
                   {track.title}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-                  <Badge>{track.source === "r2" ? "Library" : "YouTube"}</Badge>
+                  <Badge>{sourceLabel(track.source)}</Badge>
                   <span className="font-mono">{formatDuration(track.duration_seconds)}</span>
                 </div>
               </div>

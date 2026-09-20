@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { bot } from "@/lib/bot/client";
 import type { LoopMode, PlayerState } from "@/lib/bot/types";
 import { formatDuration } from "@/lib/format";
+import { sourceLabel } from "@/lib/webAudio";
 import { keys, useMusicMutation } from "@/lib/bot/useBotState";
 import { useLocalValue } from "@/lib/useLocalValue";
 import { Badge, Button, inputClass } from "../../ui";
@@ -57,7 +58,7 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
               )}
               {borrowed && <Badge tone="danger">Sharing recording connection</Badge>}
               {state.paused && <Badge tone="warn">Paused</Badge>}
-              {current && <Badge>{current.source === "r2" ? "Library" : "YouTube"}</Badge>}
+              {current && <Badge>{sourceLabel(current.source)}</Badge>}
             </div>
             <div className="mt-2 truncate text-xl font-semibold tracking-tight sm:text-2xl" title={current?.title}>
               {current?.title ?? "Nothing playing"}

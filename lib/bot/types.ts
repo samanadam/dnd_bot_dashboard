@@ -66,7 +66,7 @@ export type StopResult = {
   enqueued: boolean;
 };
 
-export type TrackSource = "r2" | "youtube";
+export type TrackSource = "r2" | "youtube" | "soundcloud";
 
 export type Track = {
   id: string;

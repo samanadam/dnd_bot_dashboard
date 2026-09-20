@@ -57,6 +57,28 @@ const MIGRATIONS: readonly string[] = [
    );
    CREATE UNIQUE INDEX saved_tracks_unique ON saved_tracks (kind, video_id, COALESCE(campaign_id, ''));
    CREATE INDEX saved_tracks_campaign ON saved_tracks (campaign_id);`,
+  // SoundCloud beside YouTube. A row is now (source, ref): the video id for
+  // YouTube, the lower-case artist/track path for SoundCloud. SQLite cannot change
+  // a CHECK in place, so the table is rebuilt; every existing row is YouTube.
+  `CREATE TABLE saved_tracks_next (
+     id TEXT PRIMARY KEY,
+     source TEXT NOT NULL DEFAULT 'youtube' CHECK (source IN ('youtube', 'soundcloud')),
+     kind TEXT NOT NULL CHECK (kind IN ('music', 'ambience', 'sfx')),
+     ref TEXT NOT NULL,
+     title TEXT NOT NULL,
+     duration_seconds INTEGER,
+     category TEXT NOT NULL DEFAULT '',
+     campaign_id TEXT,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL,
+     CHECK ((source = 'youtube' AND length(ref) = 11) OR (source = 'soundcloud' AND length(ref) BETWEEN 3 AND 241))
+   );
+   INSERT INTO saved_tracks_next (id, source, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at)
+     SELECT id, 'youtube', kind, video_id, title, duration_seconds, category, campaign_id, created_at, updated_at FROM saved_tracks;
+   DROP TABLE saved_tracks;
+   ALTER TABLE saved_tracks_next RENAME TO saved_tracks;
+   CREATE UNIQUE INDEX saved_tracks_unique ON saved_tracks (source, kind, ref, COALESCE(campaign_id, ''));
+   CREATE INDEX saved_tracks_campaign ON saved_tracks (campaign_id);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { WATCH_LINK } from "@/lib/youtube";
+import { isTrackLink, isWebSource, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
 
 // The exhaustive list of bot API calls the portal may proxy. Anything not
 // matched here is refused before a request is ever built, so a client bug (or
@@ -46,15 +46,17 @@ const intString = (min: number, max: number) =>
 const campaignId = z.string().regex(/^[a-f0-9]{12}$/, "invalid campaign id");
 const languageCode = z.string().regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, "must be a code such as tr or en");
 
-const source = z.enum(["r2", "youtube"]);
+const source = z.enum(["r2", ...WEB_SOURCES]);
+const webSource = z.enum(WEB_SOURCES);
 const trackId = z
   .string()
   .min(1)
   .max(512)
   .regex(/^[^\x00-\x1f\x7f]+$/, "invalid track id");
-// Ambience and effects from YouTube take exactly this form and nothing else: the
-// portal rebuilds it from a stored video id, so a free-form link never gets past.
-const watchLink = z.string().regex(WATCH_LINK, "must be a plain YouTube video link");
+// Ambience and effects from YouTube or SoundCloud take exactly one link form per
+// source and nothing else: the portal rebuilds it from a stored reference, so a
+// free-form link never gets past.
+const linkMessage = (name: WebSource) => `must be a plain ${WEB_SOURCE_LABEL[name]} link`;
 const layerId = z.string().regex(/^[0-9a-f]{8}$/, "invalid layer id");
 const soundKind = z.enum(["ambience", "sfx"]);
 const channelBody = z.object({ channel_id: snowflake }).strict();
@@ -387,8 +389,8 @@ const rules: Rule[] = [
       })
       .strict()
       .superRefine((value, context) => {
-        if (value.source === "youtube" && !watchLink.safeParse(value.id).success) {
-          context.addIssue({ code: "custom", path: ["id"], message: "must be a plain YouTube video link" });
+        if (isWebSource(value.source) && !isTrackLink(value.source, value.id)) {
+          context.addIssue({ code: "custom", path: ["id"], message: linkMessage(value.source) });
         }
       }),
   },
@@ -399,7 +401,13 @@ const rules: Rule[] = [
     timeoutMs: 120_000,
     audit: true,
     dmOnly: true,
-    body: z.object({ kind: soundKind, id: watchLink }).strict(),
+    body: z
+      .object({ kind: soundKind, id: trackId, source: webSource.optional() })
+      .strict()
+      .superRefine((value, context) => {
+        const name = value.source ?? "youtube";
+        if (!isTrackLink(name, value.id)) context.addIssue({ code: "custom", path: ["id"], message: linkMessage(name) });
+      }),
   },
   {
     method: "POST",

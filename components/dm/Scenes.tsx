@@ -12,7 +12,7 @@ import { keys, useLibrary, useMusicState, useSoundboard } from "@/lib/bot/useBot
 import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { useSaved } from "@/lib/dm/useSaved";
-import { WATCH_LINK, watchUrl } from "@/lib/youtube";
+import { isTrackLink, isWebSource, trackUrl, WEB_SOURCES } from "@/lib/webAudio";
 import type { Scene, SceneInput } from "@/lib/dm/scenes";
 import { useVoiceTarget } from "./Soundboard";
 
@@ -102,7 +102,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
               const value = event.target.value;
               const link = savedMusic.find((item) => `yt:${item.id}` === value);
               if (link) {
-                set({ music: { source: "youtube", id: watchUrl(link.videoId), title: link.title, volume: null } });
+                set({ music: { source: link.source, id: trackUrl(link.source, link.ref), title: link.title, volume: null } });
                 return;
               }
               const track = library.data?.find((item) => item.id === value);
@@ -116,7 +116,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
               </option>
             ))}
             {savedMusic.length ? (
-              <optgroup label="Saved from YouTube">
+              <optgroup label="Saved links">
                 {savedMusic.map((item) => (
                   <option key={item.id} value={`yt:${item.id}`}>
                     {item.title}
@@ -162,7 +162,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
                   const value = event.target.value;
                   const link = savedSounds(kind).find((item) => `yt:${item.id}` === value);
                   if (link) {
-                    set({ layers: [...input.layers, { kind, id: watchUrl(link.videoId), title: link.title, volume: 1, source: "youtube" }] });
+                    set({ layers: [...input.layers, { kind, id: trackUrl(link.source, link.ref), title: link.title, volume: 1, source: link.source }] });
                     return;
                   }
                   const track = (kind === "ambience" ? board.data?.ambience : board.data?.sfx)?.find((item) => item.id === value);
@@ -176,7 +176,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
                   </option>
                 ))}
                 {savedSounds(kind).length ? (
-                  <optgroup label="Saved from YouTube">
+                  <optgroup label="Saved links">
                     {savedSounds(kind).map((item) => (
                       <option key={item.id} value={`yt:${item.id}`}>
                         {item.title}
@@ -229,6 +229,11 @@ export function Scenes() {
   const categories = useMemo(() => [...new Set(list.map((scene) => scene.category).filter(Boolean))], [list]);
   const campaignForNew = selection && selection !== "unassigned" ? selection : null;
 
+  const sourceOf = (link: string) => {
+    const source = WEB_SOURCES.find((name) => isTrackLink(name, link));
+    return source ? { source } : {};
+  };
+
   function fromNow() {
     const now = blank(campaignForNew);
     const current = music.data?.current;
@@ -238,8 +243,8 @@ export function Scenes() {
       id: layer.track_id,
       title: layer.title,
       volume: layer.volume,
-      // The bot reports a YouTube sound by its watch link; a bucket sound by its key.
-      ...(WATCH_LINK.test(layer.track_id) ? { source: "youtube" as const } : {}),
+      // The bot reports a web sound by its link; a bucket sound by its key.
+      ...sourceOf(layer.track_id),
     }));
     setDraft({ id: null, input: now });
   }
@@ -260,7 +265,7 @@ export function Scenes() {
       }
       for (const layer of scene.layers) {
         step = `starting ${layer.title}`;
-        await bot.playSound({ kind: layer.kind, id: layer.id, ...(layer.source === "youtube" ? { source: "youtube" as const } : {}), volume: layer.volume, ...channel });
+        await bot.playSound({ kind: layer.kind, id: layer.id, ...(isWebSource(layer.source) ? { source: layer.source } : {}), volume: layer.volume, ...channel });
       }
       toast("ok", `${scene.name} is playing.`);
     } catch (error) {
