@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { CreatureRepo } from "./creatures";
 import { getDatabase } from "./database";
 import { EncounterRepo } from "./encounters";
+import { SavedRepo } from "./saved";
 import { SceneRepo } from "./scenes";
 
 /** Production dependencies for the DM route handlers. */
@@ -15,6 +16,7 @@ export function dmDeps() {
     repo: () => new CreatureRepo(getDatabase()),
     encounters: () => new EncounterRepo(getDatabase()),
     scenes: () => new SceneRepo(getDatabase()),
+    saved: () => new SavedRepo(getDatabase()),
     log: audit,
   };
 }

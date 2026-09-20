@@ -3,6 +3,7 @@
 import { Music2 } from "lucide-react";
 import { BotError } from "@/lib/bot/client";
 import { useBotOnline, useMusicState } from "@/lib/bot/useBotState";
+import { QueueList } from "../bot/music/QueueList";
 import { TrackLibrary } from "../bot/music/TrackLibrary";
 import { TransportBar } from "../bot/music/TransportBar";
 import { EmptyState, Skeleton } from "../ui";
@@ -26,7 +27,10 @@ export function DmMusic() {
   return (
     <div className="space-y-4">
       <TransportBar state={state} enabled={enabled} />
-      <TrackLibrary state={state} enabled={enabled} canManage />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <QueueList state={state} enabled={enabled} />
+        <TrackLibrary state={state} enabled={enabled} canManage />
+      </div>
     </div>
   );
 }

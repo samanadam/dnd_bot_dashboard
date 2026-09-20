@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WATCH_LINK } from "@/lib/youtube";
 
 // The exhaustive list of bot API calls the portal may proxy. Anything not
 // matched here is refused before a request is ever built, so a client bug (or
@@ -51,6 +52,9 @@ const trackId = z
   .min(1)
   .max(512)
   .regex(/^[^\x00-\x1f\x7f]+$/, "invalid track id");
+// Ambience and effects from YouTube take exactly this form and nothing else: the
+// portal rebuilds it from a stored video id, so a free-form link never gets past.
+const watchLink = z.string().regex(WATCH_LINK, "must be a plain YouTube video link");
 const layerId = z.string().regex(/^[0-9a-f]{8}$/, "invalid layer id");
 const soundKind = z.enum(["ambience", "sfx"]);
 const channelBody = z.object({ channel_id: snowflake }).strict();
@@ -364,21 +368,38 @@ const rules: Rule[] = [
     body: z.object({ id: trackId }).strict(),
   },
   { method: "GET", path: "soundboard", bucket: "read", dmOnly: true },
+  // A YouTube sound is downloaded once before it plays, so the first call can
+  // take a while; a saved one is instant.
   {
     method: "POST",
     path: "soundboard/play",
     bucket: "control",
-    timeoutMs: 30_000,
+    timeoutMs: 120_000,
     audit: true,
     dmOnly: true,
     body: z
       .object({
         kind: soundKind,
         id: trackId,
+        source: source.optional(),
         volume: z.number().min(0).max(2).optional(),
         channel_id: snowflake.optional(),
       })
-      .strict(),
+      .strict()
+      .superRefine((value, context) => {
+        if (value.source === "youtube" && !watchLink.safeParse(value.id).success) {
+          context.addIssue({ code: "custom", path: ["id"], message: "must be a plain YouTube video link" });
+        }
+      }),
+  },
+  {
+    method: "POST",
+    path: "soundboard/prepare",
+    bucket: "control",
+    timeoutMs: 120_000,
+    audit: true,
+    dmOnly: true,
+    body: z.object({ kind: soundKind, id: watchLink }).strict(),
   },
   {
     method: "POST",

@@ -41,6 +41,22 @@ const MIGRATIONS: readonly string[] = [
    CREATE INDEX scenes_campaign ON scenes (campaign_id);`,
   // live: an encounter being run. prepared: a template, launched as a fresh copy.
   `ALTER TABLE encounters ADD COLUMN kind TEXT NOT NULL DEFAULT 'live' CHECK (kind IN ('live', 'prepared'));`,
+  // Saved YouTube links. Only the 11-character video id is kept, never a URL; the
+  // link is rebuilt from it whenever it is used. One row per (kind, video,
+  // campaign), so a video can be music in one campaign and an effect in another.
+  `CREATE TABLE saved_tracks (
+     id TEXT PRIMARY KEY,
+     kind TEXT NOT NULL CHECK (kind IN ('music', 'ambience', 'sfx')),
+     video_id TEXT NOT NULL CHECK (length(video_id) = 11),
+     title TEXT NOT NULL,
+     duration_seconds INTEGER,
+     category TEXT NOT NULL DEFAULT '',
+     campaign_id TEXT,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE UNIQUE INDEX saved_tracks_unique ON saved_tracks (kind, video_id, COALESCE(campaign_id, ''));
+   CREATE INDEX saved_tracks_campaign ON saved_tracks (campaign_id);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

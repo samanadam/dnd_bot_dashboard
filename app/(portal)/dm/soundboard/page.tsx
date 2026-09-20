@@ -3,6 +3,7 @@ import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { UploadTracks } from "@/components/bot/music/UploadTracks";
 import { DmHeader } from "@/components/dm/DmHeader";
 import { DmMusic } from "@/components/dm/DmMusic";
+import { SavedLinks } from "@/components/dm/SavedLinks";
 import { Scenes } from "@/components/dm/Scenes";
 import { Soundboard } from "@/components/dm/Soundboard";
 import { requireDm } from "@/lib/dm/access";
@@ -16,7 +17,7 @@ export default async function SoundboardPage() {
       <DmHeader
         eyebrow="DM Screen"
         title="Sound"
-        description="Music, ambience and effects in one place, mixed in the voice channel. Save a mood as a scene and bring it back with one tap."
+        description="Music, ambience and effects in one place, mixed in the voice channel. Save YouTube links, and save a mood as a scene to bring it back with one tap."
         action={<CampaignSwitcher />}
       />
       <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
@@ -24,6 +25,9 @@ export default async function SoundboardPage() {
       </section>
       <section aria-label="Music" className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
         <DmMusic />
+      </section>
+      <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
+        <SavedLinks />
       </section>
       <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-6">
         <Soundboard />

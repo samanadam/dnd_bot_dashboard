@@ -11,6 +11,8 @@ import { bot, BotError } from "@/lib/bot/client";
 import { keys, useLibrary, useMusicState, useSoundboard } from "@/lib/bot/useBotState";
 import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
+import { useSaved } from "@/lib/dm/useSaved";
+import { WATCH_LINK, watchUrl } from "@/lib/youtube";
 import type { Scene, SceneInput } from "@/lib/dm/scenes";
 import { useVoiceTarget } from "./Soundboard";
 
@@ -36,6 +38,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
   const toast = useToast();
   const board = useSoundboard();
   const library = useLibrary("");
+  const saved = useSaved(null);
   const [input, setInput] = useState(draft.input);
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<SceneInput>) => setInput((current) => ({ ...current, ...patch }));
@@ -54,6 +57,8 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
   }
 
   const layerCount = input.layers.length;
+  const savedMusic = (saved.data ?? []).filter((item) => item.kind === "music");
+  const savedSounds = (kind: "ambience" | "sfx") => (saved.data ?? []).filter((item) => item.kind === kind);
   return (
     <form
       className="space-y-4 rounded-3xl border border-accent/40 bg-surface p-4 shadow-card sm:p-5"
@@ -94,7 +99,13 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
             className={`${inputClass} h-10`}
             value=""
             onChange={(event) => {
-              const track = library.data?.find((item) => item.id === event.target.value);
+              const value = event.target.value;
+              const link = savedMusic.find((item) => `yt:${item.id}` === value);
+              if (link) {
+                set({ music: { source: "youtube", id: watchUrl(link.videoId), title: link.title, volume: null } });
+                return;
+              }
+              const track = library.data?.find((item) => item.id === value);
               if (track) set({ music: { source: track.source, id: track.id, title: track.title, volume: null } });
             }}
           >
@@ -104,6 +115,15 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
                 {track.title}
               </option>
             ))}
+            {savedMusic.length ? (
+              <optgroup label="Saved from YouTube">
+                {savedMusic.map((item) => (
+                  <option key={item.id} value={`yt:${item.id}`}>
+                    {item.title}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         )}
       </div>
@@ -139,7 +159,13 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
                 className={`${inputClass} h-10`}
                 value=""
                 onChange={(event) => {
-                  const track = (kind === "ambience" ? board.data?.ambience : board.data?.sfx)?.find((item) => item.id === event.target.value);
+                  const value = event.target.value;
+                  const link = savedSounds(kind).find((item) => `yt:${item.id}` === value);
+                  if (link) {
+                    set({ layers: [...input.layers, { kind, id: watchUrl(link.videoId), title: link.title, volume: 1, source: "youtube" }] });
+                    return;
+                  }
+                  const track = (kind === "ambience" ? board.data?.ambience : board.data?.sfx)?.find((item) => item.id === value);
                   if (track) set({ layers: [...input.layers, { kind, id: track.id, title: track.title, volume: 1 }] });
                 }}
               >
@@ -149,6 +175,15 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
                     {track.title}
                   </option>
                 ))}
+                {savedSounds(kind).length ? (
+                  <optgroup label="Saved from YouTube">
+                    {savedSounds(kind).map((item) => (
+                      <option key={item.id} value={`yt:${item.id}`}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
             ))}
           </div>
@@ -198,7 +233,14 @@ export function Scenes() {
     const now = blank(campaignForNew);
     const current = music.data?.current;
     if (current) now.music = { source: current.source, id: current.id, title: current.title, volume: music.data?.volume ?? null };
-    now.layers = (board.data?.layers ?? []).slice(0, 12).map((layer) => ({ kind: layer.kind, id: layer.track_id, title: layer.title, volume: layer.volume }));
+    now.layers = (board.data?.layers ?? []).slice(0, 12).map((layer) => ({
+      kind: layer.kind,
+      id: layer.track_id,
+      title: layer.title,
+      volume: layer.volume,
+      // The bot reports a YouTube sound by its watch link; a bucket sound by its key.
+      ...(WATCH_LINK.test(layer.track_id) ? { source: "youtube" as const } : {}),
+    }));
     setDraft({ id: null, input: now });
   }
 
@@ -218,7 +260,7 @@ export function Scenes() {
       }
       for (const layer of scene.layers) {
         step = `starting ${layer.title}`;
-        await bot.playSound({ kind: layer.kind, id: layer.id, volume: layer.volume, ...channel });
+        await bot.playSound({ kind: layer.kind, id: layer.id, ...(layer.source === "youtube" ? { source: "youtube" as const } : {}), volume: layer.volume, ...channel });
       }
       toast("ok", `${scene.name} is playing.`);
     } catch (error) {

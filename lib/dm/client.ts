@@ -3,6 +3,7 @@
 import type { Creature, CreatureInput } from "./creatures";
 import type { Encounter } from "./encounter";
 import type { EncounterSummary, StoredEncounter } from "./encounters";
+import type { SavedInput, SavedTrack } from "./saved";
 import type { Scene, SceneInput } from "./scenes";
 import type { StatBlock } from "./statblock";
 
@@ -90,4 +91,8 @@ export const dm = {
   createScene: (input: SceneInput) => dmCall<Scene>("POST", "scenes", input),
   updateScene: (id: string, input: SceneInput) => dmCall<Scene>("PUT", `scenes/${enc(id)}`, input),
   deleteScene: (id: string) => dmCall<void>("DELETE", `scenes/${enc(id)}`),
+  listSaved: (campaign?: string) => dmCall<SavedTrack[]>("GET", campaign ? `saved?campaign=${enc(campaign)}` : "saved"),
+  createSaved: (input: SavedInput) => dmCall<SavedTrack>("POST", "saved", input),
+  updateSaved: (id: string, input: SavedInput) => dmCall<SavedTrack>("PUT", `saved/${enc(id)}`, input),
+  deleteSaved: (id: string) => dmCall<void>("DELETE", `saved/${enc(id)}`),
 };

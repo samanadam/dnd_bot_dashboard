@@ -5,7 +5,7 @@
 //   MOCK_BOT_TOKEN=... node scripts/mock-bot.mjs    (listens on 127.0.0.1:8787)
 
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const PORT = Number(process.env.MOCK_BOT_PORT ?? 8787);
 const TOKEN = process.env.MOCK_BOT_TOKEN ?? process.env.BOT_API_TOKEN;
@@ -153,8 +153,12 @@ const routes = {
     const q = (query.get("q") ?? "").toLowerCase();
     return ok(library.filter((t) => t.title.toLowerCase().includes(q)).slice(0, Number(query.get("limit") ?? 50)));
   },
-  "POST music/search": (body) =>
-    ok([1, 2, 3].map((n) => ({ id: `yt-${n}-${encodeURIComponent(body.query)}`, title: `${body.query} (result ${n})`, source: "youtube", duration_seconds: 180 * n }))),
+  "POST music/search": (body) => {
+    // A pasted watch link resolves to that one video, the way the real resolver does.
+    const link = /^https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})$/.exec(body.query);
+    if (link) return ok([{ id: body.query, title: `Video ${link[1]}`, source: "youtube", duration_seconds: 95 }]);
+    return ok([1, 2, 3].map((n) => ({ id: `https://www.youtube.com/watch?v=${createHash("sha1").update(`${body.query}:${n}`).digest("base64url").slice(0, 11)}`, title: `${body.query} (result ${n})`, source: "youtube", duration_seconds: 180 * n })));
+  },
   "POST music/play": (body) => {
     const track = library.find((t) => t.id === body.id) ?? (body.source === "youtube" ? { id: body.id, title: body.id, source: "youtube", duration_seconds: 240 } : null);
     if (!track) return fail(404, "not_found", "Unknown track.");
@@ -162,8 +166,10 @@ const routes = {
       if (!body.channel_id) return fail(409, "conflict", "The bot is not in a voice channel. Give a channel_id.");
       Object.assign(player, { connected: true, channel_id: body.channel_id, owner: active.size ? "recording" : "music" });
     }
-    if (player.current) player.queue.push(track);
-    else Object.assign(player, { current: track, playing: true, paused: false, position_seconds: body.position ?? 0 });
+    if (player.current && body.position === "now") Object.assign(player, { current: track, playing: true, paused: false, position_seconds: 0 });
+    else if (player.current && body.position === "next") player.queue.unshift(track);
+    else if (player.current) player.queue.push(track);
+    else Object.assign(player, { current: track, playing: true, paused: false, position_seconds: 0 });
     return ok(state(), 202);
   },
   "POST music/pause": () => (state(), Object.assign(player, { paused: true }), ok(state())),
@@ -194,8 +200,15 @@ const routes = {
     return ok({ deleted: body.id });
   },
   "GET soundboard": () => ok({ ambience: sounds.ambience, sfx: sounds.sfx, ...boardState() }),
+  // YouTube sounds are saved once on the bot, then played from disk. The mock
+  // pretends: any plain watch link works, and one over the limit is refused.
+  "POST soundboard/prepare": (body) => {
+    const track = youtubeSound(body);
+    return typeof track === "string" ? fail(502, "resolver_failed", track) : ok(track);
+  },
   "POST soundboard/play": (body) => {
-    const track = sounds[body.kind]?.find((t) => t.id === body.id);
+    const track = body.source === "youtube" ? youtubeSound(body) : sounds[body.kind]?.find((t) => t.id === body.id);
+    if (typeof track === "string") return fail(502, "resolver_failed", track);
     if (!track) return fail(404, "not_found", `No such ${body.kind} sound.`);
     if (!player.connected) {
       if (!body.channel_id) return fail(409, "conflict", "Not connected to a voice channel; name one to join.");
@@ -230,6 +243,14 @@ const routes = {
     return ok(boardState());
   },
 };
+
+function youtubeSound(body) {
+  const link = /^https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})$/.exec(body.id ?? "");
+  if (!link) return "Ambience and effects need a plain YouTube video link.";
+  // Ids starting with "long" stand in for a video over the length limit.
+  if (link[1].startsWith("long")) return `That is longer than the ${body.kind === "sfx" ? "60 second" : "30 minute"} limit for ${body.kind === "sfx" ? "effects" : "ambience"}.`;
+  return { id: body.id, title: `Video ${link[1]}`, source: "youtube", duration_seconds: 12 };
+}
 
 const sounds = {
   ambience: [

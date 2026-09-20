@@ -34,6 +34,13 @@ from a laptop or a phone at the table.
   - **Sound**: music, looping ambience and one-shot effects on one page, mixed
     in voice, with **scenes**: saved combinations (music plus sounds, with
     volumes) in categories, played with one tap.
+  - **YouTube library**: paste a link or search, then save it as music, an
+    ambience loop or an effect, filed under a category and, if you like, a
+    campaign. Music plays now, next or at the end of the queue; ambience
+    toggles as a loop; effects fire once. The bot saves each ambience or effect
+    the first time so it starts at once afterwards ("Get all ready" does it
+    ahead of the game). Saved sounds can be added to scenes. Needs YouTube
+    turned on in the bot (`MUSIC_YTDLP_ENABLED`).
   - **Prepared encounters**: build a fight ahead of time, with allies, and launch
     a fresh copy at full hit points when it starts.
   - **Player rolls**: players report their initiative in Discord with `/init`;

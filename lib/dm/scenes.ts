@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
+import { WATCH_LINK } from "@/lib/youtube";
 
 // A scene is a saved arrangement of sound: optionally a music track, plus
 // looping ambience and one-shot effects. The portal stores it; playing it is the
@@ -19,6 +20,17 @@ const volume = z.number().min(0).max(2);
 export const MAX_LAYERS = 12;
 export const MAX_SCENES = 200;
 
+// A layer with no source is a sound from the bucket, as every scene saved before
+// YouTube sounds existed. A YouTube layer must hold the exact watch link the bot
+// accepts, so a stored scene cannot smuggle any other URL into a later bot call.
+const layerSchema = z
+  .object({ kind: z.enum(["ambience", "sfx"]), id: trackId, title, volume, source: z.enum(["r2", "youtube"]).optional() })
+  .strict()
+  .refine((layer) => layer.source !== "youtube" || WATCH_LINK.test(layer.id), {
+    path: ["id"],
+    message: "must be a plain YouTube video link",
+  });
+
 export const sceneSchema = z
   .object({
     name: z.string().trim().min(1).max(60),
@@ -30,9 +42,7 @@ export const sceneSchema = z
       .object({ source: z.enum(["r2", "youtube"]), id: trackId, title, volume: volume.nullable() })
       .strict()
       .nullable(),
-    layers: z
-      .array(z.object({ kind: z.enum(["ambience", "sfx"]), id: trackId, title, volume }).strict())
-      .max(MAX_LAYERS),
+    layers: z.array(layerSchema).max(MAX_LAYERS),
     // Left out on an update it is unchanged; null files the scene under no campaign.
     campaignId: campaignIdSchema.nullable().optional(),
   })
