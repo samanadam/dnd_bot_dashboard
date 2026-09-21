@@ -3,10 +3,11 @@ import { z } from "zod";
 import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
 import { UNSAFE_TEXT } from "@/lib/youtube";
 import { isRef, WEB_SOURCES, type WebSource } from "@/lib/webAudio";
+import { savedRef } from "./tags";
 
 // Saved YouTube and SoundCloud links: music for the queue, ambience loops and
 // one-shot effects. The portal keeps the list; the bot only ever plays what it is
-// handed.
+// handed. How they are grouped is up to tags (tags.ts), not to this table.
 //
 // What is stored is a reference, never a URL: the 11-character video id for
 // YouTube, the lower-case `artist/track` path for SoundCloud. It is matched
@@ -34,8 +35,6 @@ export const savedSchema = z
     title: safeText(200).refine((value) => value.length > 0, "a title is required"),
     // Whole seconds; null when the bot did not report a length.
     durationSeconds: z.number().int().min(1).max(86_400).nullable(),
-    // Free text, like scene categories: the same word groups items. Empty means none.
-    category: safeText(40),
     // Left out on an update it is unchanged; null files the link under no campaign.
     campaignId: campaignIdSchema.nullable().optional(),
   })
@@ -60,7 +59,6 @@ type Row = {
   ref: string;
   title: string;
   duration_seconds: number | null;
-  category: string;
   campaign_id: string | null;
   created_at: string;
   updated_at: string;
@@ -88,7 +86,6 @@ export class SavedRepo {
       ref: row.ref,
       title: row.title,
       durationSeconds: row.duration_seconds,
-      category: row.category,
       campaignId: row.campaign_id,
     });
     if (!parsed.success) return null;
@@ -99,7 +96,6 @@ export class SavedRepo {
       ref: parsed.data.ref,
       title: parsed.data.title,
       durationSeconds: parsed.data.durationSeconds,
-      category: parsed.data.category,
       campaignId: row.campaign_id,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -110,7 +106,7 @@ export class SavedRepo {
     const scope = campaignClause(campaign);
     const rows = this.db
       .prepare(
-        `SELECT * FROM saved_tracks${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY kind, category COLLATE NOCASE, title COLLATE NOCASE, id`,
+        `SELECT * FROM saved_tracks${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY kind, title COLLATE NOCASE, id`,
       )
       .all(...scope.args) as Row[];
     return rows.map((row) => this.toItem(row)).filter((item): item is SavedTrack => item !== null);
@@ -133,9 +129,9 @@ export class SavedRepo {
     try {
       this.db
         .prepare(
-          "INSERT INTO saved_tracks (id, source, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO saved_tracks (id, source, kind, ref, title, duration_seconds, campaign_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .run(id, value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, value.campaignId ?? null, at, at);
+        .run(id, value.source, value.kind, value.ref, value.title, value.durationSeconds, value.campaignId ?? null, at, at);
     } catch (error) {
       if (isUniqueViolation(error)) return { ok: false, reason: "duplicate" };
       throw error;
@@ -152,13 +148,13 @@ export class SavedRepo {
       const result =
         value.campaignId === undefined
           ? this.db
-              .prepare("UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, category = ?, updated_at = ? WHERE id = ?")
-              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, at, id)
+              .prepare("UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, updated_at = ? WHERE id = ?")
+              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, at, id)
           : this.db
               .prepare(
-                "UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, category = ?, campaign_id = ?, updated_at = ? WHERE id = ?",
+                "UPDATE saved_tracks SET source = ?, kind = ?, ref = ?, title = ?, duration_seconds = ?, campaign_id = ?, updated_at = ? WHERE id = ?",
               )
-              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, value.category, value.campaignId, at, id);
+              .run(value.source, value.kind, value.ref, value.title, value.durationSeconds, value.campaignId, at, id);
       if (Number(result.changes) === 0) return { ok: false, reason: "missing" };
     } catch (error) {
       if (isUniqueViolation(error)) return { ok: false, reason: "duplicate" };
@@ -170,6 +166,9 @@ export class SavedRepo {
 
   remove(id: string): boolean {
     if (!SAVED_ID.test(id)) return false;
-    return Number(this.db.prepare("DELETE FROM saved_tracks WHERE id = ?").run(id).changes) > 0;
+    const removed = Number(this.db.prepare("DELETE FROM saved_tracks WHERE id = ?").run(id).changes) > 0;
+    // Its tags go with it; they are in this same database.
+    if (removed) this.db.prepare("DELETE FROM sound_tags WHERE ref = ?").run(savedRef(id));
+    return removed;
   }
 }

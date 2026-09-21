@@ -15,7 +15,6 @@ const input = (over: Record<string, unknown> = {}) => ({
   ref: "dQw4w9WgXcQ",
   title: "Tavern theme",
   durationSeconds: 215,
-  category: "Taverns",
   ...over,
 });
 
@@ -41,8 +40,7 @@ describe("saved link schema", () => {
     ["long title", { title: "x".repeat(201) }],
     ["control character in the title", { title: "Tavern\u0000" }],
     ["direction override in the title", { title: "Tavern\u202Egnp.exe" }],
-    ["long category", { category: "c".repeat(41) }],
-    ["newline in the category", { category: "Tav\nern" }],
+    ["a category, which tags replaced", { category: "Taverns" }],
     ["zero length", { durationSeconds: 0 }],
     ["negative length", { durationSeconds: -3 }],
     ["fractional length", { durationSeconds: 3.5 }],
@@ -53,13 +51,12 @@ describe("saved link schema", () => {
     expect(savedSchema.safeParse(input(over)).success).toBe(false);
   });
 
-  it("allows an unknown length and a blank category", () => {
-    expect(savedSchema.safeParse(input({ durationSeconds: null, category: "" })).success).toBe(true);
+  it("allows an unknown length", () => {
+    expect(savedSchema.safeParse(input({ durationSeconds: null })).success).toBe(true);
   });
 
-  it("trims titles and categories", () => {
-    const parsed = savedSchema.parse(input({ title: "  Rain  ", category: "  Weather " }));
-    expect(parsed).toMatchObject({ title: "Rain", category: "Weather" });
+  it("trims titles", () => {
+    expect(savedSchema.parse(input({ title: "  Rain  " }))).toMatchObject({ title: "Rain" });
   });
 });
 
@@ -78,8 +75,8 @@ describe("saved link repository", () => {
     expect(created.item).toMatchObject({ source: "youtube", kind: "music", ref: "dQw4w9WgXcQ", title: "Tavern theme", campaignId: null });
     expect(saved.get(created.item.id)?.title).toBe("Tavern theme");
 
-    const updated = saved.update(created.item.id, savedSchema.parse(input({ title: "Renamed", category: "Battle" })));
-    expect(updated.ok && updated.item).toMatchObject({ title: "Renamed", category: "Battle" });
+    const updated = saved.update(created.item.id, savedSchema.parse(input({ title: "Renamed" })));
+    expect(updated.ok && updated.item).toMatchObject({ title: "Renamed" });
 
     expect(saved.remove(created.item.id)).toBe(true);
     expect(saved.get(created.item.id)).toBeNull();
@@ -94,20 +91,15 @@ describe("saved link repository", () => {
     expect(row.ref).toBe("dQw4w9WgXcQ");
   });
 
-  it("lists by kind, then category, then title, ignoring case", () => {
+  it("lists by kind, then title, ignoring case", () => {
     const saved = repo();
     const add = (over: Record<string, unknown>, n: number) =>
       saved.create(savedSchema.parse(input({ ref: `aaaaaaaaaa${n}`, ...over })));
-    add({ kind: "sfx", category: "Doors", title: "Slam" }, 1);
-    add({ kind: "music", category: "battle", title: "b" }, 2);
-    add({ kind: "music", category: "Battle", title: "a" }, 3);
-    add({ kind: "ambience", category: "", title: "Rain" }, 4);
-    expect(saved.list().map((item) => `${item.kind}/${item.category}/${item.title}`)).toEqual([
-      "ambience//Rain",
-      "music/Battle/a",
-      "music/battle/b",
-      "sfx/Doors/Slam",
-    ]);
+    add({ kind: "sfx", title: "Slam" }, 1);
+    add({ kind: "music", title: "b" }, 2);
+    add({ kind: "music", title: "A" }, 3);
+    add({ kind: "ambience", title: "Rain" }, 4);
+    expect(saved.list().map((item) => `${item.kind}/${item.title}`)).toEqual(["ambience/Rain", "music/A", "music/b", "sfx/Slam"]);
   });
 
   it("refuses the same video twice in the same kind and campaign, but not elsewhere", () => {
@@ -149,7 +141,7 @@ describe("saved link repository", () => {
     const db = openDatabase(":memory:");
     const saved = new SavedRepo(db);
     const insert = db.prepare(
-      "INSERT INTO saved_tracks (id, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, 'music', ?, 't', NULL, '', NULL, 'x', 'x')",
+      "INSERT INTO saved_tracks (id, kind, ref, title, duration_seconds, campaign_id, created_at, updated_at) VALUES (?, 'music', ?, 't', NULL, NULL, 'x', 'x')",
     );
     for (let i = 0; i < MAX_SAVED; i++) insert.run(crypto.randomUUID(), String(i).padStart(11, "a"));
     expect(saved.create(savedSchema.parse(input()))).toEqual({ ok: false, reason: "limit" });
@@ -175,7 +167,7 @@ describe("saved link repository", () => {
 
   it("treats hostile text as data, not as SQL", () => {
     const saved = repo();
-    const created = saved.create(savedSchema.parse(input({ title: "'); DROP TABLE saved_tracks;--", category: "' OR 1=1 --" })));
+    const created = saved.create(savedSchema.parse(input({ title: "'); DROP TABLE saved_tracks;--" })));
     expect(created.ok).toBe(true);
     expect(saved.list()).toHaveLength(1);
     expect(saved.list()[0].title).toBe("'); DROP TABLE saved_tracks;--");

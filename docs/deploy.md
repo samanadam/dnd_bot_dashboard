@@ -218,9 +218,22 @@ under the free space on the data disk: an upload passes through it, and raw
 capture must never run out of room. Uploads need `ffmpeg`/`ffprobe`, which the
 bot image already has.
 
+Tags on sounds are kept by the portal, in its own database (`sound_tags`), and
+are backed up with it. A tag is tied to a file by its bucket key, so renaming a
+file in the bucket by hand drops its tags; deleting one from the portal clears
+them.
+
 The soundboard mixes over the music on the same voice connection, so it obeys
 the same truce with the recorder: it never hangs up a connection a recording
 owns. Ambience comes back by itself after a voice reconnect; effects do not.
+
+## Upgrading to sound tags
+
+The portal applies one database migration on start. A saved link's old
+category becomes a tag on it (a comma inside one becomes a space), and the
+category column is left in place, unused. The bot is not involved: it needs no
+new version. Back up the portal database first if you want a way back, since
+an older portal build refuses a database this new.
 
 ## Upgrading to campaigns, search, scenes and initiative
 

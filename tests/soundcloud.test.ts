@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { openDatabase, SCHEMA_VERSION } from "@/lib/dm/db";
 import { SavedRepo, savedSchema } from "@/lib/dm/saved";
 import { SceneRepo, sceneSchema } from "@/lib/dm/scenes";
+import { TagRepo } from "@/lib/dm/tags";
 import { isSoundCloudRef, parseSoundCloudLink, soundcloudUrl } from "@/lib/soundcloud";
 import { detectLink, isRef, isTrackLink, parseLink, refFromTrack, sourceLabel, trackUrl } from "@/lib/webAudio";
 
@@ -110,7 +111,6 @@ const item = (over: Record<string, unknown> = {}) => ({
   ref: REF,
   title: "Tavern Ambience",
   durationSeconds: 700,
-  category: "Taverns",
   ...over,
 });
 
@@ -203,10 +203,12 @@ describe("upgrading a database that only holds YouTube links", () => {
       const db = openDatabase(file);
       expect((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(SCHEMA_VERSION);
       const repo = new SavedRepo(db);
-      expect(repo.list().map((row) => [row.source, row.kind, row.ref, row.title, row.category, row.campaignId, row.durationSeconds])).toEqual([
-        ["youtube", "music", "dQw4w9WgXcQ", "Never", "Classics", null, 213],
-        ["youtube", "sfx", "abcdefghijk", "Door", "", "0123456789ab", 4],
+      expect(repo.list().map((row) => [row.source, row.kind, row.ref, row.title, row.campaignId, row.durationSeconds])).toEqual([
+        ["youtube", "music", "dQw4w9WgXcQ", "Never", null, 213],
+        ["youtube", "sfx", "abcdefghijk", "Door", "0123456789ab", 4],
       ]);
+      // The one category a link had is now a tag on it; a link with none has no tags.
+      expect(new TagRepo(db).all()).toEqual({ "saved:11111111-1111-4111-8111-111111111111": ["Classics"] });
       // The unique index came across, and a SoundCloud track can now be added.
       expect(repo.create(savedSchema.parse(item({ source: "youtube", kind: "music", ref: "dQw4w9WgXcQ", campaignId: null })))).toEqual({ ok: false, reason: "duplicate" });
       expect(repo.create(savedSchema.parse(item())).ok).toBe(true);

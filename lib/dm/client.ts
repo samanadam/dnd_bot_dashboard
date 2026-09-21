@@ -5,6 +5,7 @@ import type { Encounter } from "./encounter";
 import type { EncounterSummary, StoredEncounter } from "./encounters";
 import type { SavedInput, SavedTrack } from "./saved";
 import type { Scene, SceneInput } from "./scenes";
+import type { TagMap } from "./tags";
 import type { StatBlock } from "./statblock";
 
 // Browser client for /api/dm. Same conventions as lib/bot/client.ts: portal
@@ -95,4 +96,7 @@ export const dm = {
   createSaved: (input: SavedInput) => dmCall<SavedTrack>("POST", "saved", input),
   updateSaved: (id: string, input: SavedInput) => dmCall<SavedTrack>("PUT", `saved/${enc(id)}`, input),
   deleteSaved: (id: string) => dmCall<void>("DELETE", `saved/${enc(id)}`),
+  // Every tagged sound as { ref: tags }. Replacing with an empty list clears a sound.
+  listTags: () => dmCall<TagMap>("GET", "tags"),
+  setTags: (ref: string, tags: string[]) => dmCall<{ ref: string; tags: string[] }>("PUT", "tags", { ref, tags }),
 };

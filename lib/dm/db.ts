@@ -79,20 +79,31 @@ const MIGRATIONS: readonly string[] = [
    ALTER TABLE saved_tracks_next RENAME TO saved_tracks;
    CREATE UNIQUE INDEX saved_tracks_unique ON saved_tracks (source, kind, ref, COALESCE(campaign_id, ''));
    CREATE INDEX saved_tracks_campaign ON saved_tracks (campaign_id);`,
+  // Tags on sounds, several per sound and changeable at any time. A ref names what
+  // is tagged: "bucket:<key>" for a file in the bot's bucket, "saved:<id>" for a
+  // saved link. The one category a saved link used to have becomes a tag; the old
+  // column stays, unused, because SQLite cannot drop it cheaply.
+  `CREATE TABLE sound_tags (
+     ref TEXT NOT NULL,
+     tag TEXT NOT NULL COLLATE NOCASE,
+     PRIMARY KEY (ref, tag)
+   );
+   CREATE INDEX sound_tags_tag ON sound_tags (tag);
+   INSERT OR IGNORE INTO sound_tags (ref, tag)
+     SELECT ref, tag FROM (
+       SELECT 'saved:' || id AS ref, trim(replace(replace(substr(category, 1, 32), ', ', ' '), ',', ' ')) AS tag FROM saved_tracks
+     ) WHERE tag <> '';`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
-export function openDatabase(path: string): DatabaseSync {
-  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  const db = new DatabaseSync(path);
-  db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA secure_delete = ON;");
-  if (path !== ":memory:") db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+/** Runs every migration after the database's recorded version, up to `target`. */
+export function migrate(db: DatabaseSync, target: number = MIGRATIONS.length): void {
   const { user_version: version } = db.prepare("PRAGMA user_version").get() as { user_version: number };
   if (version > MIGRATIONS.length) {
     throw new Error(`Database schema ${version} is newer than this build (${MIGRATIONS.length}).`);
   }
-  for (let index = version; index < MIGRATIONS.length; index++) {
+  for (let index = version; index < target; index++) {
     db.exec("BEGIN IMMEDIATE");
     try {
       db.exec(MIGRATIONS[index]);
@@ -103,5 +114,13 @@ export function openDatabase(path: string): DatabaseSync {
       throw error;
     }
   }
+}
+
+export function openDatabase(path: string): DatabaseSync {
+  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const db = new DatabaseSync(path);
+  db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA secure_delete = ON;");
+  if (path !== ":memory:") db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+  migrate(db);
   return db;
 }

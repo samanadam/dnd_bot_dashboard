@@ -12,9 +12,12 @@ import { keys, useMusicState, useSoundboard } from "@/lib/bot/useBotState";
 import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { SAVED_KINDS, type SavedKind, type SavedTrack } from "@/lib/dm/saved";
+import { savedRef, hasAllTags, tagCounts, tagsSchema } from "@/lib/dm/tags";
 import { SAVED_KEY, useSaved } from "@/lib/dm/useSaved";
+import { TAGS_KEY, useTags } from "@/lib/dm/useTags";
 import { formatDuration } from "@/lib/format";
 import { detectLink, refFromTrack, trackUrl, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
+import { TagChips, TagFilter, TagInput } from "./Tags";
 import { useVoiceTarget } from "./Soundboard";
 
 const KIND_LABEL: Record<SavedKind, string> = { music: "Music", ambience: "Ambience", sfx: "Effects" };
@@ -45,24 +48,27 @@ function IconLink({ source, reference, title }: { source: WebSource; reference: 
   );
 }
 
-function EditRow({ item, categories, onDone }: { item: SavedTrack; categories: string[]; onDone: () => void }) {
+function EditRow({ item, tags: current, suggestions, onDone }: { item: SavedTrack; tags: readonly string[]; suggestions: readonly string[]; onDone: () => void }) {
   const toast = useToast();
   const client = useQueryClient();
   const [title, setTitle] = useState(item.title);
-  const [category, setCategory] = useState(item.category);
+  const [tags, setTags] = useState<string[]>([...current]);
   const save = useMutation({
     // The campaign is left out on purpose: an edit here keeps it as it is.
-    mutationFn: () =>
-      dm.updateSaved(item.id, { source: item.source, kind: item.kind, ref: item.ref, title, durationSeconds: item.durationSeconds, category }),
+    mutationFn: async () => {
+      await dm.updateSaved(item.id, { source: item.source, kind: item.kind, ref: item.ref, title, durationSeconds: item.durationSeconds });
+      await dm.setTags(savedRef(item.id), tags);
+    },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: SAVED_KEY });
+      void client.invalidateQueries({ queryKey: TAGS_KEY });
       onDone();
     },
     onError: (error) => toast("danger", errorText(error, "Could not save the change.")),
   });
   return (
     <form
-      className="grid gap-3 rounded-2xl border border-accent/40 bg-surface p-3 sm:grid-cols-[1fr_12rem_auto]"
+      className="grid gap-3 rounded-2xl border border-accent/40 bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]"
       onSubmit={(event) => {
         event.preventDefault();
         if (title.trim()) save.mutate();
@@ -71,13 +77,8 @@ function EditRow({ item, categories, onDone }: { item: SavedTrack; categories: s
       <Field label="Title">
         <input className={`${inputClass} h-10`} value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} />
       </Field>
-      <Field label="Category">
-        <input className={`${inputClass} h-10`} value={category} maxLength={40} list="saved-categories-edit" onChange={(event) => setCategory(event.target.value)} />
-        <datalist id="saved-categories-edit">
-          {categories.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
+      <Field label="Tags" hint="Separate with a comma.">
+        <TagInput value={tags} onChange={setTags} suggestions={suggestions} disabled={save.isPending} />
       </Field>
       <div className="flex items-end gap-2">
         <Button type="submit" variant="primary" icon={Save} busy={save.isPending} disabled={!title.trim()}>
@@ -93,7 +94,7 @@ function EditRow({ item, categories, onDone }: { item: SavedTrack; categories: s
 
 /**
  * Saved YouTube and SoundCloud links: music for the queue, ambience loops and
- * one-shot effects, filed under categories. The list lives in the portal; playing is the browser
+ * one-shot effects, each with as many tags as you like. The list lives in the portal; playing is the browser
  * calling the same bot endpoints as everything else on this page.
  */
 export function SavedLinks() {
@@ -105,12 +106,14 @@ export function SavedLinks() {
   const music = useMusicState();
   const board = useSoundboard();
   const saved = useSaved(selection);
+  const tagged = useTags();
 
   const [kind, setKind] = useState<SavedKind>("music");
   const [picked, setPicked] = useState<WebSource | null>(null);
   const [text, setText] = useState("");
-  const [category, setCategory] = useState("");
+  const [tagText, setTagText] = useState("");
   const [filter, setFilter] = useState("");
+  const [pickedTags, setPickedTags] = useState<string[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SavedTrack | null>(null);
@@ -125,14 +128,18 @@ export function SavedLinks() {
   const layers = useMemo(() => board.data?.layers ?? [], [board.data]);
   const items = useMemo(() => saved.data ?? [], [saved.data]);
   const mine = useMemo(() => items.filter((item) => item.kind === kind), [items, kind]);
-  const categories = useMemo(() => [...new Set(mine.map((item) => item.category).filter(Boolean))], [mine]);
   const needle = filter.trim().toLowerCase();
-  const visible = useMemo(() => mine.filter((item) => !needle || `${item.title} ${item.category}`.toLowerCase().includes(needle)), [mine, needle]);
-  const groups = useMemo(() => {
-    const byCategory = new Map<string, SavedTrack[]>();
-    for (const item of visible) byCategory.set(item.category, [...(byCategory.get(item.category) ?? []), item]);
-    return [...byCategory.entries()].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
-  }, [visible]);
+  // Tags offered are the ones on this tab's links, so a chip never leads to an empty list.
+  const tabTags = useMemo(() => tagCounts(Object.fromEntries(mine.map((item) => [item.id, tagged.tagsOf(savedRef(item.id))]))), [mine, tagged]);
+  const allTagNames = useMemo(() => tagged.counts.map((entry) => entry.tag), [tagged.counts]);
+  const visible = useMemo(
+    () =>
+      mine.filter((item) => {
+        const tags = tagged.tagsOf(savedRef(item.id));
+        return hasAllTags(tags, pickedTags) && (!needle || `${item.title} ${tags.join(" ")}`.toLowerCase().includes(needle));
+      }),
+    [mine, needle, pickedTags, tagged],
+  );
 
   const refreshBot = () => {
     void client.invalidateQueries({ queryKey: keys.music });
@@ -204,18 +211,30 @@ export function SavedLinks() {
     try {
       // A sound is downloaded first: it proves the track fits the limits, and
       // the first play at the table is then instant.
+      const wanted = tagsSchema.safeParse(tagText.split(",").map((part) => part.trim()).filter(Boolean));
+      if (!wanted.success) {
+        toast("danger", `Tags: ${wanted.error.issues[0]?.message ?? "not valid"}.`);
+        return;
+      }
       if (kind !== "music") await bot.prepareSound({ kind, id: trackUrl(name, ref), source: name });
-      await dm.createSaved({
+      const created = await dm.createSaved({
         source: name,
         kind,
         ref,
         title: track.title,
         durationSeconds: track.duration_seconds ? Math.max(1, Math.round(track.duration_seconds)) : null,
-        category,
         campaignId: campaignForNew,
       });
+      if (wanted.data.length > 0) {
+        try {
+          await dm.setTags(savedRef(created.id), wanted.data);
+        } catch {
+          toast("danger", "Saved, but the tags could not be added.");
+        }
+      }
       toast("ok", `Saved ${track.title}`);
       void client.invalidateQueries({ queryKey: SAVED_KEY });
+      void client.invalidateQueries({ queryKey: TAGS_KEY });
     } catch (error) {
       toast("danger", errorText(error, "Could not save that link."));
     } finally {
@@ -250,7 +269,8 @@ export function SavedLinks() {
                 aria-selected={kind === value}
                 onClick={() => {
                   setKind(value);
-                  setCategory("");
+                  setTagText("");
+                  setPickedTags([]);
                   setFilter("");
                   lookup.reset();
                   setEditing(null);
@@ -308,13 +328,8 @@ export function SavedLinks() {
               ))}
             </select>
           </Field>
-          <Field label="Category">
-            <input className={`${inputClass} h-10`} value={category} maxLength={40} list="saved-categories" placeholder="Taverns" onChange={(event) => setCategory(event.target.value)} />
-            <datalist id="saved-categories">
-              {categories.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+          <Field label="Tags" hint="Comma-separated. Optional.">
+            <input className={`${inputClass} h-10`} value={tagText} maxLength={200} placeholder="tavern, night" onChange={(event) => setTagText(event.target.value)} />
           </Field>
           <div className="flex items-end">
             <Button type="submit" variant="primary" icon={Search} className="h-10 w-full" busy={lookup.isPending} disabled={!anyOn || !text.trim()}>
@@ -372,79 +387,77 @@ export function SavedLinks() {
           ) : null}
         </div>
 
+        <TagFilter counts={tabTags} selected={pickedTags} onChange={setPickedTags} />
+
         {saved.isPending ? (
           <Skeleton className="h-24" />
         ) : saved.isError ? (
           <Notice title="The library is unavailable">{errorText(saved.error, "Try again in a moment.")}</Notice>
-        ) : groups.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border">
-            <EmptyState icon={Icon} title={needle ? "Nothing matches" : `No ${KIND_LABEL[kind].toLowerCase()} saved yet`}>
-              {needle ? "Try another word." : "Paste a YouTube or SoundCloud link, or search above, then choose Save."}
+            <EmptyState icon={Icon} title={needle || pickedTags.length > 0 ? "Nothing matches" : `No ${KIND_LABEL[kind].toLowerCase()} saved yet`}>
+              {needle || pickedTags.length > 0 ? "Try another word or tag." : "Paste a YouTube or SoundCloud link, or search above, then choose Save."}
             </EmptyState>
           </div>
         ) : (
-          groups.map(([name, group]) => (
-            <div key={name || "none"} className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{name || "Other"}</h3>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {group.map((item) =>
-                  editing === item.id ? (
-                    <li key={item.id} className="sm:col-span-2">
-                      <EditRow item={item} categories={categories} onDone={() => setEditing(null)} />
-                    </li>
-                  ) : (
-                    <li
-                      key={item.id}
-                      className={`flex items-center gap-2 rounded-2xl border p-2 pl-3 ${
-                        (item.kind === "ambience" && ambienceLayer(item)) || (item.kind === "music" && music.data?.current?.id === trackUrl(item.source, item.ref))
-                          ? "border-accent bg-accent-soft"
-                          : "border-border bg-surface-2"
-                      }`}
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {visible.map((item) =>
+              editing === item.id ? (
+                <li key={item.id} className="sm:col-span-2">
+                  <EditRow item={item} tags={tagged.tagsOf(savedRef(item.id))} suggestions={allTagNames} onDone={() => setEditing(null)} />
+                </li>
+              ) : (
+                <li
+                  key={item.id}
+                  className={`flex items-center gap-2 rounded-2xl border p-2 pl-3 ${
+                    (item.kind === "ambience" && ambienceLayer(item)) || (item.kind === "music" && music.data?.current?.id === trackUrl(item.source, item.ref))
+                      ? "border-accent bg-accent-soft"
+                      : "border-border bg-surface-2"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium" title={item.title}>
+                      {item.title}
+                    </div>
+                    <div className="text-xs text-muted">
+                      {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
+                    </div>
+                    <TagChips tags={tagged.tagsOf(savedRef(item.id))} className="mt-1" />
+                  </div>
+                  {item.kind === "music" ? (
+                    <>
+                      <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
+                      <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
+                      <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
+                    </>
+                  ) : item.kind === "ambience" ? (
+                    <Button
+                      size="sm"
+                      variant={ambienceLayer(item) ? "primary" : "secondary"}
+                      icon={ambienceLayer(item) ? Square : CloudRain}
+                      aria-pressed={Boolean(ambienceLayer(item))}
+                      aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
+                      busy={pending === item.id}
+                      disabled={!voice.ready || pending !== null || !sourceOn(item.source)}
+                      onClick={() => void toggleAmbience(item)}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium" title={item.title}>
-                          {item.title}
-                        </div>
-                        <div className="text-xs text-muted">
-                          {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
-                        </div>
-                      </div>
-                      {item.kind === "music" ? (
-                        <>
-                          <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
-                          <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
-                          <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
-                        </>
-                      ) : item.kind === "ambience" ? (
-                        <Button
-                          size="sm"
-                          variant={ambienceLayer(item) ? "primary" : "secondary"}
-                          icon={ambienceLayer(item) ? Square : CloudRain}
-                          aria-pressed={Boolean(ambienceLayer(item))}
-                          aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
-                          busy={pending === item.id}
-                          disabled={!voice.ready || pending !== null || !sourceOn(item.source)}
-                          onClick={() => void toggleAmbience(item)}
-                        >
-                          {ambienceLayer(item) ? "Stop" : "Loop"}
-                        </Button>
-                      ) : (
-                        <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
-                          Play
-                        </Button>
-                      )}
-                      {item.kind !== "music" ? (
-                        <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={pending !== null || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
-                      ) : null}
-                      <IconLink source={item.source} reference={item.ref} title={item.title} />
-                      <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />
-                      <Button size="icon" variant="danger-ghost" aria-label={`Delete ${item.title}`} icon={Trash2} onClick={() => setDeleting(item)} />
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-          ))
+                      {ambienceLayer(item) ? "Stop" : "Loop"}
+                    </Button>
+                  ) : (
+                    <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
+                      Play
+                    </Button>
+                  )}
+                  {item.kind !== "music" ? (
+                    <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={pending !== null || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
+                  ) : null}
+                  <IconLink source={item.source} reference={item.ref} title={item.title} />
+                  <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />
+                  <Button size="icon" variant="danger-ghost" aria-label={`Delete ${item.title}`} icon={Trash2} onClick={() => setDeleting(item)} />
+                </li>
+              ),
+            )}
+          </ul>
         )}
       </div>
 

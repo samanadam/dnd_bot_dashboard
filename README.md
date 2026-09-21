@@ -35,8 +35,8 @@ from a laptop or a phone at the table.
     in voice, with **scenes**: saved combinations (music plus sounds, with
     volumes) in categories, played with one tap.
   - **YouTube and SoundCloud library**: paste a link or search, then save it as music, an
-    ambience loop or an effect, filed under a category and, if you like, a
-    campaign. Music plays now, next or at the end of the queue; ambience
+    ambience loop or an effect, with any tags you like and, if you
+    like, a campaign. Music plays now, next or at the end of the queue; ambience
     toggles as a loop; effects fire once. The bot saves each ambience or effect
     the first time so it starts at once afterwards ("Get all ready" does it
     ahead of the game). Saved sounds can be added to scenes. Needs the bot's
@@ -49,6 +49,10 @@ from a laptop or a phone at the table.
   - **Dice picker**: tap dice and a bonus to build the roll, then roll.
   - **Soundboard**: looping ambience and one-shot effects mixed over the music
     in voice, with live per-sound volume; also a panel inside an encounter.
+  - **Sound tags**: put as many tags as you like on any sound (a track, an
+    ambience loop, an effect or a saved link), change them at any time, and
+    filter the music library, the soundboard and saved links by them. Tags
+    live in the portal's database, so the bot needs nothing new.
 
 The security model is in [docs/security.md](docs/security.md). Read it before
 changing anything under `app/api`, `auth.ts`, `proxy.ts` or `lib/bot/allowlist.ts`.

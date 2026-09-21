@@ -7,6 +7,7 @@ import { getDatabase } from "./database";
 import { EncounterRepo } from "./encounters";
 import { SavedRepo } from "./saved";
 import { SceneRepo } from "./scenes";
+import { TagRepo } from "./tags";
 
 /** Production dependencies for the DM route handlers. */
 export function dmDeps() {
@@ -17,6 +18,7 @@ export function dmDeps() {
     encounters: () => new EncounterRepo(getDatabase()),
     scenes: () => new SceneRepo(getDatabase()),
     saved: () => new SavedRepo(getDatabase()),
+    tags: () => new TagRepo(getDatabase()),
     log: audit,
   };
 }

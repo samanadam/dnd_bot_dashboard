@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, CloudRain, Search, Square, Upload, Volume2, Zap } from "lucide-react";
+import { AudioLines, CloudRain, Search, Square, Tag, Upload, Volume2, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, EmptyState, inputClass, Notice, Skeleton } from "@/components/ui";
@@ -8,7 +8,10 @@ import { useToast } from "@/components/Providers";
 import { bot, BotError } from "@/lib/bot/client";
 import type { SoundKind, SoundLayer, Track } from "@/lib/bot/types";
 import { useBotPresence, useSoundboard, useSoundboardMutation } from "@/lib/bot/useBotState";
+import { bucketRef, hasAllTags, tagCounts } from "@/lib/dm/tags";
+import { useTags } from "@/lib/dm/useTags";
 import { useLocalValue } from "@/lib/useLocalValue";
+import { TagChips, TagDialog, TagFilter } from "./Tags";
 
 export function useVoiceTarget() {
   const presence = useBotPresence();
@@ -70,6 +73,8 @@ function SoundButton({
   busy,
   disabled,
   hotkey,
+  tags,
+  onEditTags,
   onClick,
 }: {
   track: Track;
@@ -78,33 +83,52 @@ function SoundButton({
   busy: boolean;
   disabled: boolean;
   hotkey?: string;
+  // Given only where tags are shown and edited, which is the full page.
+  tags?: readonly string[];
+  onEditTags?: () => void;
   onClick: () => void;
 }) {
   const Icon = kind === "ambience" ? CloudRain : Zap;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || busy}
-      aria-pressed={kind === "ambience" ? active : undefined}
-      className={`group relative flex min-h-16 min-w-0 flex-col items-start justify-between gap-2 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 ${
-        active
-          ? "border-accent bg-accent text-accent-fg shadow-[0_8px_24px_-12px_var(--accent)]"
-          : "border-border bg-surface-2 hover:-translate-y-0.5 hover:border-border-strong hover:bg-surface-3 active:translate-y-0"
-      }`}
-    >
-      <span className="flex w-full items-center justify-between gap-2">
-        {busy ? (
-          <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-        ) : (
-          <Icon className={`size-4 ${active ? "" : kind === "ambience" ? "text-accent" : "text-warn"}`} aria-hidden />
-        )}
-        {hotkey && (
-          <kbd className={`rounded-md border px-1.5 font-mono text-[10px] ${active ? "border-accent-fg/40" : "border-border text-faint"}`}>{hotkey}</kbd>
-        )}
-      </span>
-      <span className="line-clamp-2 text-sm font-medium leading-tight">{track.title}</span>
-    </button>
+    <div className="relative min-w-0">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled || busy}
+        aria-pressed={kind === "ambience" ? active : undefined}
+        className={`group relative flex h-full min-h-16 w-full min-w-0 flex-col items-start justify-between gap-2 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 ${
+          active
+            ? "border-accent bg-accent text-accent-fg shadow-[0_8px_24px_-12px_var(--accent)]"
+            : "border-border bg-surface-2 hover:-translate-y-0.5 hover:border-border-strong hover:bg-surface-3 active:translate-y-0"
+        }`}
+      >
+        <span className="flex w-full items-center justify-between gap-2">
+          {busy ? (
+            <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+          ) : (
+            <Icon className={`size-4 ${active ? "" : kind === "ambience" ? "text-accent" : "text-warn"}`} aria-hidden />
+          )}
+          {hotkey && (
+            <kbd className={`rounded-md border px-1.5 font-mono text-[10px] ${active ? "border-accent-fg/40" : "border-border text-faint"}`}>{hotkey}</kbd>
+          )}
+        </span>
+        <span className="line-clamp-2 text-sm font-medium leading-tight">{track.title}</span>
+        {tags && tags.length > 0 ? <TagChips tags={tags} max={2} className={`${onEditTags ? "pr-7" : ""} ${active ? "opacity-80" : ""}`} /> : null}
+      </button>
+      {onEditTags ? (
+        <button
+          type="button"
+          onClick={onEditTags}
+          aria-label={`Edit tags for ${track.title}`}
+          title="Edit tags"
+          className={`absolute bottom-2 right-2 grid size-6 place-items-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            active ? "text-accent-fg/80 hover:bg-accent-fg/15" : "text-faint hover:bg-surface-3 hover:text-text"
+          }`}
+        >
+          <Tag className="size-3.5" aria-hidden />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -112,7 +136,10 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
   const toast = useToast();
   const board = useSoundboard();
   const voice = useVoiceTarget();
+  const tagged = useTags();
   const [filter, setFilter] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [editingTags, setEditingTags] = useState<{ ref: string; title: string; tags: readonly string[] } | null>(null);
   const [pending, setPending] = useState<string | null>(null);
 
   const play = useSoundboardMutation((input: { kind: SoundKind; track: Track }) =>
@@ -125,8 +152,23 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
   const playingAmbience = useMemo(() => new Map(layers.filter((l) => l.kind === "ambience").map((l) => [l.track_id, l])), [layers]);
 
   const needle = filter.trim().toLowerCase();
-  const ambience = (board.data?.ambience ?? []).filter((t) => t.title.toLowerCase().includes(needle));
-  const effects = (board.data?.sfx ?? []).filter((t) => t.title.toLowerCase().includes(needle));
+  const tagsOf = (track: Track) => tagged.tagsOf(bucketRef(track.id));
+  const matches = (track: Track) => {
+    const tags = tagsOf(track);
+    return hasAllTags(tags, picked) && `${track.title} ${tags.join(" ")}`.toLowerCase().includes(needle);
+  };
+  const ambience = (board.data?.ambience ?? []).filter(matches);
+  const effects = (board.data?.sfx ?? []).filter(matches);
+  // Tags offered are the ones on sounds listed here, so a chip never leads to an empty board.
+  const listed = useMemo(
+    () => [...(board.data?.ambience ?? []), ...(board.data?.sfx ?? [])],
+    [board.data],
+  );
+  const boardTags = useMemo(
+    () => tagCounts(Object.fromEntries(listed.map((track) => [track.id, tagged.tagsOf(bucketRef(track.id))]))),
+    [listed, tagged],
+  );
+  const allTagNames = useMemo(() => tagged.counts.map((entry) => entry.tag), [tagged.counts]);
 
   function trigger(kind: SoundKind, track: Track) {
     const existing = kind === "ambience" ? playingAmbience.get(track.id) : undefined;
@@ -222,6 +264,8 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
         </Button>
       </div>
 
+      <TagFilter counts={boardTags} selected={picked} onChange={setPicked} />
+
       {layers.length > 0 && (
         <section aria-label="Playing now">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Playing now</h3>
@@ -270,12 +314,14 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
                     active={playingAmbience.has(track.id)}
                     busy={pending === track.id}
                     disabled={disabled}
+                    tags={compact ? undefined : tagsOf(track)}
+                    onEditTags={compact ? undefined : () => setEditingTags({ ref: bucketRef(track.id), title: track.title, tags: tagsOf(track) })}
                     onClick={() => trigger("ambience", track)}
                   />
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-faint">{needle ? "No ambience matches." : "No ambience uploaded."}</p>
+              <p className="text-sm text-faint">{needle || picked.length > 0 ? "No ambience matches." : "No ambience uploaded."}</p>
             )}
           </section>
           <section aria-label="Effects">
@@ -296,16 +342,19 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
                     busy={pending === track.id}
                     disabled={disabled}
                     hotkey={!compact && index < 9 ? String(index + 1) : undefined}
+                    tags={compact ? undefined : tagsOf(track)}
+                    onEditTags={compact ? undefined : () => setEditingTags({ ref: bucketRef(track.id), title: track.title, tags: tagsOf(track) })}
                     onClick={() => trigger("sfx", track)}
                   />
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-faint">{needle ? "No effects match." : "No effects uploaded."}</p>
+              <p className="text-sm text-faint">{needle || picked.length > 0 ? "No effects match." : "No effects uploaded."}</p>
             )}
           </section>
         </>
       )}
+      <TagDialog target={editingTags} suggestions={allTagNames} onClose={() => setEditingTags(null)} />
     </div>
   );
 }
