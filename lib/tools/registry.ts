@@ -14,7 +14,9 @@ export type IconName =
   | "users"
   | "swords"
   | "audio"
-  | "search";
+  | "search"
+  | "map"
+  | "gem";
 
 export type ToolLink = { href: string; label: string; icon: IconName };
 
@@ -50,7 +52,7 @@ export const tools: Tool[] = [
   {
     id: "dm",
     name: "DM Screen",
-    description: "Bestiary, NPCs, initiative tracker and dice. Only you can see it.",
+    description: "Bestiary, NPCs, areas with battles and rewards, items, initiative tracker and dice. Only you can see it.",
     href: "/dm",
     icon: "scroll",
     status: "live",
@@ -58,6 +60,8 @@ export const tools: Tool[] = [
     links: [
       { href: "/dm/combat", label: "Combat", icon: "swords" },
       { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
+      { href: "/dm/areas", label: "Areas", icon: "map" },
+      { href: "/dm/items", label: "Items", icon: "gem" },
       { href: "/dm/npcs", label: "NPCs", icon: "users" },
       { href: "/dm/dice", label: "Dice", icon: "dice" },
       { href: "/dm/soundboard", label: "Sound", icon: "audio" },

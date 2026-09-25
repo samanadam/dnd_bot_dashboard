@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { migrate, openDatabase, SCHEMA_VERSION } from "@/lib/dm/db";
+import { migrate, openDatabase } from "@/lib/dm/db";
 import { SavedRepo, savedSchema } from "@/lib/dm/saved";
 import { bucketRef, hasAllTags, MAX_TAGGED, MAX_TAGS, normaliseTags, savedRef, setTagsSchema, TagRepo, tagCounts, tagsSchema } from "@/lib/dm/tags";
 import { tagRoutes } from "@/lib/dm/tagRoutes";
@@ -156,7 +156,8 @@ describe("saved links and their tags", () => {
 
   it("turns each existing category into a tag when the database is upgraded", () => {
     const db = new DatabaseSync(":memory:");
-    migrate(db, SCHEMA_VERSION - 1);
+    // Version 7 is the last one before sound_tags, whatever has been added since.
+    migrate(db, 7);
     const insert = db.prepare(
       "INSERT INTO saved_tracks (id, source, kind, ref, title, duration_seconds, category, campaign_id, created_at, updated_at) VALUES (?, 'youtube', 'music', ?, 't', NULL, ?, NULL, 'x', 'x')",
     );

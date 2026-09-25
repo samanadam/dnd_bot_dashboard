@@ -1,6 +1,12 @@
 "use client";
 
+import type { AreaInput, AreaSummary } from "./areas";
+import type { AreaDetail } from "./areaView";
 import type { Creature, CreatureInput } from "./creatures";
+import type { CreatureSearchResult } from "./creatureSearch";
+import type { CustomItem, CustomItemInput, ItemBlock } from "./items";
+import type { ItemSearchResult } from "./itemRoutes";
+import type { RewardInput } from "./rewards";
 import type { Encounter } from "./encounter";
 import type { EncounterSummary, StoredEncounter } from "./encounters";
 import type { SavedInput, SavedTrack } from "./saved";
@@ -33,7 +39,7 @@ export class ConflictError extends DmError {
   }
 }
 
-export async function dmCall<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+export async function dmCall<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api/dm/${path}`, {
@@ -99,4 +105,29 @@ export const dm = {
   // Every tagged sound as { ref: tags }. Replacing with an empty list clears a sound.
   listTags: () => dmCall<TagMap>("GET", "tags"),
   setTags: (ref: string, tags: string[]) => dmCall<{ ref: string; tags: string[] }>("PUT", "tags", { ref, tags }),
+  listAreas: (campaign?: string) => dmCall<AreaSummary[]>("GET", campaign ? `areas?campaign=${enc(campaign)}` : "areas"),
+  createArea: (input: AreaInput) => dmCall<AreaDetail>("POST", "areas", input),
+  getArea: (id: string) => dmCall<AreaDetail>("GET", `areas/${enc(id)}`),
+  // A stale version rejects with a DmError whose code is "conflict".
+  updateArea: (id: string, version: number, input: AreaInput) => dmCall<AreaDetail>("PUT", `areas/${enc(id)}`, { version, ...input }),
+  deleteArea: (id: string) => dmCall<void>("DELETE", `areas/${enc(id)}`),
+  reorderAreas: (ids: string[]) => dmCall<void>("PUT", "areas/order", { ids }),
+  setAreaEncounters: (id: string, version: number, encounterIds: string[]) =>
+    dmCall<AreaDetail>("PUT", `areas/${enc(id)}/encounters`, { version, encounterIds }),
+  setAreaRewards: (id: string, version: number, rewards: RewardInput[]) =>
+    dmCall<AreaDetail>("PUT", `areas/${enc(id)}/rewards`, { version, rewards }),
+  setRewardStatus: (id: string, rewardId: string, status: string) =>
+    dmCall<AreaDetail>("PATCH", `areas/${enc(id)}/rewards/${enc(rewardId)}`, { status }),
+  searchItems: (params: { q?: string; source?: string; category?: string; campaign?: string; offset?: number; limit?: number }) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value));
+    return dmCall<{ total: number; results: ItemSearchResult[]; categories: string[] }>("GET", `items/search?${query}`);
+  },
+  getItem: (id: string) => dmCall<CustomItem>("GET", `items/${enc(id)}`),
+  getSrdItem: (edition: "2014" | "2024", slug: string) => dmCall<ItemBlock>("GET", `items/srd/${edition}/${enc(slug)}`),
+  createItem: (input: CustomItemInput) => dmCall<CustomItem>("POST", "items", input),
+  updateItem: (id: string, input: CustomItemInput) => dmCall<CustomItem>("PUT", `items/${enc(id)}`, input),
+  deleteItem: (id: string) => dmCall<void>("DELETE", `items/${enc(id)}`),
+  searchCreatures: (q: string, campaign?: string) =>
+    dmCall<{ results: CreatureSearchResult[] }>("GET", `creatures/search?q=${enc(q)}${campaign ? `&campaign=${enc(campaign)}` : ""}`),
 };

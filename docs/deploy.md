@@ -227,6 +227,18 @@ The soundboard mixes over the music on the same voice connection, so it obeys
 the same truce with the recorder: it never hangs up a connection a recording
 owns. Ambience comes back by itself after a voice reconnect; effects do not.
 
+## Upgrading to areas, rewards and items
+
+The portal applies two database migrations on start (custom items, then areas
+with their battle links and rewards). Nothing existing is changed. The bot is
+not involved: it needs no new version. Back up the portal database first if you
+want a way back, since an older portal build refuses a database this new.
+
+Areas, rewards and custom items live only in the portal database, so the
+backup script already covers them. The bundled SRD items are files in the image
+(`data/srd/items-*.json`); refresh them by hand with
+`npx tsx@4.23.13 scripts/import-srd-items.mts` and review the diff.
+
 ## Upgrading to sound tags
 
 The portal applies one database migration on start. A saved link's old

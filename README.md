@@ -27,6 +27,14 @@ from a laptop or a phone at the table.
   - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
     blocks where every bonus and damage roll is one click.
   - **NPCs**: your campaign's people with stat blocks, private notes and tags.
+  - **Areas**: the places of your campaign. Each links prepared encounters
+    (launch them straight into Combat) and holds rewards: items, and
+    "pointers" (if the party does this, that follows in the story, optionally
+    tied to an NPC). Tick rewards off at the table: items go planned, given or
+    skipped; pointers go pending, earned or lost. Rewards can belong to the
+    whole area or to one battle.
+  - **Items**: the SRD equipment and magic items from both rule sets, plus your
+    own, per campaign.
   - **Combat**: initiative tracker with turns, rounds, hit points, temporary hit
     points, timed conditions and concentration; autosaves.
   - **Dice**: cryptographically random rolls with advantage, keep/drop and an

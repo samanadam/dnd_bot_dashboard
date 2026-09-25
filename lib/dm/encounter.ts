@@ -4,7 +4,7 @@ import type { Rng } from "@/lib/dice/random";
 // An encounter is plain data plus pure transitions. The tracker applies them
 // locally and autosaves the result; the server only validates and stores it.
 
-const refSchema = z.union([
+export const creatureRefSchema = z.union([
   z.object({ source: z.literal("srd"), edition: z.enum(["2014", "2024"]), slug: z.string().regex(/^[a-z0-9-]{1,80}$/) }).strict(),
   z.object({ source: z.literal("custom"), id: z.string().regex(/^[0-9a-f-]{36}$/) }).strict(),
 ]);
@@ -18,7 +18,7 @@ export const combatantSchema = z
     id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
     name: z.string().trim().min(1).max(80),
     kind: z.enum(["monster", "npc", "player"]),
-    ref: refSchema.nullable(),
+    ref: creatureRefSchema.nullable(),
     initiative: z.number().int().min(-20).max(60).nullable(),
     initiativeBonus: z.number().int().min(-20).max(40),
     ac: z.number().int().min(0).max(40),
@@ -43,7 +43,7 @@ export const encounterSchema = z
   })
   .strict();
 
-export type CreatureRef = z.infer<typeof refSchema>;
+export type CreatureRef = z.infer<typeof creatureRefSchema>;
 export type Condition = z.infer<typeof conditionSchema>;
 export type Combatant = z.infer<typeof combatantSchema>;
 export type Encounter = z.infer<typeof encounterSchema>;

@@ -1,8 +1,9 @@
-import { AudioLines, BookOpen, ChevronRight, Dices, Plus, Swords, Users } from "lucide-react";
+import { AudioLines, BookOpen, ChevronRight, Dices, Gem, Map as MapIcon, Plus, Swords, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
 import { requireDm } from "@/lib/dm/access";
+import { AreaRepo } from "@/lib/dm/areas";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
 import { EncounterRepo } from "@/lib/dm/encounters";
@@ -26,12 +27,15 @@ export default async function DmHome() {
   const db = getDatabase();
   const creatures = new CreatureRepo(db).list();
   const encounters = new EncounterRepo(db).list();
+  const areaCount = new AreaRepo(db).list().length;
   const npcs = creatures.filter((c) => c.kind === "npc").length;
   const mine = creatures.length - npcs;
 
   const tiles = [
     { href: "/dm/combat", icon: Swords, title: "Combat", body: "Initiative, turns, hit points and conditions.", stat: `${encounters.length} encounter${encounters.length === 1 ? "" : "s"}` },
     { href: "/dm/bestiary", icon: BookOpen, title: "Bestiary", body: "Every SRD monster plus the ones you add from your books.", stat: `${listSrd().length + mine} monsters` },
+    { href: "/dm/areas", icon: MapIcon, title: "Areas", body: "The places of your campaign, with their battles and rewards.", stat: `${areaCount} area${areaCount === 1 ? "" : "s"}` },
+    { href: "/dm/items", icon: Gem, title: "Items", body: "SRD equipment and magic items, plus your own inventions.", stat: "SRD and custom" },
     { href: "/dm/npcs", icon: Users, title: "NPCs", body: "The people of your world, with stat blocks and secrets.", stat: `${npcs} NPC${npcs === 1 ? "" : "s"}` },
     { href: "/dm/dice", icon: Dices, title: "Dice", body: "Roll anything and send the result to Discord.", stat: "d4 to d100" },
     { href: "/dm/soundboard", icon: AudioLines, title: "Soundboard", body: "Ambience loops and sound effects over the music.", stat: "In voice" },
@@ -55,7 +59,7 @@ export default async function DmHome() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {tiles.map(({ href, icon: Icon, title, body, stat }) => (
           <Link
             key={href}

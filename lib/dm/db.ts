@@ -93,6 +93,51 @@ const MIGRATIONS: readonly string[] = [
      SELECT ref, tag FROM (
        SELECT 'saved:' || id AS ref, trim(replace(replace(substr(category, 1, 32), ', ', ' '), ',', ' ')) AS tag FROM saved_tracks
      ) WHERE tag <> '';`,
+  // The DM's own items, per campaign like NPCs. SRD items are bundled files, not rows.
+  `CREATE TABLE items (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     campaign_id TEXT,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX items_campaign ON items (campaign_id);`,
+  // Areas: places in the campaign that group battles and rewards. Campaigns live
+  // in the bot, so campaign_id has no foreign key. Links and rewards die with
+  // their area; the encounter and item they name are only referenced, never owned,
+  // so deleting those leaves a "missing" mark instead of blocking anything.
+  `CREATE TABLE areas (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT,
+     name TEXT NOT NULL,
+     summary TEXT NOT NULL DEFAULT '',
+     notes TEXT NOT NULL DEFAULT '',
+     position INTEGER NOT NULL DEFAULT 0,
+     version INTEGER NOT NULL DEFAULT 1,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX areas_campaign ON areas (campaign_id, position);
+   CREATE TABLE area_encounters (
+     area_id TEXT NOT NULL REFERENCES areas (id) ON DELETE CASCADE,
+     encounter_id TEXT NOT NULL,
+     position INTEGER NOT NULL,
+     PRIMARY KEY (area_id, encounter_id)
+   );
+   CREATE TABLE area_rewards (
+     id TEXT PRIMARY KEY,
+     area_id TEXT NOT NULL REFERENCES areas (id) ON DELETE CASCADE,
+     encounter_id TEXT,
+     kind TEXT NOT NULL CHECK (kind IN ('item', 'pointer')),
+     status TEXT NOT NULL,
+     position INTEGER NOT NULL,
+     ref_key TEXT,
+     data TEXT NOT NULL,
+     CHECK ((kind = 'item' AND status IN ('planned', 'given', 'skipped')) OR (kind = 'pointer' AND status IN ('pending', 'earned', 'lost')))
+   );
+   CREATE INDEX area_rewards_area ON area_rewards (area_id, position);
+   CREATE INDEX area_rewards_ref ON area_rewards (ref_key);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
