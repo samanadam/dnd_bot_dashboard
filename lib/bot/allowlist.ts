@@ -29,6 +29,8 @@ export type Rule = {
   maxBodyBytes?: number;
 };
 
+const RECORDING_FINISH_TIMEOUT_MS = 15 * 60_000;
+
 const snowflake = z.string().regex(/^\d{17,20}$/, "must be a Discord id");
 const sessionId = z
   .string()
@@ -131,12 +133,23 @@ const rules: Rule[] = [
       })
       .strict(),
   },
-  { method: "POST", path: "recording/stop", bucket: "recording", audit: true, body: channelBody },
+  // Stopping encodes every speaker's audio before it answers: minutes for a
+  // long game. The bot finishes either way, but a request that gives up early
+  // leaves the DM looking at an error for a session that is being saved.
+  {
+    method: "POST",
+    path: "recording/stop",
+    bucket: "recording",
+    timeoutMs: RECORDING_FINISH_TIMEOUT_MS,
+    audit: true,
+    body: channelBody,
+  },
   { method: "POST", path: "recording/cancel", bucket: "recording", audit: true, body: channelBody },
   {
     method: "POST",
     path: "recording/recover",
     bucket: "recording",
+    timeoutMs: RECORDING_FINISH_TIMEOUT_MS,
     audit: true,
     body: z.object({ session_id: sessionId }).strict(),
   },

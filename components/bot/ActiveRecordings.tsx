@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CircleStop, Mic, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { bot } from "@/lib/bot/client";
+import { bot, BotError } from "@/lib/bot/client";
 import type { ActiveSession } from "@/lib/bot/types";
 import { formatDuration } from "@/lib/format";
 import { useActiveRecordings, useBotOnline, useRecordingMutation } from "@/lib/bot/useBotState";
@@ -31,6 +31,12 @@ export function ActiveRecordings() {
           setPending(null);
           toast("ok", `Stopped ${label} after ${formatDuration(result.duration_seconds)}${result.enqueued ? ", queued for transcription" : ""}.`);
           result.warnings.forEach((warning) => toast("danger", warning));
+        },
+        onError: (error) => {
+          if (error instanceof BotError && error.code === "upstream_timeout") {
+            setPending(null);
+            toast("ok", `${label} is still being saved. It appears under sessions once the bot finishes.`);
+          }
         },
       });
     } else {
