@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Dices, History, Music2 } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { formatBytes } from "@/lib/format";
 import { useMusicState, useStats } from "@/lib/bot/useBotState";
 import { PresenceDot } from "./LivePresence";
@@ -46,18 +46,18 @@ export function HubBotCard() {
       </dl>
 
       <div className="relative mt-6 flex flex-wrap gap-2">
-        <Link
+        <PortalLink
           href="/bot"
           className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-medium text-accent-fg hover:bg-accent-strong"
         >
           Open dashboard <ArrowUpRight className="size-4" aria-hidden />
-        </Link>
-        <Link href="/bot/music" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 text-sm hover:bg-surface-3">
+        </PortalLink>
+        <PortalLink href="/bot/music" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 text-sm hover:bg-surface-3">
           <Music2 className="size-4" aria-hidden /> Music
-        </Link>
-        <Link href="/bot/sessions" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 text-sm hover:bg-surface-3">
+        </PortalLink>
+        <PortalLink href="/bot/sessions" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 text-sm hover:bg-surface-3">
           <History className="size-4" aria-hidden /> Sessions
-        </Link>
+        </PortalLink>
       </div>
     </div>
   );

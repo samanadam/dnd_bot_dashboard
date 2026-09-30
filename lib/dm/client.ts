@@ -13,6 +13,7 @@ import type { SavedInput, SavedTrack } from "./saved";
 import type { Scene, SceneInput } from "./scenes";
 import type { TagMap } from "./tags";
 import type { StatBlock } from "./statblock";
+import { inDemo } from "@/lib/demo/base";
 
 // Browser client for /api/dm. Same conventions as lib/bot/client.ts: portal
 // header on every call, same-origin credentials, no caching, and a 401 sends the
@@ -40,6 +41,8 @@ export class ConflictError extends DmError {
 }
 
 export async function dmCall<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
+  // The public demo never reaches the portal API: an in-memory store answers.
+  if (inDemo()) return (await import("@/lib/demo/dmTransport")).demoDmCall<T>(method, path, body);
   let response: Response;
   try {
     response = await fetch(`/api/dm/${path}`, {

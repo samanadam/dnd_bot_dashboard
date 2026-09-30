@@ -1,7 +1,7 @@
 "use client";
 
 import { CloudUpload, Hourglass, RefreshCw } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { BotError } from "@/lib/bot/client";
 import type { QueueItem } from "@/lib/bot/types";
 import { useBotOnline, useSyncTranscription, useTranscriptionQueue } from "@/lib/bot/useBotState";
@@ -57,9 +57,9 @@ export function TranscriptionQueue({ canManage }: { canManage: boolean }) {
         {items.map((item) => (
           <li key={item.session_id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
             <div className="min-w-0 flex-1">
-              <Link href={`/bot/sessions/${encodeURIComponent(item.session_id)}`} className="block truncate text-sm font-medium hover:text-accent">
+              <PortalLink href={`/bot/sessions/${encodeURIComponent(item.session_id)}`} className="block truncate text-sm font-medium hover:text-accent">
                 {item.name ?? "Untitled session"}
-              </Link>
+              </PortalLink>
               <div className="text-xs text-muted">
                 {item.campaign_name ?? "Not in a campaign"}
                 {item.waiting_seconds !== null ? ` · waiting ${formatDuration(item.waiting_seconds)}` : ""}

@@ -1,8 +1,8 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Gem, MapPin, Plus, Swords, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { PortalLink } from "@/components/PortalLink";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
@@ -12,7 +12,7 @@ import type { AreaSummary } from "@/lib/dm/areas";
 import { dm, DmError } from "@/lib/dm/client";
 
 export function AreaList({ areas }: { areas: AreaSummary[] }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const toast = useToast();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -79,7 +79,7 @@ export function AreaList({ areas }: { areas: AreaSummary[] }) {
                 <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
                   <MapPin className="size-5" aria-hidden />
                 </span>
-                <Link href={`/dm/areas/${area.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">
+                <PortalLink href={`/dm/areas/${area.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">
                   <span className="block truncate font-display text-xl font-semibold group-hover:text-accent">{area.name}</span>
                   {area.summary ? <span className="line-clamp-1 text-xs text-muted">{area.summary}</span> : null}
                   <span className="mt-1.5 flex flex-wrap gap-1.5">
@@ -90,7 +90,7 @@ export function AreaList({ areas }: { areas: AreaSummary[] }) {
                       <Gem className="size-3" aria-hidden /> {area.rewardsDone}/{area.rewardsTotal} rewards
                     </Badge>
                   </span>
-                </Link>
+                </PortalLink>
                 <span className="relative z-10 flex flex-col">
                   <Button size="icon" variant="ghost" className="size-7" icon={ArrowUp} aria-label={`Move ${area.name} up`} disabled={index === 0} onClick={() => void move(index, -1)} />
                   <Button size="icon" variant="ghost" className="size-7" icon={ArrowDown} aria-label={`Move ${area.name} down`} disabled={index === areas.length - 1} onClick={() => void move(index, 1)} />

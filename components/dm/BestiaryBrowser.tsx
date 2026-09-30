@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, Heart, Search, Shield, X } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState, inputBaseClass, inputClass } from "@/components/ui";
 import type { MonsterSummary } from "@/lib/dm/srd";
@@ -196,7 +196,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.slice(0, limit).map((monster) => (
             <li key={monster.id}>
-              <Link
+              <PortalLink
                 href={monsterHref(monster)}
                 className="group flex h-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 shadow-card transition hover:-translate-y-px hover:border-accent/50"
               >
@@ -224,7 +224,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
                     </span>
                   </span>
                 </span>
-              </Link>
+              </PortalLink>
             </li>
           ))}
         </ul>

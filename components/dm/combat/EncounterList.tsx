@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronRight, ClipboardList, Play, Plus, Swords, Trash2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { PortalLink } from "@/components/PortalLink";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -13,7 +13,7 @@ import { dm, DmError } from "@/lib/dm/client";
 import type { EncounterSummary } from "@/lib/dm/encounters";
 
 export function EncounterList({ encounters }: { encounters: EncounterSummary[] }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const toast = useToast();
   const [name, setName] = useState("");
   const [prepare, setPrepare] = useState(false);
@@ -90,12 +90,12 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
                 <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
                   <ClipboardList className="size-5" aria-hidden />
                 </span>
-                <Link href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 hover:text-accent">
+                <PortalLink href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 hover:text-accent">
                   <span className="block truncate font-display text-xl font-semibold">{encounter.name}</span>
                   <span className="block text-xs text-muted">
                     {encounter.combatants} combatant{encounter.combatants === 1 ? "" : "s"} · ready to launch
                   </span>
-                </Link>
+                </PortalLink>
                 <Button variant="primary" size="sm" icon={Play} busy={launching === encounter.id} disabled={encounter.combatants === 0 || launching !== null} onClick={() => void launch(encounter)}>
                   Launch
                 </Button>
@@ -119,12 +119,12 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
               <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${encounter.round ? "bg-accent-soft text-accent" : "bg-surface-2 text-faint"}`}>
                 <Swords className="size-5" aria-hidden />
               </span>
-              <Link href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">
+              <PortalLink href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">
                 <span className="block truncate font-display text-xl font-semibold group-hover:text-accent">{encounter.name}</span>
                 <span className="block text-xs text-muted">
                   {encounter.combatants} combatant{encounter.combatants === 1 ? "" : "s"} · {encounter.round ? `in progress, round ${encounter.round}` : "ready"}
                 </span>
-              </Link>
+              </PortalLink>
               <span className="relative z-10">
                 <CampaignSelect
                   compact

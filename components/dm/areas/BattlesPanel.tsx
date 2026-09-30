@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ClipboardList, Play, Plus, Swords, Unlink } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { PortalLink } from "@/components/PortalLink";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
 import { useToast } from "@/components/Providers";
 import { Button, EmptyState, inputBaseClass } from "@/components/ui";
@@ -13,7 +13,7 @@ import { dm, DmError } from "@/lib/dm/client";
 
 /** The prepared encounters linked to an area. Launching one copies it into a live fight, as in Combat. */
 export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; busy: boolean; onReplace: (encounterIds: string[]) => Promise<boolean> }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const toast = useToast();
   const [pick, setPick] = useState("");
   const [launching, setLaunching] = useState<string | null>(null);
@@ -61,9 +61,9 @@ export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; 
                 {battle.name === null ? (
                   <p className="font-medium text-warn">Missing battle</p>
                 ) : (
-                  <Link href={`/dm/combat/${battle.id}`} className="block truncate font-medium hover:text-accent">
+                  <PortalLink href={`/dm/combat/${battle.id}`} className="block truncate font-medium hover:text-accent">
                     {battle.name}
-                  </Link>
+                  </PortalLink>
                 )}
                 <p className="text-xs text-muted">
                   {battle.name === null ? "It was deleted. Unlink it." : `${battle.combatants} combatant${battle.combatants === 1 ? "" : "s"}${battle.prepared ? "" : " · no longer prepared"}`}
@@ -104,9 +104,9 @@ export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; 
           >
             Link
           </Button>
-          <Link href="/dm/combat" className="text-xs text-muted underline-offset-2 hover:text-text hover:underline">
+          <PortalLink href="/dm/combat" className="text-xs text-muted underline-offset-2 hover:text-text hover:underline">
             Prepare one in Combat
-          </Link>
+          </PortalLink>
         </div>
       ) : null}
     </section>

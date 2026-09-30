@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, Search, Shield, Users } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { useMemo, useState } from "react";
 import { EmptyState, inputClass } from "@/components/ui";
 
@@ -67,7 +67,7 @@ export function NpcDirectory({ npcs }: { npcs: NpcCard[] }) {
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((npc) => (
           <li key={npc.id}>
-            <Link
+            <PortalLink
               href={`/dm/bestiary/custom/${npc.id}`}
               className="group flex h-full flex-col gap-3 rounded-3xl border border-border bg-surface p-5 shadow-card transition hover:-translate-y-0.5 hover:border-accent/50"
             >
@@ -95,7 +95,7 @@ export function NpcDirectory({ npcs }: { npcs: NpcCard[] }) {
                   </span>
                 ))}
               </span>
-            </Link>
+            </PortalLink>
           </li>
         ))}
       </ul>

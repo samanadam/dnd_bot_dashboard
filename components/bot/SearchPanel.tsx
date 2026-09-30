@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { Fragment, useDeferredValue, useMemo, useState } from "react";
 import { BotError } from "@/lib/bot/client";
 import type { SearchHit } from "@/lib/bot/types";
@@ -108,7 +108,7 @@ export function SearchPanel() {
               <ul className="divide-y divide-border">
                 {entry.hits.map((hit) => (
                   <li key={hit.seq}>
-                    <Link
+                    <PortalLink
                       href={`/bot/sessions/${encodeURIComponent(hit.session_id)}?seq=${hit.seq}`}
                       className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 px-5 py-3 transition hover:bg-surface-2/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:grid-cols-[5.5rem_minmax(0,1fr)]"
                     >
@@ -117,7 +117,7 @@ export function SearchPanel() {
                         <span className="mb-0.5 block text-sm font-semibold">{hit.speaker}</span>
                         <Snippet text={hit.snippet} />
                       </span>
-                    </Link>
+                    </PortalLink>
                   </li>
                 ))}
               </ul>

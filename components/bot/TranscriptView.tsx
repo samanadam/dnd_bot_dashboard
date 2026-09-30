@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, BookOpen, ChevronLeft, Clock, Download, FileText, Languages, MessagesSquare, Search, Users, X } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { bot, BotError } from "@/lib/bot/client";
 import type { TranscriptSegment } from "@/lib/bot/types";
@@ -143,9 +143,9 @@ export function TranscriptView({
   }, [focusSeq, loaded]);
 
   const back = (
-    <Link href="/bot/sessions" className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
+    <PortalLink href="/bot/sessions" className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
       <ChevronLeft className="size-4" aria-hidden /> Sessions
-    </Link>
+    </PortalLink>
   );
 
   if (query.isPending) {

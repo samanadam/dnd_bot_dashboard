@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, ChevronRight, CloudOff, Dices, Flag, Loader, Play, Plus, Swords, TriangleAlert, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useEffect, useRef, useState } from "react";
 import { dm, DmError } from "@/lib/dm/client";
 import { Button, EmptyState, Notice } from "@/components/ui";
@@ -57,7 +57,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
 
-  const router = useRouter();
+  const router = usePortalRouter();
   const prepared = initial.kind === "prepared";
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);

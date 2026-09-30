@@ -1,7 +1,7 @@
 "use client";
 
 import { AudioLines, CloudRain, Search, Square, Tag, Upload, Volume2, Zap } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, EmptyState, inputClass, Notice, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/Providers";
@@ -231,9 +231,9 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
       {!voice.ready && voice.presence.kind !== "loading" && (
         <Notice tone="warn">
           The bot is not in a voice channel. Join one from the{" "}
-          <Link href="/bot/music" className="font-medium underline underline-offset-2">
+          <PortalLink href="/bot/music" className="font-medium underline underline-offset-2">
             Music page
-          </Link>{" "}
+          </PortalLink>{" "}
           first.
         </Notice>
       )}
@@ -289,9 +289,9 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
             <>
               {" "}
               on the{" "}
-              <Link href="/dm/soundboard" className="font-medium text-accent underline underline-offset-2">
+              <PortalLink href="/dm/soundboard" className="font-medium text-accent underline underline-offset-2">
                 Soundboard page
-              </Link>
+              </PortalLink>
               .
             </>
           ) : (

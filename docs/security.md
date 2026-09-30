@@ -50,10 +50,14 @@ make sure only the right people can make the portal use it.
 | A non-DM reads or changes areas, rewards or items, or learns they exist | Every `/api/dm/areas`, `/api/dm/items` and `/api/dm/creatures/search` route uses the DM guard (session, DM check, portal header and same-origin, rate limit), so anyone else gets the unknown-URL 404 before the database is touched; writes are audited without their contents | `lib/dm/areaRoutes.ts`, `lib/dm/itemRoutes.ts`, `lib/dm/creatureSearch.ts`, `tests/area-routes.test.ts` |
 | Reward, area or item text carrying markup, SQL or oversized data | Every body is a zod `.strict()` schema with length and count caps (200 areas per campaign, 40 battles and 100 rewards per area, 500 custom items, 64 KB bodies); ids and SRD slugs are checked against a pattern before use, everything reaches SQLite as a bound parameter, stored JSON is validated again on read, and text is only ever shown as text | `lib/dm/areas.ts`, `lib/dm/rewards.ts`, `lib/dm/items.ts` |
 | A stale tab overwriting an area, or a reward ticked on the wrong kind or the wrong area | Area, battle and reward-list writes name the version they were based on and get a 409 on mismatch; a status change must fit the reward's kind (checked in code and by a database CHECK) and the reward must belong to the area in the URL | `lib/dm/areas.ts`, `lib/dm/db.ts` |
+| The public demo (`/demo`) used to reach real data or the bot | The demo is the one signed-out area besides `/signin`. Its pages never call `auth()`, `env()`, the database or the bot; a test fails the build if anything under `app/demo`, `components/demo`, `components/views` or `lib/demo` imports a server-side module. Under `/demo` the browser clients (`bot`, `dm`, uploads) answer from an in-memory store in the tab and never call `fetch`, so a demo visitor does not touch `/api` at all, and `/api/*` still refuses anyone without a session. Every real page keeps its own `requireUser()`/`requireDm()`, so a path that slipped past the proxy's `/demo` check would still be refused | `proxy.ts`, `lib/demo/*`, `lib/bot/client.ts`, `lib/dm/client.ts`, `tests/demo.test.ts` |
+| Demo data mistaken for, or mixed with, real data | Every name, session and channel id in the demo is invented (ids are visibly fake and a test checks it); SRD monsters and items are a small CC-BY sample. The store lives only in the browser tab and is refused on the server, so visitors never share or keep state and a reload starts over. The demo keeps its own `demo.*` local values and never writes the real campaign cookie | `lib/demo/fixtures.ts`, `lib/demo/store.ts`, `lib/useLocalValue.ts`, `lib/campaign/useSelection.ts` |
+| A demo visitor feeding bad input to the demo | Demo calls go through the same allowlist and zod schemas as the real proxy and DM routes, so they are refused the same way; what is accepted stays in that visitor's tab and is rendered as text | `lib/demo/botTransport.ts`, `lib/demo/dmTransport.ts` |
 
 ## Layers of the auth check
 
-1. `proxy.ts` redirects signed-out page requests to `/signin`.
+1. `proxy.ts` redirects signed-out page requests to `/signin` (the public
+   `/demo` pages excepted: they hold no real data).
 2. The portal layout and every page call `requireUser()` on the server.
 3. `/api/bot/*` checks the session itself before anything else.
 
@@ -78,5 +82,5 @@ Each layer stops an anonymous request on its own.
 - [ ] CI is green for the commit being deployed (it runs `npm run verify` and `npm audit`).
 - [ ] `.env` on the VPS is mode 600 and not in git.
 - [ ] `docker compose ps` shows the portal as healthy, and port 3000 is not reachable from outside the VPS.
-- [ ] Signed out, every page redirects and `/api/bot/stats` returns 401.
+- [ ] Signed out, every page except `/signin` and `/demo` redirects and `/api/bot/stats` returns 401.
 - [ ] A guild member without the role is refused at sign-in.

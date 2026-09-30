@@ -2,7 +2,7 @@
 
 import type { UseQueryResult } from "@tanstack/react-query";
 import { FileText, History, LifeBuoy, Users } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { useState } from "react";
 import { bot, BotError } from "@/lib/bot/client";
 import type { SessionSummary } from "@/lib/bot/types";
@@ -32,13 +32,13 @@ function SessionName({ session, s }: { session: SessionSummary; s: Status }) {
     return <div className="truncate font-medium">{name}</div>;
   }
   return (
-    <Link
+    <PortalLink
       href={`/bot/sessions/${encodeURIComponent(session.id)}`}
       className="group/name inline-flex max-w-full items-center gap-1.5 font-medium hover:text-accent focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <span className="truncate">{name}</span>
       {session.transcribed && <FileText className="size-3.5 shrink-0 text-muted group-hover/name:text-accent" aria-label="Transcript available" />}
-    </Link>
+    </PortalLink>
   );
 }
 

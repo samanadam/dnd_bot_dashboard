@@ -1,7 +1,7 @@
 "use client";
 
 import { Save, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -21,7 +21,7 @@ import { RewardsPanel } from "./RewardsPanel";
  * area first; the page then reloads it instead of overwriting.
  */
 export function AreaDetailView({ initial }: { initial: AreaDetail }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const toast = useToast();
   const [picked] = useCampaignSelection();
   const [detail, setDetail] = useState(initial);

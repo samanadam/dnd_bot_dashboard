@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui";
 import { dm, DmError } from "@/lib/dm/client";
 
 export function DeleteCreatureButton({ id, name, kind }: { id: string; name: string; kind: "monster" | "npc" }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);

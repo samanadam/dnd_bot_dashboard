@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, BarChart3, Cloud, FileText, HardDrive, History, Server } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { formatBytes, formatUptime } from "@/lib/format";
 import type { Stats } from "@/lib/bot/types";
 import { useHealth, useSessions, useStats } from "@/lib/bot/useBotState";
@@ -83,9 +83,9 @@ export function Overview() {
           icon={History}
           padded={false}
           action={
-            <Link href="/bot/sessions" className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+            <PortalLink href="/bot/sessions" className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
               View all <ArrowRight className="size-3" aria-hidden />
-            </Link>
+            </PortalLink>
           }
         >
           <SessionList query={sessions} limit={5} />

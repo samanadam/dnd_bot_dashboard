@@ -1,11 +1,18 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { isDemoPath } from "@/lib/demo/base";
 
 // Runs before every page render: sets a per-request nonce CSP and bounces
 // signed-out visitors to /signin. This is the optimistic first gate only —
 // pages and /api/bot re-check the session themselves.
 
 const PUBLIC_PATHS = new Set(["/signin"]);
+
+// /signin, and the demo: made-up data only, and its pages never read a session,
+// the database or the bot (see app/demo/layout.tsx), so there is nothing to guard.
+function isPublic(pathname: string) {
+  return PUBLIC_PATHS.has(pathname) || isDemoPath(pathname);
+}
 
 function contentSecurityPolicy(nonce: string) {
   const isDev = process.env.NODE_ENV === "development";
@@ -28,7 +35,7 @@ function contentSecurityPolicy(nonce: string) {
 const handler = auth((request) => {
   const { pathname, search } = request.nextUrl;
 
-  if (!request.auth && !PUBLIC_PATHS.has(pathname)) {
+  if (!request.auth && !isPublic(pathname)) {
     const target = new URL("/signin", request.nextUrl.origin);
     // Same-origin relative path only, so this cannot become an open redirect.
     if (pathname !== "/") target.searchParams.set("callbackUrl", `${pathname}${search}`);

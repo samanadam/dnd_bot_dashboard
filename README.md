@@ -62,6 +62,11 @@ from a laptop or a phone at the table.
     filter the music library, the soundboard and saved links by them. Tags
     live in the portal's database, so the bot needs nothing new.
 
+- **Demo** at `/demo`: every page above with made-up data, open without
+  signing in. It runs entirely in the visitor's browser tab: clicks change an
+  in-memory copy, nothing reaches Discord, the bot or the database, and a reload
+  starts over.
+
 The security model is in [docs/security.md](docs/security.md). Read it before
 changing anything under `app/api`, `auth.ts`, `proxy.ts` or `lib/bot/allowlist.ts`.
 
@@ -144,6 +149,8 @@ docker compose up -d                     # COMPOSE_FILE in .env picks the stack
 3. If it calls a backend with a secret, give it its own route handler under
    `app/api/<tool>/` with its own allowlist, modelled on `lib/bot/proxy.ts`.
    Never widen the bot allowlist for another tool, and never share tokens.
+4. Give each page a twin under `app/demo/` rendering the same view with demo
+   data (`components/views`, `lib/demo`), so the demo keeps showing every part.
 
 ## Credits
 

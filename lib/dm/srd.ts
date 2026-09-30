@@ -1,23 +1,11 @@
 import "server-only";
 import srd2014 from "@/data/srd/srd-2014.json";
 import srd2024 from "@/data/srd/srd-2024.json";
+import { summarise, type Edition, type MonsterSummary } from "./monsterSummary";
 import type { StatBlock } from "./statblock";
 
-export type Edition = "2014" | "2024";
-
-export type MonsterSummary = {
-  id: string;
-  slug: string;
-  edition: Edition | "custom";
-  kind: "monster" | "npc";
-  name: string;
-  cr: string;
-  type: string;
-  size: string;
-  hp: number;
-  ac: number;
-  tags?: string[];
-};
+export type { Edition, MonsterSummary } from "./monsterSummary";
+export { summarise };
 
 type DataFile = { edition: Edition; monsters: Array<{ slug: string; statBlock: StatBlock }> };
 
@@ -29,20 +17,6 @@ const FILES: Record<Edition, DataFile> = {
 const bySlug = new Map<string, StatBlock>();
 for (const file of Object.values(FILES)) {
   for (const monster of file.monsters) bySlug.set(`${file.edition}/${monster.slug}`, monster.statBlock);
-}
-
-export function summarise(
-  id: string,
-  slug: string,
-  edition: MonsterSummary["edition"],
-  kind: MonsterSummary["kind"],
-  block: StatBlock,
-  tags?: string[],
-): MonsterSummary {
-  return {
-    id, slug, edition, kind, name: block.name, cr: block.cr, type: block.type, size: block.size, hp: block.hp, ac: block.ac,
-    ...(tags?.length ? { tags } : {}),
-  };
 }
 
 let summaries: MonsterSummary[] | null = null;

@@ -26,6 +26,7 @@ import type {
   UploadFolder,
   UploadResult,
 } from "./types";
+import { inDemo } from "@/lib/demo/base";
 
 // Browser-side client. It only ever talks to the portal's own /api/bot proxy;
 // the bot URL and token are unknown to this code.
@@ -48,6 +49,8 @@ export class BotError extends Error {
 }
 
 async function call<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<T> {
+  // The public demo never reaches the portal API: an in-memory bot answers.
+  if (inDemo()) return (await import("@/lib/demo/botTransport")).demoBotCall<T>(method, path, body);
   let response: Response;
   try {
     response = await fetch(`/api/bot/${path}`, {
@@ -185,6 +188,7 @@ export function uploadTrack(
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
 ): Promise<UploadResult> {
+  if (inDemo()) return import("@/lib/demo/botTransport").then((demo) => demo.demoUpload(file, folder, onProgress, signal));
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const search = new URLSearchParams({ folder, filename: file.name });

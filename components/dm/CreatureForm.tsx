@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Plus, Save, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePortalRouter } from "@/components/PortalLink";
 import { useState, type ReactNode } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { Button, Notice, inputBaseClass, inputClass } from "@/components/ui";
@@ -239,7 +239,7 @@ const SKILLS = [
 ] as const;
 
 export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { id?: string; initial?: CreatureInput; kind?: CreatureKind }) {
-  const router = useRouter();
+  const router = usePortalRouter();
   const [kind, setKind] = useState<CreatureKind>(initial?.kind ?? initialKind);
   const [block, setBlock] = useState<StatBlock>(initial?.statBlock ?? EMPTY_BLOCK);
   const [notes, setNotes] = useState(initial?.notes ?? "");

@@ -1,5 +1,5 @@
 import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import type { ReactNode } from "react";
 
 // Page header for the DM Screen: a small breadcrumb, a serif title and actions.
@@ -22,9 +22,9 @@ export function DmHeader({
   return (
     <header className="space-y-3">
       {back ? (
-        <Link href={back.href} className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
+        <PortalLink href={back.href} className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
           <ChevronLeft className="size-4" aria-hidden /> {back.label}
-        </Link>
+        </PortalLink>
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
@@ -54,9 +54,9 @@ export function LinkButton({
       ? "bg-accent text-accent-fg shadow-[0_8px_24px_-10px_var(--accent)] hover:bg-accent-strong"
       : "border border-border bg-surface-2 text-text hover:border-border-strong hover:bg-surface-3";
   return (
-    <Link href={href} className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition active:translate-y-px ${styles}`}>
+    <PortalLink href={href} className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition active:translate-y-px ${styles}`}>
       {Icon ? <Icon className="size-4" aria-hidden /> : null}
       {children}
-    </Link>
+    </PortalLink>
   );
 }

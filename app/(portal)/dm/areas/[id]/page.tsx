@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AreaDetailView } from "@/components/dm/areas/AreaDetailView";
-import { DmHeader } from "@/components/dm/DmHeader";
+import { AreaView } from "@/components/views/dm/AreaView";
 import { requireDm } from "@/lib/dm/access";
 import { AREA_ID, AreaRepo } from "@/lib/dm/areas";
 import { areaDetail } from "@/lib/dm/areaView";
@@ -20,13 +19,5 @@ export default async function AreaPage(props: PageProps<"/dm/areas/[id]">) {
   const areas = new AreaRepo(db);
   const area = areas.get(id);
   if (!area) notFound();
-  const detail = areaDetail(area, { areas, encounters: new EncounterRepo(db), lookup: refLookup() });
-
-  return (
-    <div className="space-y-6">
-      <DmHeader back={{ href: "/dm/areas", label: "All areas" }} eyebrow="Area" title={area.name} />
-      {/* Keyed by id and version so a reload from the server replaces the local copy. */}
-      <AreaDetailView key={`${area.id}:${area.version}`} initial={detail} />
-    </div>
-  );
+  return <AreaView detail={areaDetail(area, { areas, encounters: new EncounterRepo(db), lookup: refLookup() })} />;
 }

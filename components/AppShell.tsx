@@ -1,8 +1,9 @@
 "use client";
 
 import { Dices, Home, Settings, X, type LucideIcon } from "lucide-react";
-import Link from "next/link";
+import { PortalLink } from "@/components/PortalLink";
 import { usePathname } from "next/navigation";
+import { stripBase } from "@/lib/demo/base";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Tool } from "@/lib/tools/registry";
 import { ICON_BY_NAME } from "./icons";
@@ -23,7 +24,7 @@ function isActive(pathname: string, href: string) {
 
 function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2.5">
+    <PortalLink href="/" className="flex items-center gap-2.5">
       <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-2 text-accent-fg shadow-[0_8px_24px_-8px_var(--accent)]">
         <Dices className="size-5" aria-hidden />
       </span>
@@ -31,7 +32,7 @@ function Brand() {
         <span className="block text-sm font-semibold">Portal</span>
         <span className="block text-[11px] text-muted">Campaign control room</span>
       </span>
-    </Link>
+    </PortalLink>
   );
 }
 
@@ -59,7 +60,8 @@ export function AppShell({
   signOut: ReactNode;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
+  // The demo shows the same pages under /demo; compare against the portal path.
+  const pathname = stripBase(usePathname() ?? "");
   const bot = tools.find((tool) => tool.id === "bot");
   // Mobile bottom tabs follow the tool the user is in.
   const current = tools.find((tool) => tool.status === "live" && tool.links.length > 1 && (pathname === tool.href || pathname.startsWith(`${tool.href}/`)));
@@ -82,10 +84,10 @@ export function AppShell({
                 {tool.status === "live" ? (
                   <>
                     <div className="flex items-center justify-between px-3 py-1.5">
-                      <Link href={tool.href} className="flex items-center gap-2 text-sm font-medium hover:text-accent">
+                      <PortalLink href={tool.href} className="flex items-center gap-2 text-sm font-medium hover:text-accent">
                         <ToolIcon name={tool.icon} className="size-4 text-muted" />
                         {tool.name}
-                      </Link>
+                      </PortalLink>
                       {tool.id === "bot" && <PresenceDot />}
                     </div>
                     <div className="ml-5 mt-1 space-y-0.5 border-l border-border pl-3">
@@ -141,7 +143,7 @@ export function AppShell({
             {current.links.map((link) => {
               const active = isActive(pathname, link.href);
               return (
-                <Link
+                <PortalLink
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
@@ -151,7 +153,7 @@ export function AppShell({
                     <ToolIcon name={link.icon} className="size-5" />
                   </span>
                   {link.label}
-                </Link>
+                </PortalLink>
               );
             })}
           </div>
@@ -163,7 +165,7 @@ export function AppShell({
 
 function NavItem({ href, icon: Icon, label, active }: { href: string; icon: LucideIcon; label: string; active: boolean }) {
   return (
-    <Link
+    <PortalLink
       href={href}
       aria-current={active ? "page" : undefined}
       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
@@ -172,7 +174,7 @@ function NavItem({ href, icon: Icon, label, active }: { href: string; icon: Luci
     >
       <Icon className={`size-4 ${active ? "text-accent" : ""}`} aria-hidden />
       {label}
-    </Link>
+    </PortalLink>
   );
 }
 
@@ -218,13 +220,13 @@ function MobileMenu({ user, signOut }: { user: User; signOut: ReactNode }) {
             </div>
             {signOut}
           </div>
-          <Link
+          <PortalLink
             href="/settings"
             className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm font-medium hover:bg-surface-3"
           >
             <Settings className="size-4 text-muted" aria-hidden />
             Settings and themes
-          </Link>
+          </PortalLink>
         </div>
       )}
     </div>

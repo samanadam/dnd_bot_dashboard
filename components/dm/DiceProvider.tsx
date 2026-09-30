@@ -2,6 +2,7 @@
 
 import { Check, Dices, Send, Trash2, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { stripBase } from "@/lib/demo/base";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/Providers";
 import { Button, inputClass } from "@/components/ui";
@@ -303,7 +304,7 @@ function DiceTray({ open, onOpenChange }: { open: boolean; onOpenChange: (value:
   const latest = history[0];
   const panelRef = useRef<HTMLDivElement>(null);
   // The Dice page is the full-size version of this tray.
-  const onDicePage = usePathname() === "/dm/dice";
+  const onDicePage = stripBase(usePathname() ?? "") === "/dm/dice";
 
   useEffect(() => {
     if (!open) return;
