@@ -33,6 +33,7 @@ const campaigns = [
   { id: "a1b2c3d4e5f6", name: "Curse of Strahd", channel_id: null, language: "tr", archived: false, terms: ["Barovia", "Ireena"], corrections: [{ heard: "bar ovya", correct: "Barovia" }], characters: [{ character_name: "Thorin", member: "Eren" }] },
   { id: "f6e5d4c3b2a1", name: "Sunless Citadel", channel_id: null, language: null, archived: false, terms: [], corrections: [], characters: [] },
 ];
+const trash = [];
 const campaignView = (c) => ({ id: c.id, name: c.name, channel_id: c.channel_id, language: c.language, archived: c.archived, session_count: sessions.filter((s) => s.campaign_id === c.id).length });
 const withCampaign = (s) => ({ campaign_id: null, ...s, campaign_name: campaigns.find((c) => c.id === s.campaign_id)?.name ?? null });
 const initiative = [
@@ -99,6 +100,7 @@ const routes = {
     });
   },
   "GET transcription": () => ok(queueView()),
+  "GET sessions/trash": () => ok(trash.map(({ session, deleted_at }) => ({ ...withCampaign(session), deleted_at, purge_at: new Date(Date.parse(deleted_at) + 30 * 86400_000).toISOString() }))),
   "POST transcription/sync": () => ok({ uploaded: 1, fetched: 0, ...queueView() }),
   "POST music/seek": (body) => {
     if (!player.current) return fail(409, "conflict", "Nothing is playing.");
@@ -371,6 +373,7 @@ createServer(async (req, res) => {
     const transcriptPath = path.match(/^sessions\/([a-z0-9-]+)\/transcript$/);
     const campaignPath = path.match(/^campaigns\/([a-f0-9]{12})(?:\/(update|terms|corrections))?$/);
     const assignPath = path.match(/^sessions\/([a-z0-9-]+)\/campaign$/);
+    const sessionAdmin = path.match(/^sessions\/([a-z0-9-]+)\/(update|trash|restore|purge)$/);
     if (campaignPath) {
       const target = campaigns.find((c) => c.id === campaignPath[1]);
       if (!target) result = fail(404, "not_found", "No such campaign.");
@@ -393,6 +396,29 @@ createServer(async (req, res) => {
       else {
         target.campaign_id = body.campaign_id;
         result = ok(withCampaign(target));
+      }
+    } else if (req.method === "POST" && sessionAdmin) {
+      const [, id, action] = sessionAdmin;
+      const live = sessions.findIndex((s) => s.id === id);
+      const binned = trash.findIndex((t) => t.session.id === id);
+      if (action !== "update" && body.confirm_id !== id) result = fail(400, "bad_request", "The confirmation does not match the session.");
+      else if (action === "update") result = live === -1 ? fail(404, "not_found", "No such session.") : ok(withCampaign(Object.assign(sessions[live], { name: body.name })));
+      else if (action === "trash") {
+        if (live === -1) result = fail(404, "not_found", "No such session.");
+        else {
+          const [session] = sessions.splice(live, 1);
+          const deleted_at = new Date().toISOString();
+          trash.unshift({ session, deleted_at });
+          result = ok({ ...withCampaign(session), deleted_at, purge_at: null });
+        }
+      } else if (binned === -1) result = fail(404, "not_found", "That session is not in the trash.");
+      else if (action === "restore") {
+        const [{ session }] = trash.splice(binned, 1);
+        sessions.push(session);
+        result = ok(withCampaign(session));
+      } else {
+        trash.splice(binned, 1);
+        result = ok({ purged: id, files_removed: 3, bytes_freed: 1_000_000 });
       }
     } else if (req.method === "GET" && transcriptPath) {
       result = transcript(transcriptPath[1], url.searchParams);
