@@ -2,6 +2,7 @@
 
 import { Check, ChevronDown, ChevronUp, Moon, Sun } from "lucide-react";
 import { useState } from "react";
+import { preferenceCookieLifetime } from "@/lib/consent";
 import { parseTheme, THEME_COOKIE, THEMES, themeVars, type Theme, type ThemeId } from "@/lib/theme";
 
 const INITIAL_VISIBLE = 6;
@@ -15,7 +16,8 @@ function applyTheme(id: ThemeId) {
   root.dataset.theme = id;
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   // Plain preference cookie, not sensitive. The server re-validates the id.
-  document.cookie = `${THEME_COOKIE}=${id}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  // Kept for a year only with the visitor's consent, otherwise for the session.
+  document.cookie = `${THEME_COOKIE}=${id}; Path=/${preferenceCookieLifetime()}; SameSite=Lax${secure}`;
 }
 
 export function ThemePicker({ initial }: { initial: ThemeId }) {

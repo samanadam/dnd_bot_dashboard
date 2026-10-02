@@ -1,11 +1,12 @@
 "use client";
 
-import { Clock, Fingerprint, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Clock, Cookie, Fingerprint, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useHealth, useStats } from "@/lib/bot/useBotState";
 import type { ThemeId } from "@/lib/theme";
 import { useLocalValue } from "@/lib/useLocalValue";
 import { formatUptime } from "@/lib/format";
+import { CookieSettingsButton } from "../consent/CookieSettingsButton";
 import { PresenceDot } from "../bot/LivePresence";
 import { useToast } from "../Providers";
 import { Button, Card, Field, inputClass, PageHeader } from "../ui";
@@ -151,6 +152,21 @@ export function SettingsView({ theme, user, expires, signOut }: Props) {
         <p className="mt-3 text-xs text-muted">
           The bot address and token are kept on the server and are never sent to this browser, so they are not shown here.
         </p>
+      </Card>
+
+      <Card title="Privacy and cookies" subtitle="What is stored about you, and your choices" icon={Cookie}>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <CookieSettingsButton className="font-medium text-accent underline-offset-2 hover:underline" />
+          <a href="/privacy" className="text-muted hover:text-text">
+            Privacy policy
+          </a>
+          <a href="/cookies" className="text-muted hover:text-text">
+            Cookie policy
+          </a>
+          <a href="/terms" className="text-muted hover:text-text">
+            Terms of use
+          </a>
+        </div>
       </Card>
     </div>
   );

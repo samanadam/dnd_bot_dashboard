@@ -6,9 +6,9 @@ import { isDemoPath } from "@/lib/demo/base";
 // signed-out visitors to /signin. This is the optimistic first gate only —
 // pages and /api/bot re-check the session themselves.
 
-const PUBLIC_PATHS = new Set(["/signin"]);
+const PUBLIC_PATHS = new Set(["/signin", "/terms", "/privacy", "/cookies"]);
 
-// /signin, and the demo: made-up data only, and its pages never read a session,
+// /signin, the legal pages (readable before signing in), and the demo: made-up data only, and its pages never read a session,
 // the database or the bot (see app/demo/layout.tsx), so there is nothing to guard.
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.has(pathname) || isDemoPath(pathname);

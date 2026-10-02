@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
+import { preferenceCookieLifetime } from "@/lib/consent";
 import { inDemo } from "@/lib/demo/base";
 import { useLocalValue } from "@/lib/useLocalValue";
 import { CAMPAIGN_COOKIE, parseSelection, type Selection } from "./selection";
@@ -20,7 +21,7 @@ export function useCampaignSelection(): [Selection, (next: Selection) => void] {
       // The demo's campaigns are made up; the real portal's cookie is left alone.
       if (inDemo()) return;
       const secure = window.location.protocol === "https:" ? "; secure" : "";
-      document.cookie = `${CAMPAIGN_COOKIE}=${next ?? ""}; path=/; max-age=31536000; samesite=lax${secure}`;
+      document.cookie = `${CAMPAIGN_COOKIE}=${next ?? ""}; path=/${preferenceCookieLifetime()}; samesite=lax${secure}`;
       router.refresh();
     },
     [router, setRaw],

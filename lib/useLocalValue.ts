@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { preferenceStorage } from "@/lib/consent";
 import { inDemo } from "@/lib/demo/base";
 
 // Per-device convenience memory (e.g. the last voice channel id). Never store
 // anything sensitive here. Storage can be unavailable; that is fine.
+// Without the visitor's "preferences" consent values live in sessionStorage
+// only (see lib/consent.ts); reads look in both so nothing already saved is lost.
 
 const listeners = new Set<() => void>();
 
@@ -13,7 +16,7 @@ const scoped = (key: string) => (inDemo() ? `demo.${key}` : key);
 
 function read(key: string): string {
   try {
-    return window.localStorage.getItem(scoped(key)) ?? "";
+    return window.sessionStorage.getItem(scoped(key)) ?? window.localStorage.getItem(scoped(key)) ?? "";
   } catch {
     return "";
   }
@@ -33,7 +36,7 @@ export function useLocalValue(key: string): [string, (value: string) => void] {
   const set = useCallback(
     (next: string) => {
       try {
-        window.localStorage.setItem(scoped(key), next);
+        preferenceStorage().setItem(scoped(key), next);
       } catch {
         // Storage blocked (private mode etc.): the value just is not remembered.
       }

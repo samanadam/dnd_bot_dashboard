@@ -1,5 +1,6 @@
 import { Dices, Headphones, Mic, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/session";
@@ -90,6 +91,21 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
           <p className="mt-6 flex items-start gap-2 text-xs text-muted">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             The portal only reads your roles in the campaign server to check access. It never sees your email or messages.
+          </p>
+          <p className="mt-4 text-xs text-muted">
+            By continuing you agree to the{" "}
+            <Link href="/terms" className="text-accent hover:underline">
+              terms
+            </Link>{" "}
+            and accept the{" "}
+            <Link href="/privacy" className="text-accent hover:underline">
+              privacy
+            </Link>{" "}
+            and{" "}
+            <Link href="/cookies" className="text-accent hover:underline">
+              cookie
+            </Link>{" "}
+            policies.
           </p>
         </div>
       </section>

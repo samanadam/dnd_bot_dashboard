@@ -2,6 +2,7 @@
 
 import { Check, Dices, Send, Trash2, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { preferenceStorage } from "@/lib/consent";
 import { stripBase } from "@/lib/demo/base";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/Providers";
@@ -62,7 +63,7 @@ export function DiceProvider({ children }: { children: ReactNode }) {
     // Restored after mount so server and client render the same markup.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from storage
     setHistory(readStorage(() => sessionStorage, HISTORY_KEY, [], isHistory).map((entry) => (entry.sent === "sending" ? { ...entry, sent: "failed" } : entry)));
-    setAutoSendState(readStorage(() => localStorage, AUTOSEND_KEY, false, (v): v is boolean => typeof v === "boolean"));
+    setAutoSendState(readStorage(() => (sessionStorage.getItem(AUTOSEND_KEY) !== null ? sessionStorage : localStorage), AUTOSEND_KEY, false, (v): v is boolean => typeof v === "boolean"));
     setRestored(true);
   }, []);
 
@@ -78,7 +79,7 @@ export function DiceProvider({ children }: { children: ReactNode }) {
   const setAutoSend = useCallback((value: boolean) => {
     setAutoSendState(value);
     try {
-      localStorage.setItem(AUTOSEND_KEY, JSON.stringify(value));
+      preferenceStorage().setItem(AUTOSEND_KEY, JSON.stringify(value));
     } catch {}
   }, []);
 

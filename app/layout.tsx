@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Spectral } from "next/font/google";
 import { cookies } from "next/headers";
 import type { CSSProperties } from "react";
+import { ConsentBanner } from "@/components/consent/ConsentBanner";
 import { parseTheme, THEME_COOKIE, themeVars } from "@/lib/theme";
 import "./globals.css";
 
@@ -31,7 +32,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-theme={theme}
       style={themeVars(theme) as CSSProperties}
       className={`${geistSans.variable} ${geistMono.variable} ${spectral.variable} h-full antialiased`}>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {children}
+        <ConsentBanner />
+      </body>
     </html>
   );
 }
