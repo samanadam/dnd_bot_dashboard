@@ -177,3 +177,7 @@ html[data-theme="void"] .theme-art {
   display: block;
   background-image: url("/themes/dash/void.webp");
 }
+html[data-theme="bloodmoon"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/bloodmoon.webp");
+}
