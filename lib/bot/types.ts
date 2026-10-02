@@ -66,6 +66,13 @@ export type StopResult = {
   enqueued: boolean;
 };
 
+// A split closes one part and starts the next; parts are ordinary sessions
+// named "<name> (part N)".
+export type SplitResult = {
+  previous: { session_id: string; name: string };
+  session: ActiveSession;
+};
+
 export type TrackSource = "r2" | "youtube" | "soundcloud";
 
 export type Track = {

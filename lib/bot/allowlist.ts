@@ -145,6 +145,9 @@ const rules: Rule[] = [
     body: channelBody,
   },
   { method: "POST", path: "recording/cancel", bucket: "recording", audit: true, body: channelBody },
+  // Closes this part and starts the next in the same channel. The old part is
+  // encoded in the background, so the bot answers at once: default timeout.
+  { method: "POST", path: "recording/split", bucket: "recording", audit: true, body: channelBody },
   {
     method: "POST",
     path: "recording/recover",

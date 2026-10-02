@@ -17,6 +17,7 @@ import type {
   Soundboard,
   SoundboardState,
   SoundKind,
+  SplitResult,
   Stats,
   StopResult,
   Track,
@@ -101,6 +102,7 @@ export const bot = {
   stopRecording: (channel_id: string) => call<StopResult>("POST", "recording/stop", { channel_id }),
   cancelRecording: (channel_id: string) =>
     call<{ session_id: string }>("POST", "recording/cancel", { channel_id }),
+  splitRecording: (channel_id: string) => call<SplitResult>("POST", "recording/split", { channel_id }),
   recoverRecording: (session_id: string) => call<StopResult>("POST", "recording/recover", { session_id }),
 
   musicState: () => call<PlayerState>("GET", "music/state"),

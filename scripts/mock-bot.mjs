@@ -137,6 +137,21 @@ const routes = {
     sessions.unshift({ id: session.session_id, name: session.name, channel_name: session.channel_name, started_at: new Date(session.started).toISOString(), ended_at: new Date().toISOString(), duration_seconds: duration, transcribed: false, cancelled: false, speakers: session.speakers, speaker_count: session.speakers.length, campaign_id: session.campaign_id });
     return ok({ session_id: session.session_id, name: session.name ?? "Untitled", duration_seconds: duration, speakers: session.speakers, warnings: [], enqueued: true });
   },
+  "POST recording/split": (body) => {
+    const session = active.get(body.channel_id);
+    if (!session) return fail(404, "not_found", "Nothing is recording in that channel.");
+    // A recording named with "refuse" stands in for a bot that cannot split now.
+    if (/refuse/i.test(session.name ?? "")) return fail(409, "conflict", "Not enough free disk to start another part.");
+    const named = /^(.*) \(part (\d{1,3})\)$/.exec(session.name ?? "");
+    const base = named ? named[1] : (session.name ?? "Untitled session");
+    const part = named ? Number(named[2]) : 1;
+    const now = Date.now();
+    const previous = { session_id: session.session_id, name: `${base} (part ${part})` };
+    sessions.unshift({ id: previous.session_id, name: previous.name, channel_name: session.channel_name, started_at: new Date(session.started).toISOString(), ended_at: new Date(now).toISOString(), duration_seconds: Math.floor((now - session.started) / 1000), transcribed: false, cancelled: false, speakers: session.speakers, speaker_count: session.speakers.length, campaign_id: session.campaign_id });
+    const next = { ...session, session_id: randomUUID(), name: `${base} (part ${part + 1})`, started: now, warnings: [] };
+    active.set(body.channel_id, next);
+    return ok({ previous, session: activeView(next) }, 201);
+  },
   "POST recording/cancel": (body) => {
     const session = active.get(body.channel_id);
     if (!session) return fail(404, "not_found", "Nothing is recording in that channel.");

@@ -122,6 +122,12 @@ function queueView(state: DemoState): TranscriptionQueue {
   };
 }
 
+/** "Kamp" is part 1 of "Kamp"; "Kamp (part 2)" is part 2. */
+function partOf(name: string | null): { base: string; part: number } {
+  const match = /^(.*) \(part (\d{1,3})\)$/.exec(name ?? "");
+  return match ? { base: match[1], part: Number(match[2]) } : { base: name ?? "Untitled session", part: 1 };
+}
+
 function findSession(state: DemoState, id: string): DemoSession {
   return state.bot.sessions.find((s) => s.id === id) ?? fail(404, "not_found", "No such session.");
 }
@@ -294,6 +300,40 @@ const routes: Record<string, Handler> = {
         campaign_id: session.campaign_id,
       });
       return { session_id: session.session_id, name: session.name ?? "Untitled", duration_seconds: duration, speakers: session.speakers, warnings: [], enqueued: true };
+    }),
+  "POST recording/split": (_p, body) =>
+    updateDemo((state) => {
+      const index = state.bot.active.findIndex((a) => a.channel_id === body.channel_id);
+      if (index === -1) fail(404, "not_found", "Nothing is recording in that channel.");
+      const current = state.bot.active[index];
+      // A recording named with "refuse" stands in for a bot that cannot split now.
+      if (/refuse/i.test(current.name ?? "")) fail(409, "conflict", "Not enough free disk to start another part.");
+      const { base, part } = partOf(current.name);
+      const now = Date.now();
+      const next: DemoActive = {
+        ...current,
+        session_id: `${new Date(now).toISOString().slice(0, 16).replace(/[T:]/g, "-").replace(/-(\d\d)$/, "$1")}-${Math.random().toString(16).slice(2, 10).padEnd(8, "0")}`,
+        name: `${base} (part ${part + 1})`,
+        started: now,
+        speakers: [...current.speakers],
+        warnings: [],
+      };
+      const previous = { session_id: current.session_id, name: `${base} (part ${part})` };
+      state.bot.sessions.unshift({
+        id: previous.session_id,
+        name: previous.name,
+        channel_name: current.channel_name,
+        started_at: new Date(current.started).toISOString(),
+        ended_at: new Date(now).toISOString(),
+        duration_seconds: Math.max(1, Math.floor((now - current.started) / 1000)),
+        transcribed: false,
+        cancelled: false,
+        speakers: current.speakers,
+        speaker_count: current.speakers.length,
+        campaign_id: current.campaign_id,
+      });
+      state.bot.active[index] = next;
+      return { previous, session: activeView(state, next) };
     }),
   "POST recording/cancel": (_p, body) =>
     updateDemo((state) => {

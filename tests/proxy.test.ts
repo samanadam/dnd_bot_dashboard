@@ -147,6 +147,50 @@ describe("handleBotRequest", () => {
     expect(d.fetchImpl).not.toHaveBeenCalled();
   });
 
+  describe("recording/split", () => {
+    const send = (d: ReturnType<typeof deps>, body: unknown) =>
+      handleBotRequest(req("POST", "recording/split", { body: JSON.stringify(body) }), ["recording", "split"], d);
+
+    it("forwards a valid channel id, rebuilt from the validated body", async () => {
+      const d = deps();
+      expect((await send(d, { channel_id: CHANNEL })).status).toBe(200);
+      const [url, init] = d.fetchImpl.mock.calls[0];
+      expect(url).toBe("https://bot.example/api/v1/recording/split");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body)).toEqual({ channel_id: CHANNEL });
+    });
+
+    it("rejects extra keys and malformed channel ids without calling the bot", async () => {
+      const d = deps();
+      expect((await send(d, { channel_id: CHANNEL, guild_id: CHANNEL })).status).toBe(400);
+      expect((await send(d, { channel_id: "1; DROP" })).status).toBe(400);
+      expect((await send(d, {})).status).toBe(400);
+      expect(d.fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("is audited, rate limited with the recording bucket, and uses the default timeout", () => {
+      const split = matchRule("POST", ["recording", "split"])!.rule;
+      const stop = matchRule("POST", ["recording", "stop"])!.rule;
+      expect(split.audit).toBe(true);
+      expect(split.bucket).toBe("recording");
+      expect(split.dmOnly).toBeUndefined();
+      expect(split.timeoutMs).toBeUndefined();
+      expect(stop.timeoutMs).toBeGreaterThan(60_000);
+      expect(matchRule("GET", ["recording", "split"])).toBeNull();
+    });
+
+    it("passes the bot's refusal through with its own message", async () => {
+      const d = deps({
+        fetchImpl: vi.fn(async () =>
+          Response.json({ error: { code: "conflict", message: "Not enough free disk." } }, { status: 409 }),
+        ),
+      });
+      const res = await send(d, { channel_id: CHANNEL });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: { code: "conflict", message: "Not enough free disk." } });
+    });
+  });
+
   it("caps body size", async () => {
     const d = deps();
     const res = await handleBotRequest(

@@ -38,6 +38,60 @@ async function call(method: string, path: string, body?: unknown, deps: { token?
   return { status: response.status, json: (text ? JSON.parse(text) : null) as Json };
 }
 
+// Splitting changes which session is live, so it runs only on request and on a
+// bot that lets the test start its own recording (the mock bot does):
+//
+//   BOT_CONTRACT_SPLIT=1 BOT_CONTRACT_URL=http://127.0.0.1:8787/api/v1 \
+//   BOT_CONTRACT_TOKEN=... npx vitest run tests/bot-contract.test.ts
+describe.skipIf(!url || !token || !process.env.BOT_CONTRACT_SPLIT)("splitting a recording", () => {
+  const CHANNEL = "444444444444444444";
+  const IDLE = "555555555555555555";
+
+  it("replaces the live session with the next part and files the closed one", async () => {
+    const started = await call("POST", "recording/start", { channel_id: CHANNEL, name: "Kamp" });
+    expect(started.status).toBe(201);
+    const oldId = started.json.session_id as string;
+
+    const { status, json } = await call("POST", "recording/split", { channel_id: CHANNEL });
+    expect(status).toBe(201);
+    const previous = json.previous as Json;
+    const session = json.session as Json;
+    expect(previous).toEqual({ session_id: oldId, name: "Kamp (part 1)" });
+    expect(session).toMatchObject({ name: "Kamp (part 2)", channel_id: CHANNEL, elapsed_seconds: expect.any(Number) });
+    expect(session.session_id).not.toBe(oldId);
+
+    const live = (await call("GET", "recording")).json as unknown as Json[];
+    expect(live.map((s) => s.session_id)).not.toContain(oldId);
+    expect(live.find((s) => s.channel_id === CHANNEL)?.session_id).toBe(session.session_id);
+
+    const sessions = (await call("GET", "sessions?limit=50")).json as unknown as Json[];
+    expect(sessions.find((s) => s.id === oldId)?.name).toBe("Kamp (part 1)");
+
+    // A second split carries the numbering on.
+    const again = await call("POST", "recording/split", { channel_id: CHANNEL });
+    expect((again.json.previous as Json).name).toBe("Kamp (part 2)");
+    expect((again.json.session as Json).name).toBe("Kamp (part 3)");
+
+    await call("POST", "recording/cancel", { channel_id: CHANNEL });
+  });
+
+  it("is a 404 on a channel nothing is recording in", async () => {
+    const { status, json } = await call("POST", "recording/split", { channel_id: IDLE });
+    expect(status).toBe(404);
+    expect((json.error as Json).code).toBe("not_found");
+  });
+
+  it("is a 409 with the bot's message, and the session keeps recording", async () => {
+    await call("POST", "recording/start", { channel_id: CHANNEL, name: "refuse this" });
+    const { status, json } = await call("POST", "recording/split", { channel_id: CHANNEL });
+    expect(status).toBe(409);
+    expect((json.error as Json).code).toBe("conflict");
+    const live = (await call("GET", "recording")).json as unknown as Json[];
+    expect(live.find((s) => s.channel_id === CHANNEL)?.name).toBe("refuse this");
+    await call("POST", "recording/cancel", { channel_id: CHANNEL });
+  });
+});
+
 describe.skipIf(!url || !token)("contract with the real bot API", () => {
   it("health is served and carries no version", async () => {
     const { status, json } = await call("GET", "health");
