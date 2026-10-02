@@ -22,12 +22,18 @@ export default function LegalLayout({ children }: LayoutProps<"/">) {
             </span>
             Portal
           </Link>
-          <nav aria-label="Legal" className="flex items-center gap-4 text-sm text-muted">
+          <nav aria-label="Legal" className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted sm:gap-x-4 sm:text-sm">
             {LINKS.map((link) => (
               <Link key={link.href} href={link.href} className="hover:text-text">
                 {link.label}
               </Link>
             ))}
+            <Link href="/demo" className="hover:text-text">
+              Demo
+            </Link>
+            <a href="https://yangil.net" className="hover:text-text">
+              yangil.net
+            </a>
           </nav>
         </div>
       </header>

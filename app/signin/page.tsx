@@ -88,6 +88,14 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
             </button>
           </form>
 
+          <Link
+            href="/demo"
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-2 font-medium transition hover:bg-surface-3"
+          >
+            Try the demo
+          </Link>
+          <p className="mt-2 text-center text-xs text-muted">Made-up data, no account needed.</p>
+
           <p className="mt-6 flex items-start gap-2 text-xs text-muted">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             The portal only reads your roles in the campaign server to check access. It never sees your email or messages.
@@ -106,6 +114,11 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
               cookie
             </Link>{" "}
             policies.
+          </p>
+          <p className="mt-4 text-xs">
+            <a href="https://yangil.net" className="text-muted hover:text-text">
+              ← Back to yangil.net
+            </a>
           </p>
         </div>
       </section>

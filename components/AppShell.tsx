@@ -117,6 +117,7 @@ export function AppShell({
             </div>
             {signOut}
           </div>
+          <LegalLinks />
         </div>
       </aside>
 
@@ -159,6 +160,26 @@ export function AppShell({
           </div>
         </nav>
       )}
+    </div>
+  );
+}
+
+// Plain anchors: the legal pages live outside the portal and the demo.
+function LegalLinks() {
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-faint">
+      <a href="/terms" className="hover:text-text">
+        Terms
+      </a>
+      <a href="/privacy" className="hover:text-text">
+        Privacy
+      </a>
+      <a href="/cookies" className="hover:text-text">
+        Cookies
+      </a>
+      <a href="https://yangil.net" className="hover:text-text">
+        yangil.net
+      </a>
     </div>
   );
 }
@@ -227,6 +248,7 @@ function MobileMenu({ user, signOut }: { user: User; signOut: ReactNode }) {
             <Settings className="size-4 text-muted" aria-hidden />
             Settings and themes
           </PortalLink>
+          <LegalLinks />
         </div>
       )}
     </div>
