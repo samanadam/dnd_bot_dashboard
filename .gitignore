@@ -53,3 +53,6 @@ GEMINI.md
 docs/portal-plan.md
 plans/
 *.plan.md
+
+# Full-size originals of the theme art; the app serves the optimized copies in public/themes
+public/theme_assets/

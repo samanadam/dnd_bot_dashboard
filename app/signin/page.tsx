@@ -1,9 +1,11 @@
 import { Dices, Headphones, Mic, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/session";
+import { parseTheme, THEME_COOKIE, themeArt } from "@/lib/theme";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -25,13 +27,24 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
   const session = await auth();
   if (session?.user?.id) redirect(callbackUrl);
 
+  const art = themeArt(parseTheme((await cookies()).get(THEME_COOKIE)?.value));
+
   const errorKey = typeof params.error === "string" ? params.error : undefined;
   const error = errorKey ? (ERRORS[errorKey] ?? "Sign-in failed. Try again.") : undefined;
 
   return (
-    <main className="grid min-h-dvh lg:grid-cols-2">
+    <main className="relative grid min-h-dvh overflow-hidden lg:grid-cols-2">
+      {/* Theme artwork, full bleed; the scrims keep text readable on any theme. */}
+      {art && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- static theme art from /public, allowed by CSP */}
+          <img src={art} alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 size-full object-cover" />
+          <div className="pointer-events-none absolute inset-0 bg-bg/45 lg:bg-bg/20" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-bg/90 via-bg/35 to-transparent lg:block" aria-hidden />
+        </>
+      )}
       {/* Brand side */}
-      <section className="relative hidden overflow-hidden border-r border-border bg-surface lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <section className={`relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 ${art ? "" : "border-r border-border bg-surface"}`}>
         <div className="pointer-events-none absolute -left-40 -top-40 size-[36rem] rounded-full bg-gradient-to-br from-accent to-accent-2 opacity-20 blur-3xl" aria-hidden />
         <div className="relative flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 text-accent-fg">
@@ -59,8 +72,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
       </section>
 
       {/* Sign-in side */}
-      <section className="flex items-center justify-center px-5 py-12">
-        <div className="w-full max-w-sm">
+      <section className="relative flex items-center justify-center px-5 py-12">
+        <div className={`w-full max-w-sm ${art ? "rounded-3xl border border-border bg-surface/80 p-6 shadow-card backdrop-blur-xl sm:p-8" : ""}`}>
           <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 text-accent-fg lg:hidden">
             <Dices className="size-6" aria-hidden />
           </span>

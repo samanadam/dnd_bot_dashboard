@@ -19,3 +19,4 @@ compose.*.yml
 scripts/verify-bundle.mjs
 .dockerignore
 *.md
+public/theme_assets

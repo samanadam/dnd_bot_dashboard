@@ -155,3 +155,11 @@ export function themeVars(id: ThemeId): Record<string, string> {
       : "0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6)",
   };
 }
+
+// Artwork per theme, served from public/themes/<id>.webp. A theme without a
+// file keeps its plain glow background, so art can be added one theme at a time.
+const THEMES_WITH_ART: readonly ThemeId[] = ["arcane", "ember", "daylight", "elderwood", "abyss", "bloodmoon", "void", "dungeon", "blossom"];
+
+export function themeArt(id: ThemeId): string | null {
+  return THEMES_WITH_ART.includes(id) ? `/themes/${id}.webp` : null;
+}
