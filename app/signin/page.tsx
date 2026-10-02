@@ -1,9 +1,10 @@
-import { Dices, Headphones, Mic, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Dices, Headphones, Mic, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { ThemeMenu } from "@/components/settings/ThemeMenu";
 import { safeCallbackUrl } from "@/lib/session";
 import { parseTheme, THEME_COOKIE, themeArt } from "@/lib/theme";
 
@@ -27,26 +28,22 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
   const session = await auth();
   if (session?.user?.id) redirect(callbackUrl);
 
-  const art = themeArt(parseTheme((await cookies()).get(THEME_COOKIE)?.value));
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const art = themeArt(theme);
 
   const errorKey = typeof params.error === "string" ? params.error : undefined;
   const error = errorKey ? (ERRORS[errorKey] ?? "Sign-in failed. Try again.") : undefined;
 
   return (
-    <main className="relative grid min-h-dvh overflow-hidden lg:grid-cols-2">
-      {/* Theme artwork, full bleed; the scrims keep text readable on any theme. */}
-      {art && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element -- static theme art from /public, allowed by CSP */}
-          <img src={art} alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 size-full object-cover" />
-          <div className="pointer-events-none absolute inset-0 bg-bg/45 lg:bg-bg/20" aria-hidden />
-          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-bg/90 via-bg/35 to-transparent lg:block" aria-hidden />
-        </>
-      )}
-      {/* Brand side */}
-      <section className={`relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 ${art ? "" : "border-r border-border bg-surface"}`}>
-        <div className="pointer-events-none absolute -left-40 -top-40 size-[36rem] rounded-full bg-gradient-to-br from-accent to-accent-2 opacity-20 blur-3xl" aria-hidden />
-        <div className="relative flex items-center gap-3">
+    <main className="relative grid min-h-dvh lg:grid-cols-2">
+      <ThemeMenu initial={theme} />
+      {/* Brand side. The theme artwork fills it; the fades keep the text readable on any theme. */}
+      <section className="relative hidden overflow-hidden border-r border-border bg-surface lg:flex lg:flex-col lg:justify-end lg:p-12">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static theme art from /public, allowed by CSP */}
+        <img src={art} alt="" fetchPriority="high" className="pointer-events-none absolute inset-0 size-full object-cover" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-bg/85 to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-bg/95 via-bg/70 to-transparent" aria-hidden />
+        <div className="relative mb-auto flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 text-accent-fg">
             <Dices className="size-6" aria-hidden />
           </span>
@@ -54,7 +51,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
         </div>
         <div className="relative max-w-md">
           <h2 className="text-4xl font-semibold leading-tight tracking-tight">The control room for your campaign.</h2>
-          <ul className="mt-10 space-y-6">
+          <ul className="mt-8 space-y-5">
             {FEATURES.map(({ icon: Icon, title, text }) => (
               <li key={title} className="flex gap-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-surface-2 text-accent">
@@ -68,12 +65,12 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-faint">Roll for initiative.</p>
+        <p className="relative mt-8 text-xs text-muted">Roll for initiative.</p>
       </section>
 
       {/* Sign-in side */}
-      <section className="relative flex items-center justify-center px-5 py-12">
-        <div className={`w-full max-w-sm ${art ? "rounded-3xl border border-border bg-surface/80 p-6 shadow-card backdrop-blur-xl sm:p-8" : ""}`}>
+      <section className="flex items-center justify-center px-5 py-12">
+        <div className="w-full max-w-sm">
           <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-2 text-accent-fg lg:hidden">
             <Dices className="size-6" aria-hidden />
           </span>
@@ -95,7 +92,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
           >
             <button
               type="submit"
-              className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-[#5865F2] font-medium text-white shadow-[0_12px_32px_-12px_#5865F2] transition hover:bg-[#4752c4]"
+              className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-br from-accent-strong to-accent-2 font-medium text-accent-fg shadow-[0_12px_32px_-12px_var(--accent)] transition hover:brightness-110"
             >
               Continue with Discord
             </button>
@@ -128,11 +125,13 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
             </Link>{" "}
             policies.
           </p>
-          <p className="mt-4 text-xs">
-            <a href="https://yangil.net" className="text-muted hover:text-text">
-              ← Back to yangil.net
-            </a>
-          </p>
+          <a
+            href="https://yangil.net"
+            className="group mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface-2/60 py-1.5 pl-3 pr-4 text-sm font-medium text-text transition hover:border-accent/60 hover:text-accent"
+          >
+            <ArrowLeft className="size-4 text-muted transition group-hover:-translate-x-0.5 group-hover:text-accent" aria-hidden />
+            Back to yangil.net
+          </a>
         </div>
       </section>
     </main>

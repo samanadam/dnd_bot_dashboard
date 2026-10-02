@@ -2,23 +2,10 @@
 
 import { Check, ChevronDown, ChevronUp, Moon, Sun } from "lucide-react";
 import { useState } from "react";
-import { preferenceCookieLifetime } from "@/lib/consent";
-import { parseTheme, THEME_COOKIE, THEMES, themeVars, type Theme, type ThemeId } from "@/lib/theme";
+import { applyTheme } from "@/lib/applyTheme";
+import { parseTheme, THEMES, type Theme, type ThemeId } from "@/lib/theme";
 
 const INITIAL_VISIBLE = 6;
-
-function applyTheme(id: ThemeId) {
-  const root = document.documentElement;
-  for (const [key, value] of Object.entries(themeVars(id))) {
-    if (key === "colorScheme") root.style.colorScheme = value;
-    else root.style.setProperty(key, value);
-  }
-  root.dataset.theme = id;
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  // Plain preference cookie, not sensitive. The server re-validates the id.
-  // Kept for a year only with the visitor's consent, otherwise for the session.
-  document.cookie = `${THEME_COOKIE}=${id}; Path=/${preferenceCookieLifetime()}; SameSite=Lax${secure}`;
-}
 
 export function ThemePicker({ initial }: { initial: ThemeId }) {
   const [current, setCurrent] = useState<ThemeId>(() =>
