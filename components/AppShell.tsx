@@ -68,6 +68,7 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh lg:pl-72">
+      <div className="theme-art" aria-hidden />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-surface/70 backdrop-blur-xl lg:flex">
         <div className="px-5 py-5">

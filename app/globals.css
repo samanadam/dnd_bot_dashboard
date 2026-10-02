@@ -115,3 +115,65 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Dashboard backdrop per theme (see AppShell). data-theme is set by the root layout and by applyTheme.
+   A theme without a file keeps the plain glow background. */
+.theme-art {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  display: none;
+}
+.theme-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+}
+html[data-theme="abyss"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/abyss.webp");
+}
+html[data-theme="arcane"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/arcane.webp");
+}
+html[data-theme="blossom"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/blossom.webp");
+}
+html[data-theme="daylight"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/daylight.webp");
+}
+html[data-theme="dungeon"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/dungeon.webp");
+}
+html[data-theme="elderwood"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/elderwood.webp");
+}
+html[data-theme="ember"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/ember.webp");
+}
+html[data-theme="frost"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/frost.webp");
+}
+html[data-theme="parchment"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/parchment.webp");
+}
+html[data-theme="twilight"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/twilight.webp");
+}
+html[data-theme="void"] .theme-art {
+  display: block;
+  background-image: url("/themes/dash/void.webp");
+}
