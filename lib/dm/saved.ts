@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { UNSAFE_TEXT } from "@/lib/youtube";
 import { isRef, WEB_SOURCES, type WebSource } from "@/lib/webAudio";
 import { savedRef } from "./tags";

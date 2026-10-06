@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { creatureRefSchema } from "./encounter";
 
 // An item is plain data. SRD items are bundled (data/srd/items-*.json, read-only);

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { isSetLink, isTrackLink, isWebSource, WEB_SOURCES } from "@/lib/webAudio";
 
 // A scene is a saved arrangement of sound: optionally a music track, plus

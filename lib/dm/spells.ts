@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { DiceError, parseDice } from "@/lib/dice/roll";
 import { creatureRefSchema } from "./encounter";
 

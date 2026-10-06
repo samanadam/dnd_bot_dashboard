@@ -56,9 +56,8 @@ for (const kind of KINDS) {
       continue;
     }
     const list = [...entries]
-      .map(([slug, block]) => ({ slug, [kind.field === "spells" ? "spell" : "feat"]: block, name: block.name }))
-      .sort((a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug))
-      .map(({ name: _name, ...entry }) => entry);
+      .sort(([slugA, a], [slugB, b]) => a.name.localeCompare(b.name) || slugA.localeCompare(slugB))
+      .map(([slug, block]) => ({ slug, [kind.field === "spells" ? "spell" : "feat"]: block }));
     writeFileSync(
       `data/srd/${kind.file}-${edition}.json`,
       `${JSON.stringify({ edition, source: document, license: "CC-BY-4.0", [kind.field]: list })}\n`,

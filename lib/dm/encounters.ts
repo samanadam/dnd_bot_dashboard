@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { campaignClause, CAMPAIGN_ID, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, CAMPAIGN_ID, type ScopedSelection } from "@/lib/campaign/selection";
 import { encounterSchema, launchCopy, newEncounter, type Encounter } from "./encounter";
 
 export type EncounterKind = "live" | "prepared";
