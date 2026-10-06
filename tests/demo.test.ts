@@ -52,6 +52,24 @@ describe("demo transport", () => {
     vi.unstubAllGlobals();
   });
 
+  it("searches and edits spells and feats like the real API", async () => {
+    browserAt("/demo/dm/spells");
+    const cantrips = await dm.searchSpells({ level: "0" });
+    expect(cantrips.results.length).toBeGreaterThan(0);
+    expect(cantrips.results.every((s) => s.level === 0)).toBe(true);
+    await expect(dm.searchSpells({ level: "12" })).rejects.toBeInstanceOf(DmError);
+    const custom = await dm.searchSpells({ source: "custom" });
+    expect(custom.results.map((s) => s.name)).toContain("Ember Lance");
+    const fireball = await dm.getSrdSpell("2024", "fireball");
+    expect(fireball.level).toBe(3);
+    await expect(dm.createSpell({ ...fireball, level: 10 })).rejects.toMatchObject({ status: 400 });
+    const created = await dm.createSpell({ ...fireball, name: "House Fireball" });
+    expect((await dm.shareSpell(created.id, false)).shared).toBe(false);
+    await dm.deleteSpell(created.id);
+    expect((await dm.searchFeats({ category: "Origin" })).results.map((f) => f.name)).toContain("Guild-Sworn");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("answers every client call under /demo without a network request", async () => {
     browserAt("/demo/bot");
     const stats = await bot.stats();

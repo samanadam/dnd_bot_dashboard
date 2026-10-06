@@ -4,7 +4,10 @@ import type { AreaInput, AreaSummary } from "./areas";
 import type { AreaDetail } from "./areaView";
 import type { Creature, CreatureInput } from "./creatures";
 import type { CreatureSearchResult } from "./creatureSearch";
+import type { CustomFeat, CustomFeatInput, FeatBlock } from "./feats";
 import type { CustomItem, CustomItemInput, ItemBlock } from "./items";
+import type { FeatSearchResult, SpellSearchResult } from "./spellSearch";
+import type { CustomSpell, CustomSpellInput, SpellBlock } from "./spells";
 import type { ItemSearchResult } from "./itemRoutes";
 import type { RewardInput } from "./rewards";
 import type { Encounter } from "./encounter";
@@ -131,6 +134,28 @@ export const dm = {
   createItem: (input: CustomItemInput) => dmCall<CustomItem>("POST", "items", input),
   updateItem: (id: string, input: CustomItemInput) => dmCall<CustomItem>("PUT", `items/${enc(id)}`, input),
   deleteItem: (id: string) => dmCall<void>("DELETE", `items/${enc(id)}`),
+  searchSpells: (params: Record<string, string | number | undefined>) =>
+    dmCall<{ total: number; results: SpellSearchResult[]; classes: string[]; schools: string[] }>("GET", `spells/search?${queryOf(params)}`),
+  getSpell: (id: string) => dmCall<CustomSpell>("GET", `spells/${enc(id)}`),
+  getSrdSpell: (edition: "2014" | "2024", slug: string) => dmCall<SpellBlock>("GET", `spells/srd/${edition}/${enc(slug)}`),
+  createSpell: (input: CustomSpellInput) => dmCall<CustomSpell>("POST", "spells", input),
+  updateSpell: (id: string, input: CustomSpellInput) => dmCall<CustomSpell>("PUT", `spells/${enc(id)}`, input),
+  shareSpell: (id: string, shared: boolean) => dmCall<CustomSpell>("PATCH", `spells/${enc(id)}`, { shared }),
+  deleteSpell: (id: string) => dmCall<void>("DELETE", `spells/${enc(id)}`),
+  searchFeats: (params: Record<string, string | number | undefined>) =>
+    dmCall<{ total: number; results: FeatSearchResult[]; categories: string[] }>("GET", `feats/search?${queryOf(params)}`),
+  getFeat: (id: string) => dmCall<CustomFeat>("GET", `feats/${enc(id)}`),
+  getSrdFeat: (edition: "2014" | "2024", slug: string) => dmCall<FeatBlock>("GET", `feats/srd/${edition}/${enc(slug)}`),
+  createFeat: (input: CustomFeatInput) => dmCall<CustomFeat>("POST", "feats", input),
+  updateFeat: (id: string, input: CustomFeatInput) => dmCall<CustomFeat>("PUT", `feats/${enc(id)}`, input),
+  shareFeat: (id: string, shared: boolean) => dmCall<CustomFeat>("PATCH", `feats/${enc(id)}`, { shared }),
+  deleteFeat: (id: string) => dmCall<void>("DELETE", `feats/${enc(id)}`),
   searchCreatures: (q: string, campaign?: string) =>
     dmCall<{ results: CreatureSearchResult[] }>("GET", `creatures/search?q=${enc(q)}${campaign ? `&campaign=${enc(campaign)}` : ""}`),
 };
+
+function queryOf(params: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") query.set(key, String(value));
+  return query.toString();
+}

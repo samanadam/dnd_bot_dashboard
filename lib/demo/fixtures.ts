@@ -3,7 +3,9 @@ import type { Area } from "@/lib/dm/areas";
 import type { Creature } from "@/lib/dm/creatures";
 import type { Combatant, CreatureRef, Encounter } from "@/lib/dm/encounter";
 import type { StoredEncounter } from "@/lib/dm/encounters";
+import type { CustomFeat } from "@/lib/dm/feats";
 import type { CustomItem } from "@/lib/dm/items";
+import type { CustomSpell } from "@/lib/dm/spells";
 import type { Reward } from "@/lib/dm/rewards";
 import type { SavedTrack } from "@/lib/dm/saved";
 import type { Scene } from "@/lib/dm/scenes";
@@ -39,6 +41,9 @@ export const IDS = {
   areaWoods: uuid(303),
   itemSignet: uuid(401),
   itemLantern: uuid(402),
+  spellEmberLance: uuid(451),
+  spellAshVeil: uuid(452),
+  featGuildSworn: uuid(461),
   sceneTavern: uuid(501),
   sceneStorm: uuid(502),
   sceneBoss: uuid(503),
@@ -384,6 +389,65 @@ export function demoFixtures(now: number) {
     item(IDS.itemLantern, { name: "Drowned Lantern", category: "Wondrous Item", rarity: "Rare", attunement: "Required", costGp: 0, weightLb: 2, detail: "Bright light 30 ft., even underwater", description: "Its flame burns blue under water. While you carry it, you can breathe under water for 1 hour a day." }, 60 * 24 * 4),
   ];
 
+  const meta = (id: string, minutes: number) => ({
+    id,
+    campaignId: CAMPAIGN_EMBER,
+    authorUserId: null,
+    shared: true,
+    createdAt: ago(minutes),
+    updatedAt: ago(minutes),
+  });
+  const spells: CustomSpell[] = [
+    {
+      ...meta(IDS.spellEmberLance, 60 * 24 * 6),
+      name: "Ember Lance",
+      level: 2,
+      school: "evocation",
+      castingTime: "1 action",
+      ritual: false,
+      range: "90 feet",
+      components: { verbal: true, somatic: true, material: true, materialText: "a coal from a guild forge", materialCostGp: null, materialConsumed: false },
+      duration: "Instantaneous",
+      concentration: false,
+      classes: ["Sorcerer", "Wizard"],
+      attack: "ranged",
+      save: null,
+      effect: { kind: "damage", roll: "3d8", types: ["fire"] },
+      scaling: { by: "slot", steps: [{ at: 3, roll: "4d8" }, { at: 4, roll: "5d8" }] },
+      description: "A spear of guild-fire streaks toward a creature you can see. Make a ranged spell attack. On a hit, the target takes 3d8 Fire damage and can't take Reactions until the start of your next turn.",
+      higherLevel: "The damage increases by 1d8 for each spell slot level above 2.",
+    },
+    {
+      ...meta(IDS.spellAshVeil, 60 * 24 * 3),
+      name: "Ash Veil",
+      level: 1,
+      school: "illusion",
+      castingTime: "1 bonus action",
+      ritual: false,
+      range: "Self",
+      components: { verbal: false, somatic: true, material: false, materialText: "", materialCostGp: null, materialConsumed: false },
+      duration: "Up to 1 minute",
+      concentration: true,
+      classes: ["Bard", "Warlock"],
+      attack: null,
+      save: null,
+      effect: null,
+      scaling: null,
+      description: "Drifting ash wraps you. Attack rolls against you have Disadvantage while you are in dim light or darkness.",
+      higherLevel: "",
+    },
+  ];
+  const feats: CustomFeat[] = [
+    {
+      ...meta(IDS.featGuildSworn, 60 * 24 * 5),
+      name: "Guild-Sworn",
+      category: "Origin",
+      prerequisite: "",
+      repeatable: false,
+      description: "You know the Ashen Guild's hand signs and can pass coded messages to its members unnoticed.",
+    },
+  ];
+
   const scene = (id: string, input: Omit<Scene, "id" | "createdAt" | "updatedAt" | "campaignId">): Scene => ({
     id,
     ...input,
@@ -457,7 +521,7 @@ export function demoFixtures(now: number) {
       layers,
       initiative,
     },
-    dm: { creatures, encounters, areas, areaBattles, areaRewards, items, scenes, saved: savedTracks, tags },
+    dm: { creatures, encounters, areas, areaBattles, areaRewards, items, spells, feats, scenes, saved: savedTracks, tags },
   };
 }
 

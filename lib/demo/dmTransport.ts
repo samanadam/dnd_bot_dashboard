@@ -16,7 +16,11 @@ import { savedSchema, type SavedTrack } from "@/lib/dm/saved";
 import { sceneSchema, type Scene } from "@/lib/dm/scenes";
 import { setTagsSchema } from "@/lib/dm/tags";
 import type { DemoState } from "./fixtures";
+import { customFeatSchema, type CustomFeat } from "@/lib/dm/feats";
+import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, spellRow, srdFeatRow, srdSpellRow } from "@/lib/dm/spellSearch";
+import { customSpellSchema, type CustomSpell } from "@/lib/dm/spells";
 import { DEMO_SRD_ITEMS, DEMO_SRD_MONSTERS } from "./srdSample";
+import { DEMO_SRD_FEATS, DEMO_SRD_SPELLS } from "./srdSpellSample";
 import { readDemo, updateDemo } from "./store";
 
 // The DM API, played by the browser. Bodies go through the same zod schemas the
@@ -46,6 +50,7 @@ function selection(query: URLSearchParams): Selection {
 
 const inScope = (campaignId: string | null, scope: Selection) => scope === null || (scope === "unassigned" ? campaignId === null : campaignId === scope);
 const fold = (text: string) => text.toLocaleLowerCase("en");
+const shareSchema = z.object({ shared: z.boolean() }).strict();
 const now = () => new Date().toISOString();
 
 // --- lookups ----------------------------------------------------------------
@@ -547,6 +552,134 @@ const routes: Route[] = [
       updateDemo((state) => {
         if (!state.dm.items.some((i) => i.id === id)) fail(404, "not_found", "No such item.");
         state.dm.items = state.dm.items.filter((i) => i.id !== id);
+      }),
+  },
+
+  // spells and feats
+  {
+    method: "GET",
+    pattern: /^spells\/search$/,
+    run: (_p, _b, query) => {
+      const scope = selection(query);
+      const parsed = parseSpellQuery(query);
+      if (!parsed.ok) return fail(400, "bad_request", parsed.message);
+      const custom = readDemo().dm.spells.filter((s) => inScope(s.campaignId, scope)).map(spellRow);
+      const srd = DEMO_SRD_SPELLS.map(({ edition, slug, spell }) =>
+        srdSpellRow({ edition, slug, name: spell.name, level: spell.level, school: spell.school, castingTime: spell.castingTime, concentration: spell.concentration, ritual: spell.ritual, classes: spell.classes }),
+      );
+      return searchSpells([...custom, ...srd], parsed.query);
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^spells\/srd\/(2014|2024)\/([a-z0-9-]{1,80})$/,
+    run: ([edition, slug]) => DEMO_SRD_SPELLS.find((s) => s.edition === edition && s.slug === slug)?.spell ?? fail(404, "not_found", "No such spell."),
+  },
+  { method: "GET", pattern: /^spells$/, run: (_p, _b, query) => readDemo().dm.spells.filter((s) => inScope(s.campaignId, selection(query))) },
+  {
+    method: "POST",
+    pattern: /^spells$/,
+    run: (_p, body) =>
+      updateDemo((state) => {
+        const { campaignId, ...input } = parse(customSpellSchema, body);
+        const at = now();
+        const spell: CustomSpell = { id: crypto.randomUUID(), ...input, campaignId: campaignId ?? null, authorUserId: null, shared: true, createdAt: at, updatedAt: at };
+        state.dm.spells.push(spell);
+        return spell;
+      }),
+  },
+  { method: "GET", pattern: new RegExp(`^spells/${ID}$`), run: ([id]) => readDemo().dm.spells.find((s) => s.id === id) ?? fail(404, "not_found", "No such spell.") },
+  {
+    method: "PUT",
+    pattern: new RegExp(`^spells/${ID}$`),
+    run: ([id], body) =>
+      updateDemo((state) => {
+        const { campaignId, ...input } = parse(customSpellSchema, body);
+        const spell = state.dm.spells.find((s) => s.id === id) ?? fail(404, "not_found", "No such spell.");
+        Object.assign(spell, input, campaignId === undefined ? {} : { campaignId }, { updatedAt: now() });
+        return spell;
+      }),
+  },
+  {
+    method: "PATCH",
+    pattern: new RegExp(`^spells/${ID}$`),
+    run: ([id], body) =>
+      updateDemo((state) => {
+        const { shared } = parse(shareSchema, body);
+        const spell = state.dm.spells.find((s) => s.id === id) ?? fail(404, "not_found", "No such spell.");
+        Object.assign(spell, { shared, updatedAt: now() });
+        return spell;
+      }),
+  },
+  {
+    method: "DELETE",
+    pattern: new RegExp(`^spells/${ID}$`),
+    run: ([id]) =>
+      updateDemo((state) => {
+        if (!state.dm.spells.some((s) => s.id === id)) fail(404, "not_found", "No such spell.");
+        state.dm.spells = state.dm.spells.filter((s) => s.id !== id);
+      }),
+  },
+  {
+    method: "GET",
+    pattern: /^feats\/search$/,
+    run: (_p, _b, query) => {
+      const scope = selection(query);
+      const parsed = parseFeatQuery(query);
+      if (!parsed.ok) return fail(400, "bad_request", parsed.message);
+      const custom = readDemo().dm.feats.filter((f) => inScope(f.campaignId, scope)).map(featRow);
+      const srd = DEMO_SRD_FEATS.map(({ edition, slug, feat }) => srdFeatRow({ edition, slug, name: feat.name, category: feat.category, prerequisite: feat.prerequisite }));
+      return searchFeats([...custom, ...srd], parsed.query);
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^feats\/srd\/(2014|2024)\/([a-z0-9-]{1,80})$/,
+    run: ([edition, slug]) => DEMO_SRD_FEATS.find((f) => f.edition === edition && f.slug === slug)?.feat ?? fail(404, "not_found", "No such feat."),
+  },
+  { method: "GET", pattern: /^feats$/, run: (_p, _b, query) => readDemo().dm.feats.filter((f) => inScope(f.campaignId, selection(query))) },
+  {
+    method: "POST",
+    pattern: /^feats$/,
+    run: (_p, body) =>
+      updateDemo((state) => {
+        const { campaignId, ...input } = parse(customFeatSchema, body);
+        const at = now();
+        const feat: CustomFeat = { id: crypto.randomUUID(), ...input, campaignId: campaignId ?? null, authorUserId: null, shared: true, createdAt: at, updatedAt: at };
+        state.dm.feats.push(feat);
+        return feat;
+      }),
+  },
+  { method: "GET", pattern: new RegExp(`^feats/${ID}$`), run: ([id]) => readDemo().dm.feats.find((f) => f.id === id) ?? fail(404, "not_found", "No such feat.") },
+  {
+    method: "PUT",
+    pattern: new RegExp(`^feats/${ID}$`),
+    run: ([id], body) =>
+      updateDemo((state) => {
+        const { campaignId, ...input } = parse(customFeatSchema, body);
+        const feat = state.dm.feats.find((f) => f.id === id) ?? fail(404, "not_found", "No such feat.");
+        Object.assign(feat, input, campaignId === undefined ? {} : { campaignId }, { updatedAt: now() });
+        return feat;
+      }),
+  },
+  {
+    method: "PATCH",
+    pattern: new RegExp(`^feats/${ID}$`),
+    run: ([id], body) =>
+      updateDemo((state) => {
+        const { shared } = parse(shareSchema, body);
+        const feat = state.dm.feats.find((f) => f.id === id) ?? fail(404, "not_found", "No such feat.");
+        Object.assign(feat, { shared, updatedAt: now() });
+        return feat;
+      }),
+  },
+  {
+    method: "DELETE",
+    pattern: new RegExp(`^feats/${ID}$`),
+    run: ([id]) =>
+      updateDemo((state) => {
+        if (!state.dm.feats.some((f) => f.id === id)) fail(404, "not_found", "No such feat.");
+        state.dm.feats = state.dm.feats.filter((f) => f.id !== id);
       }),
   },
 ];

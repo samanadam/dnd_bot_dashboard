@@ -1,5 +1,6 @@
-import { SCHOOLS, type School, type SpellRef } from "./spells";
-import type { FeatRef } from "./feats";
+import type { CustomFeat, FeatRef } from "./feats";
+import { SCHOOLS, type CustomSpell, type School, type SpellRef } from "./spells";
+import type { SrdFeatSummary, SrdSpellSummary } from "./srdSpells";
 
 // The search behind the spell and feat browsers: query parsing and filtering,
 // pure, so the real route and the demo transport answer exactly alike.
@@ -23,6 +24,35 @@ export type FeatSearchResult = {
   prerequisite: string;
   author: "dm" | "player";
 };
+
+const author = (row: { authorUserId: string | null }) => (row.authorUserId ? ("player" as const) : ("dm" as const));
+
+export function spellRow(spell: CustomSpell): SpellSearchResult {
+  return {
+    ref: { source: "custom", id: spell.id },
+    name: spell.name,
+    level: spell.level,
+    school: spell.school,
+    castingTime: spell.castingTime,
+    concentration: spell.concentration,
+    ritual: spell.ritual,
+    classes: spell.classes,
+    author: author(spell),
+  };
+}
+
+export function srdSpellRow(spell: SrdSpellSummary): SpellSearchResult {
+  const { edition, slug, ...rest } = spell;
+  return { ref: { source: "srd", edition, slug }, ...rest, author: "dm" };
+}
+
+export function featRow(feat: CustomFeat): FeatSearchResult {
+  return { ref: { source: "custom", id: feat.id }, name: feat.name, category: feat.category, prerequisite: feat.prerequisite, author: author(feat) };
+}
+
+export function srdFeatRow(feat: SrdFeatSummary): FeatSearchResult {
+  return { ref: { source: "srd", edition: feat.edition, slug: feat.slug }, name: feat.name, category: feat.category, prerequisite: feat.prerequisite, author: "dm" };
+}
 
 export const SEARCH_SOURCES = ["all", "custom", "2014", "2024"] as const;
 export type SearchSource = (typeof SEARCH_SOURCES)[number];

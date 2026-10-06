@@ -1,18 +1,11 @@
 import { z } from "zod";
 import { parseSelectionStrict, type Selection } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
-import { customFeatSchema, MAX_CUSTOM_FEATS, type CustomFeat, type CustomFeatInput, type FeatBlock, type FeatRepo } from "./feats";
+import { customFeatSchema, MAX_CUSTOM_FEATS, type CustomFeatInput, type FeatBlock, type FeatRepo } from "./feats";
 import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
 import { json, noContent, type AuditLog } from "./http";
-import {
-  parseFeatQuery,
-  parseSpellQuery,
-  searchFeats,
-  searchSpells,
-  type FeatSearchResult,
-  type SpellSearchResult,
-} from "./spellSearch";
-import { customSpellSchema, MAX_CUSTOM_SPELLS, SPELL_ID, type CustomSpell, type CustomSpellInput, type SpellBlock, type SpellRepo } from "./spells";
+import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, spellRow, srdFeatRow, srdSpellRow } from "./spellSearch";
+import { customSpellSchema, MAX_CUSTOM_SPELLS, SPELL_ID, type CustomSpellInput, type SpellBlock, type SpellRepo } from "./spells";
 import type { Edition } from "./srd";
 import type { SrdFeatSummary, SrdSpellSummary } from "./srdSpells";
 
@@ -31,35 +24,6 @@ export type SpellRouteDeps = DmGuardDeps & {
 };
 
 const shareSchema = z.object({ shared: z.boolean() }).strict();
-
-const author = (row: { authorUserId: string | null }) => (row.authorUserId ? ("player" as const) : ("dm" as const));
-
-export function spellRow(spell: CustomSpell): SpellSearchResult {
-  return {
-    ref: { source: "custom", id: spell.id },
-    name: spell.name,
-    level: spell.level,
-    school: spell.school,
-    castingTime: spell.castingTime,
-    concentration: spell.concentration,
-    ritual: spell.ritual,
-    classes: spell.classes,
-    author: author(spell),
-  };
-}
-
-export function srdSpellRow(spell: SrdSpellSummary): SpellSearchResult {
-  const { edition, slug, ...rest } = spell;
-  return { ref: { source: "srd", edition, slug }, ...rest, author: "dm" };
-}
-
-export function featRow(feat: CustomFeat): FeatSearchResult {
-  return { ref: { source: "custom", id: feat.id }, name: feat.name, category: feat.category, prerequisite: feat.prerequisite, author: author(feat) };
-}
-
-export function srdFeatRow(feat: SrdFeatSummary): FeatSearchResult {
-  return { ref: { source: "srd", edition: feat.edition, slug: feat.slug }, name: feat.name, category: feat.category, prerequisite: feat.prerequisite, author: "dm" };
-}
 
 type Kind = "spell" | "feat";
 
