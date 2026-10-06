@@ -4,7 +4,7 @@ import type { Combatant } from "./encounter";
 // it only decides which combatant a report most likely belongs to, and the DM
 // confirms every one.
 
-export type Report = { id: number; label: string; value: number };
+export type Report = { id: number; label: string; value: number; user_id?: string };
 
 const norm = (text: string) => text.normalize("NFKC").trim().toLocaleLowerCase("en").replace(/\s+/g, " ");
 
@@ -14,7 +14,12 @@ const norm = (text: string) => text.normalize("NFKC").trim().toLocaleLowerCase("
  * send a total to the wrong one. Players are preferred over monsters that
  * happen to share a name.
  */
-export function matchReport(report: Pick<Report, "label">, combatants: readonly Combatant[]): Combatant | null {
+export function matchReport(report: Pick<Report, "label" | "user_id">, combatants: readonly Combatant[], owners?: ReadonlyMap<string, string>): Combatant | null {
+  // The reporting member's own character, when it is linked to their sheet: no name guessing.
+  if (report.user_id && owners) {
+    const theirs = combatants.filter((c) => owners.get(c.id) === report.user_id);
+    if (theirs.length === 1) return theirs[0];
+  }
   const wanted = norm(report.label);
   if (!wanted) return null;
   const named = combatants.filter((c) => norm(c.name) === wanted);
@@ -24,9 +29,9 @@ export function matchReport(report: Pick<Report, "label">, combatants: readonly 
 }
 
 /** Reports that match exactly one combatant, paired with it. */
-export function matchedReports(reports: readonly Report[], combatants: readonly Combatant[]) {
+export function matchedReports(reports: readonly Report[], combatants: readonly Combatant[], owners?: ReadonlyMap<string, string>) {
   return reports.flatMap((report) => {
-    const target = matchReport(report, combatants);
+    const target = matchReport(report, combatants, owners);
     return target ? [{ report, target }] : [];
   });
 }

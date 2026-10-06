@@ -10,6 +10,7 @@ import { keys } from "@/lib/bot/useBotState";
 import type { Combatant, Encounter } from "@/lib/dm/encounter";
 import { setInitiative } from "@/lib/dm/encounter";
 import { matchedReports, matchReport, type Report } from "@/lib/dm/initiativeReports";
+import { combat } from "@/lib/sheets/client";
 
 /**
  * Initiative totals players sent with /init. The DM applies each one; nothing
@@ -20,10 +21,15 @@ export function PlayerRolls({
   combatants,
   apply,
   disabled,
+  owners,
+  encounterId,
 }: {
   combatants: readonly Combatant[];
   apply: (change: (encounter: Encounter) => Encounter) => void;
   disabled: boolean;
+  // Which Discord user's sheet each linked combatant is: /init lands on their own character.
+  owners?: ReadonlyMap<string, string>;
+  encounterId?: string;
 }) {
   const toast = useToast();
   const client = useQueryClient();
@@ -35,10 +41,23 @@ export function PlayerRolls({
     refetchInterval: 5_000,
     retry: false,
   });
+  const battleRolls = useQuery({
+    queryKey: ["battle-rolls", encounterId],
+    queryFn: () => combat.battleRolls(encounterId!),
+    enabled: Boolean(encounterId),
+    refetchInterval: 5_000,
+    retry: false,
+  });
   const list: Report[] = reports.data ?? [];
-  if (list.length === 0) return null;
+  // Rolls players made on their battle page, for the combatant linked to their sheet.
+  const pageRolls = (battleRolls.data ?? []).flatMap((roll) => {
+    const target = combatants.find((c) => c.ref?.source === "character" && c.ref.id === roll.characterId);
+    return target ? [{ roll, target }] : [];
+  });
+  if (list.length === 0 && pageRolls.length === 0) return null;
 
-  const matched = matchedReports(list, combatants);
+  const matched = matchedReports(list, combatants, owners);
+  const refreshPage = () => void client.invalidateQueries({ queryKey: ["battle-rolls", encounterId] });
   const refresh = () => void client.invalidateQueries({ queryKey: keys.initiative });
 
   async function dismiss(id?: number) {
@@ -83,8 +102,39 @@ export function PlayerRolls({
         </div>
       </div>
       <ul className="space-y-2">
+        {pageRolls.map(({ roll, target }) => (
+          <li key={`page-${roll.characterId}`} className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface-2 px-3 py-2">
+            <span className="grid size-10 place-items-center rounded-xl bg-accent-soft font-display text-lg font-bold tabular-nums text-accent">{roll.value}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {target.name}
+              <span className="ml-2 text-xs font-normal text-muted">from the battle page · {roll.breakdown}</span>
+            </span>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={disabled || busy !== null}
+              onClick={async () => {
+                apply((encounter) => setInitiative(encounter, target.id, roll.value));
+                await combat.dismissBattleRoll(encounterId!, roll.characterId).catch(() => undefined);
+                refreshPage();
+              }}
+            >
+              Set {target.name}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={`Dismiss ${target.name}'s roll`}
+              icon={X}
+              onClick={async () => {
+                await combat.dismissBattleRoll(encounterId!, roll.characterId).catch(() => undefined);
+                refreshPage();
+              }}
+            />
+          </li>
+        ))}
         {list.map((report) => {
-          const target = matchReport(report, combatants);
+          const target = matchReport(report, combatants, owners);
           const chosen = combatants.find((c) => c.id === picked[report.id]) ?? null;
           const destination = target ?? chosen;
           return (

@@ -156,8 +156,9 @@ export function startCombat(enc: Encounter): Encounter {
   return { ...sortByInitiative({ ...enc, round: 0 }), round: 1, turn: 0 };
 }
 
+/** The fight is over: back to round 0, and players no longer follow it. */
 export function endCombat(enc: Encounter): Encounter {
-  return { ...enc, round: 0, turn: 0 };
+  return { ...enc, round: 0, turn: 0, shownToPlayers: false };
 }
 
 function tickConditions(c: Combatant): Combatant {
@@ -216,7 +217,7 @@ export function toggleCondition(enc: Encounter, id: string, name: string, rounds
   });
 }
 
-export type CombatantPatch = Partial<Pick<Combatant, "name" | "ac" | "maxHp" | "hp" | "initiativeBonus" | "concentration" | "notes">>;
+export type CombatantPatch = Partial<Pick<Combatant, "name" | "ac" | "maxHp" | "hp" | "initiativeBonus" | "concentration" | "notes" | "alias" | "revealed" | "hidden">>;
 
 export function patchCombatant(enc: Encounter, id: string, patch: CombatantPatch): Encounter {
   return mapOne(enc, id, (c) => {
@@ -226,6 +227,7 @@ export function patchCombatant(enc: Encounter, id: string, patch: CombatantPatch
       ...next,
       name: next.name.trim().slice(0, 80) || c.name,
       notes: next.notes.slice(0, 2000),
+      alias: next.alias ? next.alias.trim().slice(0, 40) || null : (next.alias ?? null),
       ac: clamp(next.ac, 0, 40),
       initiativeBonus: clamp(next.initiativeBonus, -20, 40),
       maxHp,

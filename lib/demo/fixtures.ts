@@ -6,7 +6,8 @@ import type { StoredEncounter } from "@/lib/dm/encounters";
 import type { CustomFeat } from "@/lib/dm/feats";
 import type { CustomItem } from "@/lib/dm/items";
 import type { CustomSpell } from "@/lib/dm/spells";
-import { demoSheets } from "./sheetFixtures";
+import type { BattleRoll, StoredNote } from "@/lib/combat/store";
+import { DEMO_SHEET_PALADIN, DEMO_SHEET_WIZARD, demoSheets } from "./sheetFixtures";
 import type { Reward } from "@/lib/dm/rewards";
 import type { SavedTrack } from "@/lib/dm/saved";
 import type { Scene } from "@/lib/dm/scenes";
@@ -286,10 +287,16 @@ export function demoFixtures(now: number) {
       ...party([17, 9, 12]),
       combatant("m-goblin-1", "Goblin", "monster", { ac: goblin.ac, hp: 3, maxHp: goblin.hp, init: 14, bonus: 2, ref: srd("2014", "goblin") }),
       combatant("m-goblin-2", "Goblin 2", "monster", { ac: goblin.ac, hp: goblin.hp, init: 11, bonus: 2, ref: srd("2014", "goblin") }),
-      combatant("m-boss", "Goblin Boss", "monster", { ac: 17, hp: 21, init: 15, bonus: 2, ref: srd("2024", "goblin-boss") }),
+      { ...combatant("m-boss", "Goblin Boss", "monster", { ac: 17, hp: 21, init: 15, bonus: 2, ref: srd("2024", "goblin-boss") }), alias: "Goblin in a red hood" },
       combatant("n-veyra", "Captain Veyra Thorn", "npc", { ac: captain.ac, hp: captain.hp, init: 13, bonus: 3, ref: { source: "custom", id: IDS.npcCaptain }, friendly: true }),
     ],
   };
+  // Two of the party are linked to their character sheets, and the fight is shown to players.
+  mill.combatants.push(
+    { ...combatant("pc-ilsa", "Ilsa Thornwick", "player", { ac: 12, hp: 21, maxHp: 27, init: 16, bonus: 2 }), ref: { source: "character", id: DEMO_SHEET_WIZARD } },
+    { ...combatant("pc-bram", "Bram Ashford", "player", { ac: 18, hp: 44, maxHp: 50, init: 8, bonus: 0 }), ref: { source: "character", id: DEMO_SHEET_PALADIN } },
+  );
+  mill.shownToPlayers = true;
   mill.combatants.sort((a, b) => (b.initiative ?? -99) - (a.initiative ?? -99));
   mill.combatants[0] = { ...mill.combatants[0], conditions: [{ name: "Blessed", rounds: 8 }], concentration: false };
   const cass = mill.combatants.find((c) => c.id === "p-cass");
@@ -509,7 +516,7 @@ export function demoFixtures(now: number) {
   };
 
   return {
-    play: { sheets: demoSheets(now, CAMPAIGN_EMBER) },
+    play: { sheets: demoSheets(now, CAMPAIGN_EMBER), notes: [] as StoredNote[], rolls: [] as BattleRoll[], turnPing: { enabled: false, channelId: null as string | null } },
     bot: {
       startedAt: now - 3 * 24 * 3600_000,
       library,
