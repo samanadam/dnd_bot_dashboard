@@ -191,6 +191,32 @@ const MIGRATIONS: readonly string[] = [
      first_seen TEXT NOT NULL,
      last_seen TEXT NOT NULL
    );`,
+  // Character sheets. A sheet belongs to exactly one campaign; owner_user_id
+  // NULL means the DM holds it unassigned. One active sheet per player per
+  // campaign: the one combat and the bot use. body changes with a version check;
+  // vitals change only through operations, each bumping vitals_version.
+  `CREATE TABLE characters (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     owner_user_id TEXT,
+     name TEXT NOT NULL,
+     edition TEXT NOT NULL CHECK (edition IN ('2014', '2024')),
+     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'retired', 'dead')),
+     is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+     version INTEGER NOT NULL,
+     body TEXT NOT NULL,
+     vitals_version INTEGER NOT NULL,
+     vitals TEXT NOT NULL,
+     dm_notes TEXT NOT NULL DEFAULT '',
+     portrait TEXT,
+     name_sync TEXT NOT NULL DEFAULT 'ok' CHECK (name_sync IN ('ok', 'pending')),
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX characters_campaign ON characters (campaign_id, name);
+   CREATE INDEX characters_owner ON characters (owner_user_id, campaign_id);
+   CREATE UNIQUE INDEX characters_one_active ON characters (campaign_id, owner_user_id)
+     WHERE is_active = 1 AND owner_user_id IS NOT NULL;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

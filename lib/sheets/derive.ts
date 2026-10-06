@@ -191,12 +191,13 @@ export function derive(body: SheetBody, vitals: Vitals, edition: Edition): Deriv
 
   const resources = body.resources.map((resource) => {
     let max: number;
-    if (typeof resource.max === "number") max = resource.max;
+    const rule = resource.max;
+    if (typeof rule === "number") max = rule;
     else {
-      const owner = resource.max.classId ? body.classes.find((c) => c.id === resource.max.classId) : null;
-      const formula = resource.max.formula;
+      const owner = rule.classId ? body.classes.find((c) => c.id === rule.classId) : null;
+      const formula = rule.formula;
       const base = formula === "level" ? (owner?.level ?? totalLevel) : formula === "prof" ? proficiency : abilities[formula.slice(4) as Ability].mod;
-      max = Math.max(1, base + resource.max.plus);
+      max = Math.max(1, base + rule.plus);
     }
     const used = Math.min(max, vitals.resourcesUsed[resource.id] ?? 0);
     return { id: resource.id, name: resource.name, max, used, left: max - used };

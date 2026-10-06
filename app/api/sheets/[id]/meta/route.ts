@@ -1,0 +1,11 @@
+import { sheetDeps } from "@/lib/sheets/routeDeps";
+import { sheetMeta } from "@/lib/sheets/routes";
+
+export const dynamic = "force-dynamic";
+
+type Context = RouteContext<"/api/sheets/[id]/meta">;
+
+export async function PATCH(request: Request, context: Context) {
+  const { id } = await context.params;
+  return sheetMeta(sheetDeps()).PATCH(request, id);
+}
