@@ -37,12 +37,17 @@ const missing = () => errorResponse(404, "not_found", "No such battle.");
 const seesCampaign = (access: Access, campaignId: string) => can(access, "play", campaignId) || canManage(access, campaignId);
 
 /** The live state of every character sheet in the fight. */
-export function linkedStates(encounter: Encounter, sheets: SheetRepo): Map<string, LinkedState & { vitalsVersion: number; initiativeBonus: number; name: string }> {
+export function linkedStates(
+  encounter: Encounter,
+  sheets: SheetRepo,
+  campaignId: string | null,
+): Map<string, LinkedState & { vitalsVersion: number; initiativeBonus: number; name: string }> {
   const out = new Map<string, LinkedState & { vitalsVersion: number; initiativeBonus: number; name: string }>();
   for (const c of encounter.combatants) {
     if (c.ref?.source !== "character" || out.has(c.ref.id)) continue;
     const sheet = sheets.get(c.ref.id);
-    if (!sheet) continue;
+    // Only the encounter's own campaign: a reference to another campaign's sheet is ignored.
+    if (!sheet || sheet.campaignId !== campaignId) continue;
     const derived = derive(sheet.body, sheet.vitals, sheet.edition);
     out.set(sheet.id, {
       hp: sheet.vitals.hp,
@@ -110,7 +115,7 @@ export function battleItem(deps: BattleRouteDeps) {
       if (!guard.ok) return guard.response;
       const stored = watchable(deps, guard.access, id);
       if (!stored) return missing();
-      const linked = linkedStates(stored.encounter, deps.sheets());
+      const linked = linkedStates(stored.encounter, deps.sheets(), stored.campaignId);
       const notes = deps.notes();
       const etag = `W/"${createHash("sha256")
         .update([stored.version, ...[...linked.entries()].map(([sheetId, s]) => `${sheetId}:${s.vitalsVersion}`), notes.stamp(id), guard.userId].join("|"))
@@ -142,7 +147,7 @@ export function battleInitiative(deps: BattleRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = initiativeSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
-      const linked = linkedStates(stored.encounter, deps.sheets());
+      const linked = linkedStates(stored.encounter, deps.sheets(), stored.campaignId);
       const mine = stored.encounter.combatants.find((c) => c.ref?.source === "character" && linked.get(c.ref.id)?.ownerUserId === guard.userId && !c.hidden);
       if (!mine || mine.ref?.source !== "character") return errorResponse(409, "conflict", "You have no character in this battle.");
       if (mine.initiative !== null) return errorResponse(409, "conflict", "Your initiative is already set.");

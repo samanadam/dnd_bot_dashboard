@@ -61,13 +61,20 @@ export function campaignScope(access: Access, permission: Permission): CampaignS
 
 export type Guarded = { ok: true; userId: string; access: Access; scope: CampaignScope };
 
-export async function guardApi(request: Request, deps: DmGuardDeps, permission: Permission | "owner" | "signed-in"): Promise<Guarded | Refusal> {
+export async function guardApi(
+  request: Request,
+  deps: DmGuardDeps,
+  permission: Permission | "owner" | "signed-in",
+  // Image GETs from <img>, which cannot send the portal header. Still same-origin only.
+  options: { image?: boolean } = {},
+): Promise<Guarded | Refusal> {
   const access = await deps.getAccess();
   if (!access) return { ok: false, response: errorResponse(401, "unauthorized", "Sign in required.") };
   // The same answer as an unknown URL: other portal users learn nothing.
   const allowed = permission === "signed-in" ? true : permission === "owner" ? access.owner : can(access, permission);
   if (!allowed) return { ok: false, response: errorResponse(404, "not_found", "Unknown endpoint.") };
-  if (request.headers.get(PORTAL_HEADER) !== "1" || !isSameOrigin(request)) {
+  const headerOk = request.headers.get(PORTAL_HEADER) === "1" || (options.image === true && request.method.toUpperCase() === "GET");
+  if (!headerOk || !isSameOrigin(request)) {
     return { ok: false, response: errorResponse(403, "forbidden", "Cross-origin request refused.") };
   }
   const bucket: DmBucket = request.method.toUpperCase() === "GET" ? "dm_read" : "dm_write";

@@ -58,7 +58,7 @@ export function sheetPortrait(deps: PortraitRouteDeps) {
   return {
     /** The picture, for whoever may see the sheet, or (with ?battle=) a battle it is in. */
     async GET(request: Request, id: string): Promise<Response> {
-      const guard = await guardApi(request, deps, "signed-in");
+      const guard = await guardApi(request, deps, "signed-in", { image: true });
       if (!guard.ok) return guard.response;
       const sheet = SHEET_ID.test(id) ? deps.sheets().get(id) : null;
       if (!sheet || !sheet.portrait) return missing();

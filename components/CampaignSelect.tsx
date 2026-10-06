@@ -1,5 +1,6 @@
 "use client";
 
+import { useMyAccess } from "@/lib/access/client";
 import { useCampaigns } from "@/lib/bot/useBotState";
 import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { inputBaseClass } from "./ui";
@@ -54,7 +55,10 @@ export function CampaignSelect({
 export function CampaignSwitcher() {
   const [selection, setSelection] = useCampaignSelection();
   const campaigns = useCampaigns();
-  const options = (campaigns.data ?? []).filter((campaign) => !campaign.archived || campaign.id === selection);
+  // A co-DM limited to some campaigns sees only those, and nothing filed under none.
+  const scope = useMyAccess()?.grants.get("dm");
+  const scoped = scope !== undefined && scope !== "all" ? scope : null;
+  const options = (campaigns.data ?? []).filter((campaign) => (!campaign.archived || campaign.id === selection) && (!scoped || scoped.has(campaign.id)));
 
   return (
     <label className="flex items-center gap-2 text-xs text-muted">
@@ -64,8 +68,8 @@ export function CampaignSwitcher() {
         onChange={(event) => setSelection(event.target.value || null)}
         className={`${inputBaseClass} h-9 max-w-52 px-2.5`}
       >
-        <option value="">All campaigns</option>
-        <option value="unassigned">Not in a campaign</option>
+        <option value="">{scoped ? "All my campaigns" : "All campaigns"}</option>
+        {scoped ? null : <option value="unassigned">Not in a campaign</option>}
         {selection && selection !== "unassigned" && !options.some((campaign) => campaign.id === selection) ? (
           <option value={selection}>Unknown campaign</option>
         ) : null}

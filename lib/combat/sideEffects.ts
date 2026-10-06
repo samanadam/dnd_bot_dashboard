@@ -26,7 +26,7 @@ const lastPing = new Map<string, { combatantId: string; at: number }>();
 export const PING_THROTTLE_MS = 3000;
 
 function roster(stored: StoredEncounter, sheets: SheetRepo): RosterEntry[] {
-  const linked = linkedStates(stored.encounter, sheets);
+  const linked = linkedStates(stored.encounter, sheets, stored.campaignId);
   const seen = new Set<string>();
   const entries: RosterEntry[] = [];
   for (const c of stored.encounter.combatants) {
@@ -83,7 +83,7 @@ export function sideEffects(deps: SideEffectDeps) {
           (!last || now() - last.at >= PING_THROTTLE_MS)
         ) {
           const sheet = deps.sheets().get(current.ref.id);
-          if (sheet?.ownerUserId) {
+          if (sheet?.ownerUserId && sheet.campaignId === after.campaignId) {
             lastPing.set(after.id, { combatantId: current.id, at: now() });
             tasks.push(
               deps.pingTurn({

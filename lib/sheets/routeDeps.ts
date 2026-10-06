@@ -54,6 +54,7 @@ export function sheetDeps() {
 function seenInBattle(access: Access, sheet: StoredSheet, battleId: string): boolean {
   const stored = new EncounterRepo(getDatabase()).get(battleId);
   if (!stored || stored.kind !== "live" || !stored.campaignId || !stored.encounter.shownToPlayers) return false;
+  if (sheet.campaignId !== stored.campaignId) return false;
   if (!(can(access, "play", stored.campaignId) || can(access, "sheets.manage", stored.campaignId))) return false;
   return stored.encounter.combatants.some((c) => !c.hidden && c.ref?.source === "character" && c.ref.id === sheet.id && (c.kind === "player" || c.friendly));
 }

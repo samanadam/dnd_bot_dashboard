@@ -47,6 +47,18 @@ const put = (body: Buffer, type = "image/png") =>
 const get = () => new Request("https://portal.example/api/sheets/x/portrait", { headers: { "x-portal-request": "1", "sec-fetch-site": "same-origin" } });
 
 describe("portraits", () => {
+  it("can be loaded by an <img> (no portal header) but never from another site", async () => {
+    const { deps, id } = setup();
+    await sheetPortrait(deps).PUT(put(PNG), id);
+    const img = new Request("https://portal.example/api/sheets/x/portrait", { headers: { "sec-fetch-site": "same-origin" } });
+    expect((await sheetPortrait(deps).GET(img, id)).status).toBe(200);
+    const foreign = new Request("https://portal.example/api/sheets/x/portrait", { headers: { "sec-fetch-site": "cross-site" } });
+    expect((await sheetPortrait(deps).GET(foreign, id)).status).toBe(403);
+    // Writes still need the header.
+    const bare = new Request("https://portal.example/api/sheets/x/portrait", { method: "PUT", body: new Uint8Array(PNG), headers: { "sec-fetch-site": "same-origin", "content-type": "image/png" } });
+    expect((await sheetPortrait(deps).PUT(bare, id)).status).toBe(403);
+  });
+
   it("knows images by their first bytes, not their name", () => {
     expect(sniffImage(PNG)).toBe("png");
     expect(sniffImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe("jpeg");
@@ -82,5 +94,23 @@ describe("portraits", () => {
     expect((await sheetPortrait(deps).GET(get(), id)).status).toBe(404);
     expect((await sheetPortrait(deps).PUT(put(PNG), id)).status).toBe(404);
     expect((await sheetPortrait(deps).DELETE(get(), id)).status).toBe(404);
+  });
+});
+
+describe("portrait encoding", () => {
+  it("turns a real image into a small WebP with no metadata", async () => {
+    const sharp = (await import("sharp")).default;
+    const { diskPortraits } = await import("@/lib/sheets/portraitStore");
+    const big = await sharp({ create: { width: 1200, height: 800, channels: 3, background: "#884422" } })
+      .withExif({ IFD0: { Copyright: "SECRET-EXIF" } })
+      .jpeg()
+      .toBuffer();
+    expect(big.includes(Buffer.from("SECRET-EXIF"))).toBe(true);
+    const out = await diskPortraits.encode(big);
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe("webp");
+    expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(512);
+    expect(meta.exif).toBeUndefined();
+    expect(out.includes(Buffer.from("SECRET-EXIF"))).toBe(false);
   });
 });

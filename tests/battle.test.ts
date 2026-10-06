@@ -295,10 +295,37 @@ describe("campaign settings", () => {
   });
 });
 
+describe("sheets from another campaign", () => {
+  it("are never read into a battle, even when an encounter names one", async () => {
+    const { deps, battle, encounters, sheets } = setup();
+    const foreign = sheets.create({ campaignId: FROST, ownerUserId: CORA, edition: "2024", name: "SECRET-FROST-HERO" });
+    if (foreign === "limit") throw new Error("limit");
+    const crafted = addCombatant(battle.encounter, { ...monster({}), name: "Stranger", kind: "player", ref: { source: "character", id: foreign.id }, hp: 5, maxHp: 10 }, newId);
+    encounters.save(battle.id, battle.version, crafted);
+    const linked = linkedStates(encounters.get(battle.id)!.encounter, sheets, EMBER);
+    expect(linked.has(foreign.id)).toBe(false);
+    const text = await (await battleItem(deps).GET(req(), battle.id)).text();
+    expect(text).not.toContain("SECRET-FROST-HERO");
+    expect(text).not.toContain(foreign.id);
+  });
+
+  it("never get a turn ping", async () => {
+    const s = setup();
+    const foreign = s.sheets.create({ campaignId: FROST, ownerUserId: CORA, edition: "2024", name: "Frost" });
+    if (foreign === "limit") throw new Error("limit");
+    new CampaignSettingsRepo(s.db).put(EMBER, { turnPing: { enabled: true, channelId: "300000000000000001" } });
+    const crafted = { ...s.battle, encounter: { ...s.battle.encounter, combatants: [{ ...s.battle.encounter.combatants[4], id: "x1", ref: { source: "character" as const, id: foreign.id } }, ...s.battle.encounter.combatants] } };
+    const pingTurn = vi.fn(async () => {});
+    const run = sideEffects({ sheets: () => s.sheets, notes: () => new NoteRepo(s.db), battleRolls: () => new BattleInitiativeRepo(s.db), settings: () => new CampaignSettingsRepo(s.db), pushRoster: vi.fn(async () => {}), clearRoster: vi.fn(async () => {}), pingTurn });
+    await run.afterSave({ ...crafted, encounter: { ...crafted.encounter, turn: 1 } }, { ...crafted, encounter: { ...crafted.encounter, turn: 0 } });
+    expect(pingTurn).not.toHaveBeenCalled();
+  });
+});
+
 describe("linked states", () => {
   it("read the sheet, not the encounter's copy", () => {
     const { battle, sheets, aria } = setup();
-    const linked = linkedStates(battle.encounter, sheets);
+    const linked = linkedStates(battle.encounter, sheets, EMBER);
     expect(linked.get(aria.id)?.maxHp).toBeGreaterThan(1);
     expect(toPlayerView(battle, linked, "999999999999999999", []).me).toBeNull();
   });
