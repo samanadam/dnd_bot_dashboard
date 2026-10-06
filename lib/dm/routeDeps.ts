@@ -5,7 +5,8 @@ import { AreaRepo } from "./areas";
 import type { RefLookup } from "./areaView";
 import { CreatureRepo } from "./creatures";
 import { getDatabase } from "./database";
-import { EncounterRepo } from "./encounters";
+import { EncounterRepo, type StoredEncounter } from "./encounters";
+import { combatEffects } from "@/lib/combat/routeDeps";
 import { FeatRepo } from "./feats";
 import { ItemRepo } from "./items";
 import { SavedRepo } from "./saved";
@@ -49,6 +50,8 @@ export function dmDeps() {
     srdFeats: () => ({ list: listSrdFeats, get: getSrdFeat }),
     srdMonsters: listSrd,
     lookup: refLookup,
+    afterSave: (before: StoredEncounter, after: StoredEncounter) => combatEffects().afterSave(before, after),
+    afterDelete: (stored: StoredEncounter) => combatEffects().afterDelete(stored),
     log: audit,
   };
 }

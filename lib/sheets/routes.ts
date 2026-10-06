@@ -460,3 +460,50 @@ export function sheetPlayers(deps: SheetRouteDeps) {
     },
   };
 }
+
+export type LinkedVitals = {
+  vitalsVersion: number;
+  version: number;
+  name: string;
+  ownerUserId: string | null;
+  hp: number;
+  tempHp: number;
+  maxHp: number;
+  ac: number;
+  initiativeBonus: number;
+  conditions: StoredSheet["vitals"]["conditions"];
+  concentration: string | null;
+  deathSaves: StoredSheet["vitals"]["deathSaves"];
+};
+
+export function sheetVitalsBatch(deps: SheetRouteDeps) {
+  return {
+    /** ?ids=a,b: live numbers for the sheets in a fight, for whoever manages them (the DM's tracker). */
+    async GET(request: Request): Promise<Response> {
+      const guard = await guardApi(request, deps, "signed-in");
+      if (!guard.ok) return guard.response;
+      const ids = (new URL(request.url).searchParams.get("ids") ?? "").split(",").filter((id) => SHEET_ID.test(id)).slice(0, 60);
+      const out: Record<string, LinkedVitals> = {};
+      for (const id of ids) {
+        const sheet = deps.sheets().get(id);
+        if (!sheet || !canManage(guard.access, sheet.campaignId)) continue;
+        const derived = derive(sheet.body, sheet.vitals, sheet.edition);
+        out[id] = {
+          vitalsVersion: sheet.vitalsVersion,
+          version: sheet.version,
+          name: sheet.name,
+          ownerUserId: sheet.ownerUserId,
+          hp: sheet.vitals.hp,
+          tempHp: sheet.vitals.tempHp,
+          maxHp: derived.maxHp,
+          ac: derived.ac.value,
+          initiativeBonus: derived.initiative.bonus,
+          conditions: sheet.vitals.conditions,
+          concentration: sheet.vitals.concentration?.name ?? null,
+          deathSaves: sheet.vitals.deathSaves,
+        };
+      }
+      return json(out);
+    },
+  };
+}

@@ -1,6 +1,6 @@
 import "server-only";
 import { UserRepo } from "@/lib/access/grants";
-import { can, resolveAccess } from "@/lib/access/permissions";
+import { can, resolveAccess, type Access } from "@/lib/access/permissions";
 import { botCampaigns } from "@/lib/access/routeDeps";
 import { getAccess } from "@/lib/access/server";
 import { loadGrants } from "@/lib/access/store";
@@ -12,7 +12,8 @@ import { FeatRepo } from "@/lib/dm/feats";
 import { SpellRepo } from "@/lib/dm/spells";
 import { getSrdFeat, getSrdSpell, listSrdFeats, listSrdSpells } from "@/lib/dm/srdSpells";
 import { diskPortraits } from "./portraitStore";
-import { SheetRepo } from "./repo";
+import { EncounterRepo } from "@/lib/dm/encounters";
+import { SheetRepo, type StoredSheet } from "./repo";
 import type { RollToAnnounce } from "./routes";
 
 /** Tells the bot which character a player is in a campaign, so transcripts use the sheet's name. */
@@ -49,6 +50,14 @@ export function sheetDeps() {
   };
 }
 
+/** A party member's picture on a battle page: the battle must be one the viewer may watch, the sheet visible in it. */
+function seenInBattle(access: Access, sheet: StoredSheet, battleId: string): boolean {
+  const stored = new EncounterRepo(getDatabase()).get(battleId);
+  if (!stored || stored.kind !== "live" || !stored.campaignId || !stored.encounter.shownToPlayers) return false;
+  if (!(can(access, "play", stored.campaignId) || can(access, "sheets.manage", stored.campaignId))) return false;
+  return stored.encounter.combatants.some((c) => !c.hidden && c.ref?.source === "character" && c.ref.id === sheet.id && (c.kind === "player" || c.friendly));
+}
+
 export function portraitDeps() {
-  return { getAccess, sheets: () => new SheetRepo(getDatabase()), portraits: diskPortraits, log: audit };
+  return { getAccess, sheets: () => new SheetRepo(getDatabase()), portraits: diskPortraits, seenInBattle, log: audit };
 }

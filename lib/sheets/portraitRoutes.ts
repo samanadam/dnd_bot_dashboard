@@ -1,3 +1,4 @@
+import type { Access } from "@/lib/access/permissions";
 import { guardApi, type DmGuardDeps } from "@/lib/dm/guard";
 import { noContent, type AuditLog } from "@/lib/dm/http";
 import { errorResponse } from "@/lib/requestGuard";
@@ -24,7 +25,7 @@ export type PortraitRouteDeps = DmGuardDeps & {
   sheets: () => SheetRepo;
   portraits: PortraitStore;
   // Whether this user may see the sheet's picture in a battle they are watching (combat link).
-  seenInBattle?: (userId: string, sheet: StoredSheet, battleId: string) => boolean;
+  seenInBattle?: (access: Access, sheet: StoredSheet, battleId: string) => boolean;
   log?: AuditLog;
 };
 
@@ -62,7 +63,7 @@ export function sheetPortrait(deps: PortraitRouteDeps) {
       const sheet = SHEET_ID.test(id) ? deps.sheets().get(id) : null;
       if (!sheet || !sheet.portrait) return missing();
       const battle = new URL(request.url).searchParams.get("battle");
-      const allowed = canEdit(guard.access, sheet) || (battle !== null && /^[0-9a-f-]{36}$/.test(battle) && Boolean(deps.seenInBattle?.(guard.userId, sheet, battle)));
+      const allowed = canEdit(guard.access, sheet) || (battle !== null && /^[0-9a-f-]{36}$/.test(battle) && Boolean(deps.seenInBattle?.(guard.access, sheet, battle)));
       if (!allowed) return missing();
       const bytes = deps.portraits.read(sheet.portrait);
       if (!bytes) return missing();

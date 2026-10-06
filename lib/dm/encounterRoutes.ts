@@ -2,11 +2,18 @@ import { z } from "zod";
 import { campaignIdSchema, parseSelectionStrict } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
 import { encounterSchema } from "./encounter";
-import { ENCOUNTER_ID, type EncounterRepo } from "./encounters";
+import { ENCOUNTER_ID, type EncounterRepo, type StoredEncounter } from "./encounters";
 import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
 import { json, noContent, type AuditLog } from "./http";
 
-export type EncounterRouteDeps = DmGuardDeps & { encounters: () => EncounterRepo; log?: AuditLog };
+export type EncounterRouteDeps = DmGuardDeps & {
+  encounters: () => EncounterRepo;
+  // What a save or a delete sets off for players and the bot (lib/combat/sideEffects.ts).
+  // Best effort: a failure there never fails the save.
+  afterSave?: (before: StoredEncounter, after: StoredEncounter, userId: string) => Promise<void>;
+  afterDelete?: (stored: StoredEncounter, userId: string) => Promise<void>;
+  log?: AuditLog;
+};
 
 const createSchema = z
   .object({
@@ -114,6 +121,7 @@ export function encounterItem(deps: EncounterRouteDeps) {
       }
       // Autosave is frequent; the audit line records that a save happened, never what changed.
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/encounters/:id", status: 200 });
+      await deps.afterSave?.(current, result, guard.userId).catch(() => undefined);
       return json(result);
     },
 
@@ -124,6 +132,7 @@ export function encounterItem(deps: EncounterRouteDeps) {
       const current = deps.encounters().get(id);
       if (!current || !guard.scope.allows(current.campaignId) || !deps.encounters().remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: "dm/encounters/:id", status: 204 });
+      await deps.afterDelete?.(current, guard.userId).catch(() => undefined);
       return noContent();
     },
   };

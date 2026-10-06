@@ -53,7 +53,7 @@ describe("route handler factories", () => {
     expect(handlers.length, source).toBeGreaterThan(0);
     for (const [, method, firstLine] of handlers) {
       // Either the guard itself, or a helper whose first act is the guard (editable(), mine()).
-      expect(firstLine, `${source} ${method}`).toMatch(/const (guard|found) = await (guard(Dm|Api)|editable|mine)\(request/);
+      expect(firstLine, `${source} ${method}`).toMatch(/const (guard|found) = await (guard(Dm|Api)|editable|mine|allowed)\(request/);
     }
   });
 });

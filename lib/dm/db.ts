@@ -217,6 +217,38 @@ const MIGRATIONS: readonly string[] = [
    CREATE INDEX characters_owner ON characters (owner_user_id, campaign_id);
    CREATE UNIQUE INDEX characters_one_active ON characters (campaign_id, owner_user_id)
      WHERE is_active = 1 AND owner_user_id IS NOT NULL;`,
+  // The battle players follow: their notes on combatants, initiative they rolled
+  // on the battle page, and per-campaign turn-ping settings. target_label is
+  // what the author saw when writing, so a kept note never leaks a real name.
+  `CREATE TABLE battle_notes (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     encounter_id TEXT NOT NULL,
+     encounter_name TEXT NOT NULL,
+     combatant_id TEXT NOT NULL,
+     target_label TEXT NOT NULL,
+     author_user_id TEXT NOT NULL,
+     visibility TEXT NOT NULL CHECK (visibility IN ('private', 'party')),
+     keep INTEGER NOT NULL CHECK (keep IN (0, 1)),
+     text TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX battle_notes_encounter ON battle_notes (encounter_id);
+   CREATE INDEX battle_notes_campaign ON battle_notes (campaign_id, keep);
+   CREATE TABLE battle_initiative (
+     encounter_id TEXT NOT NULL,
+     character_id TEXT NOT NULL,
+     value INTEGER NOT NULL,
+     breakdown TEXT NOT NULL,
+     at TEXT NOT NULL,
+     PRIMARY KEY (encounter_id, character_id)
+   );
+   CREATE TABLE campaign_settings (
+     campaign_id TEXT PRIMARY KEY,
+     turn_ping_enabled INTEGER NOT NULL DEFAULT 0 CHECK (turn_ping_enabled IN (0, 1)),
+     turn_ping_channel_id TEXT
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

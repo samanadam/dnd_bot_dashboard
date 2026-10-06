@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ScrollText, UserRound } from "lucide-react";
+import { PortalLink } from "@/components/PortalLink";
 import { EmptyState, Skeleton } from "@/components/ui";
 import { dm } from "@/lib/dm/client";
 import type { Combatant, CreatureRef } from "@/lib/dm/encounter";
@@ -13,7 +14,9 @@ function refKey(ref: CreatureRef | null) {
 }
 
 export function SidePanel({ combatant }: { combatant: Combatant | undefined }) {
-  const ref = combatant?.ref ?? null;
+  // A player character's details are on their sheet, not in a stat block.
+  const linked = combatant?.ref?.source === "character" ? combatant.ref : null;
+  const ref: CreatureRef | null = combatant?.ref && combatant.ref.source !== "character" ? combatant.ref : null;
   const query = useQuery({
     queryKey: ["dm-statblock", ...refKey(ref)],
     enabled: ref !== null,
@@ -29,6 +32,18 @@ export function SidePanel({ combatant }: { combatant: Combatant | undefined }) {
     return (
       <EmptyState icon={ScrollText} title="No one selected">
         Select a combatant to see its stat block. Every bonus on it can be rolled.
+      </EmptyState>
+    );
+  }
+  if (linked) {
+    return (
+      <EmptyState icon={UserRound} title={combatant.name}>
+        <span>
+          Hit points and conditions follow the character&apos;s sheet.{" "}
+          <PortalLink href={`/dm/party/${linked.id}`} className="font-medium text-accent hover:underline">
+            Open the sheet
+          </PortalLink>
+        </span>
       </EmptyState>
     );
   }
