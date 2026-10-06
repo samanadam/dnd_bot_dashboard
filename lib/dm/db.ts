@@ -165,6 +165,32 @@ const MIGRATIONS: readonly string[] = [
    );
    CREATE INDEX feats_campaign ON feats (campaign_id, name);
    CREATE INDEX feats_author ON feats (author_user_id);`,
+  // Role-based access. A Discord role maps to permissions for all campaigns or
+  // the ones listed. The owner (DM_USER_IDS) is never a row here. portal_users
+  // remembers who has signed in, so a sheet can be assigned to them, and their
+  // roles as last seen, so the grant editor can say who a change affects.
+  `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   CREATE TABLE role_grants (
+     role_id TEXT PRIMARY KEY CHECK (length(role_id) BETWEEN 17 AND 20),
+     label TEXT NOT NULL DEFAULT '',
+     permissions TEXT NOT NULL,
+     all_campaigns INTEGER NOT NULL CHECK (all_campaigns IN (0, 1)),
+     updated_at TEXT NOT NULL,
+     updated_by TEXT NOT NULL
+   );
+   CREATE TABLE role_grant_campaigns (
+     role_id TEXT NOT NULL REFERENCES role_grants (role_id) ON DELETE CASCADE,
+     campaign_id TEXT NOT NULL,
+     PRIMARY KEY (role_id, campaign_id)
+   );
+   CREATE TABLE portal_users (
+     user_id TEXT PRIMARY KEY,
+     display_name TEXT NOT NULL,
+     avatar_url TEXT,
+     role_ids TEXT NOT NULL DEFAULT '[]',
+     first_seen TEXT NOT NULL,
+     last_seen TEXT NOT NULL
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

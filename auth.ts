@@ -3,6 +3,8 @@ import Discord from "next-auth/providers/discord";
 import { env } from "@/lib/env";
 import { checkDiscordAccess, reverify, type AccessResult } from "@/lib/discordAccess";
 import { audit } from "@/lib/audit";
+import { hasAnyAccess } from "@/lib/access/permissions";
+import { accessFor, recordUser, rememberRoles, rolesOf } from "@/lib/access/store";
 
 declare module "next-auth" {
   interface Session {
@@ -17,6 +19,9 @@ declare module "@auth/core/jwt" {
     // never copied into the session object that reaches the client.
     discordAccessToken?: string;
     verifiedAt?: number;
+    // The member's Discord roles at the last check. Server-side only: never
+    // copied into the session object (see the session callback).
+    roleIds?: string[];
   }
 }
 
@@ -34,17 +39,22 @@ const unverifiedSince = new Map<string, number>();
 // One Discord check per user at a time: a page load fires several requests at
 // once, and letting each ask Discord is how a rate limit turns into a sign-out.
 const inflightChecks = new Map<string, Promise<AccessResult>>();
+// The newest roles a recheck found for a user, for requests whose cookie predates it.
+const latestRoles = new Map<string, string[]>();
 
 const SESSION_MAX_AGE_S = 12 * 60 * 60;
+
 
 export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   const config = env();
 
-  const check = (accessToken: string) =>
+  // Allowed when the roles grant anything at all; what exactly is decided per
+  // request from the grants (lib/access), so a grant edit applies at once.
+  const check = (accessToken: string, userId: string) =>
     checkDiscordAccess({
       accessToken,
       guildId: config.ALLOWED_GUILD_ID,
-      roleIds: config.ALLOWED_ROLE_IDS,
+      allows: (roleIds) => hasAnyAccess(accessFor(userId, roleIds)),
     });
 
   return {
@@ -90,12 +100,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         if (account?.provider !== "discord" || !account.access_token || !userId) {
           return false;
         }
-        const result = await check(account.access_token);
+        const result = await check(account.access_token, userId);
         const allowed = result.kind === "allowed";
         audit({ event: "sign_in", userId, outcome: allowed ? "allowed" : result.kind === "denied" ? result.reason : "discord_unreachable" });
         if (allowed) {
           deniedUsers.delete(userId);
           verifiedCache.set(userId, Date.now());
+          // Handed to the jwt callback that runs next, and kept for the user list.
+          rememberRoles(userId, result.roleIds);
+          latestRoles.set(userId, result.roleIds);
+          const avatar = typeof profile?.image_url === "string" ? profile.image_url : null;
+          const name = typeof profile?.global_name === "string" ? profile.global_name : typeof profile?.username === "string" ? profile.username : null;
+          recordUser(userId, name, avatar, result.roleIds);
         }
         // Anyone else is rejected outright — there is no read-only tier.
         return allowed;
@@ -111,6 +127,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
             discordId: String(profile.id),
             discordAccessToken: account.access_token,
             verifiedAt: Date.now(),
+            // The roles the sign-in check just saw.
+            roleIds: rolesOf(String(profile.id)),
           };
         }
 
@@ -125,7 +143,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         const sharedCheck = () => {
           let running = inflightChecks.get(userId);
           if (!running) {
-            running = check(accessToken)
+            running = check(accessToken, userId)
               .then((result) => {
                 if (result.kind === "denied") audit({ event: "session_revoked", userId, outcome: result.reason });
                 return result;
@@ -147,7 +165,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         verifiedCache.set(userId, decision.verifiedAt);
         if (decision.unverifiedSince !== undefined) unverifiedSince.set(userId, decision.unverifiedSince);
         else unverifiedSince.delete(userId);
-        return { ...token, verifiedAt: decision.verifiedAt };
+
+        // Fresh roles from this check, or the ones last seen (by this cookie, or by
+        // a newer check another request made and could not write into the cookie).
+        const roleIds = decision.roleIds ?? latestRoles.get(userId) ?? token.roleIds ?? [];
+        if (decision.roleIds) {
+          latestRoles.set(userId, decision.roleIds);
+          recordUser(userId, token.name, token.picture, decision.roleIds);
+        }
+        // Grants can be taken away in the dashboard at any moment: nothing left, no session.
+        if (!hasAnyAccess(accessFor(userId, roleIds))) {
+          audit({ event: "session_revoked", userId, outcome: "no_grant" });
+          return null;
+        }
+        rememberRoles(userId, roleIds);
+        return { ...token, verifiedAt: decision.verifiedAt, roleIds };
       },
 
       session({ session, token }) {

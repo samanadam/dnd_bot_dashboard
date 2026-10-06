@@ -14,7 +14,7 @@ const run = (response: Response | Error) =>
   checkDiscordAccess({
     accessToken: "t",
     guildId: GUILD,
-    roleIds: [ADMIN],
+    allows: (roles) => roles.includes(ADMIN),
     fetchImpl: vi.fn(async () => {
       if (response instanceof Error) throw response;
       return response;
@@ -23,11 +23,16 @@ const run = (response: Response | Error) =>
 
 describe("checkDiscordAccess", () => {
   it("allows a member holding an allowed role", async () => {
-    expect(await run(Response.json({ roles: ["9", ADMIN] }))).toEqual({ kind: "allowed" });
+    expect(await run(Response.json({ roles: ["999999999999999999", ADMIN] }))).toEqual({ kind: "allowed", roleIds: ["999999999999999999", ADMIN] });
   });
 
   it("denies a member without the role", async () => {
-    expect(await run(Response.json({ roles: ["9"] }))).toEqual({ kind: "denied", reason: "missing_role" });
+    expect(await run(Response.json({ roles: ["999999999999999999"] }))).toEqual({ kind: "denied", reason: "missing_role" });
+  });
+
+  it("drops role ids that are not snowflakes and refuses an absurd role list", async () => {
+    expect(await run(Response.json({ roles: ["x", ADMIN, 5] }))).toEqual({ kind: "allowed", roleIds: [ADMIN] });
+    expect((await run(Response.json({ roles: Array(251).fill(ADMIN) }))).kind).toBe("unknown");
   });
 
   it("denies non-members and revoked tokens", async () => {
@@ -44,7 +49,7 @@ describe("checkDiscordAccess", () => {
 });
 
 describe("reverify", () => {
-  const allowed = async () => ({ kind: "allowed" as const });
+  const allowed = async () => ({ kind: "allowed" as const, roleIds: [ADMIN] });
   const denied = async () => ({ kind: "denied" as const, reason: "missing_role" as const });
   const unknown = async () => ({ kind: "unknown" as const });
 
@@ -56,7 +61,7 @@ describe("reverify", () => {
 
   it("refreshes on allowed and ends the session on denied", async () => {
     const now = RECHECK_INTERVAL_MS + 5000;
-    expect(await reverify({ verifiedAt: 0 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now });
+    expect(await reverify({ verifiedAt: 0 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now, roleIds: [ADMIN] });
     expect(await reverify({ verifiedAt: 0 }, now, denied)).toEqual({ kind: "end", reason: "denied" });
   });
 
@@ -77,7 +82,7 @@ describe("reverify", () => {
 
   it("forgets the outage once Discord answers again", async () => {
     const now = 60 * 60_000;
-    expect(await reverify({ verifiedAt: 0, unverifiedSince: now - 1000 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now });
+    expect(await reverify({ verifiedAt: 0, unverifiedSince: now - 1000 }, now, allowed)).toEqual({ kind: "keep", verifiedAt: now, roleIds: [ADMIN] });
   });
 });
 

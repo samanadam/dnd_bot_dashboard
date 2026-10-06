@@ -28,9 +28,11 @@ export function creatureSearch(deps: CreatureSearchDeps) {
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
       const q = fold((params.get("q") ?? "").trim().slice(0, 80));
 
+      const npcs = guard.scope.narrow(campaign.selection);
+      if (npcs === undefined) return errorResponse(404, "not_found", "No such campaign.");
       const repo = deps.repo();
       const mine: CreatureSearchResult[] = [
-        ...repo.list("npc", campaign.selection),
+        ...repo.list("npc", npcs),
         // Custom monsters are shared between campaigns, like in the bestiary.
         ...repo.list("monster"),
       ].map((creature) => ({

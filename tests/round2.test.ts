@@ -10,6 +10,7 @@ import { matchedReports, matchReport } from "@/lib/dm/initiativeReports";
 import { sceneCollection, sceneItem } from "@/lib/dm/sceneRoutes";
 import { MAX_LAYERS, MAX_SCENES, SceneRepo, sceneSchema } from "@/lib/dm/scenes";
 import { RateLimiter } from "@/lib/rateLimit";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 const CAMPAIGN = "0123456789ab";
@@ -96,7 +97,7 @@ describe("prepared encounters", () => {
   function setup() {
     const repo = new EncounterRepo(openDatabase(":memory:"));
     const logs: unknown[] = [];
-    const deps = { getUserId: async () => DM, dmIds: [DM], limiter: new RateLimiter(), encounters: () => repo, log: (e: unknown) => logs.push(e) };
+    const deps = { getAccess: ownerAccess(DM, [DM]), limiter: new RateLimiter(), encounters: () => repo, log: (e: unknown) => logs.push(e) };
     return { repo, logs, collection: encounterCollection(deps), launch: encounterLaunch(deps) };
   }
   const post = (path: string, body?: unknown) =>
@@ -120,7 +121,7 @@ describe("prepared encounters", () => {
     expect((await launch.POST(post(`/api/dm/encounters/${liveId}/launch`), liveId)).status).toBe(409);
     expect((await launch.POST(post("/api/dm/encounters/nope/launch"), "nope")).status).toBe(404);
 
-    const outsider = encounterLaunch({ getUserId: async () => "999", dmIds: [DM], limiter: new RateLimiter(), encounters: () => repo });
+    const outsider = encounterLaunch({ getAccess: ownerAccess("999", [DM]), limiter: new RateLimiter(), encounters: () => repo });
     expect((await outsider.POST(post(`/api/dm/encounters/${template.id}/launch`), template.id)).status).toBe(404);
     const crossSite = new Request(`https://portal.example/api/dm/encounters/${template.id}/launch`, { method: "POST", headers: { "x-portal-request": "1", "sec-fetch-site": "cross-site" } });
     expect((await launch.POST(crossSite, template.id)).status).toBe(403);
@@ -167,7 +168,7 @@ describe("scenes", () => {
 
   it("guards its routes like the rest of the DM API", async () => {
     const repo = new SceneRepo(openDatabase(":memory:"));
-    const deps = { getUserId: async () => DM, dmIds: [DM], limiter: new RateLimiter(), scenes: () => repo };
+    const deps = { getAccess: ownerAccess(DM, [DM]), limiter: new RateLimiter(), scenes: () => repo };
     const collection = sceneCollection(deps);
     const item = sceneItem(deps);
     const req = (method: string, body?: unknown) =>
@@ -185,9 +186,9 @@ describe("scenes", () => {
     expect((await item.GET(req("GET"), "x")).status).toBe(404);
     expect((await item.DELETE(req("DELETE"), id)).status).toBe(204);
 
-    const outsider = sceneCollection({ ...deps, getUserId: async () => "999" });
+    const outsider = sceneCollection({ ...deps, getAccess: ownerAccess("999", [DM]) });
     expect((await outsider.GET(req("GET"))).status).toBe(404);
-    const anonymous = sceneCollection({ ...deps, getUserId: async () => null });
+    const anonymous = sceneCollection({ ...deps, getAccess: ownerAccess(null, [DM]) });
     expect((await anonymous.GET(req("GET"))).status).toBe(401);
   });
 });

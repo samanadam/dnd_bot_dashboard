@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
 import { DiceError, parseDice } from "@/lib/dice/roll";
 import { creatureRefSchema } from "./encounter";
 
@@ -171,7 +171,7 @@ export class BlockRepo<Block extends { name: string }> {
     }
   }
 
-  list(campaign: Selection = null): (Block & BlockMeta)[] {
+  list(campaign: ScopedSelection = null): (Block & BlockMeta)[] {
     const scope = campaignClause(campaign);
     const rows = this.db
       .prepare(`SELECT * FROM ${this.table}${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY name COLLATE NOCASE, id`)

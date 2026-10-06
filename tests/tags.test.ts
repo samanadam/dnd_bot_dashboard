@@ -5,6 +5,7 @@ import { SavedRepo, savedSchema } from "@/lib/dm/saved";
 import { bucketRef, hasAllTags, MAX_TAGGED, MAX_TAGS, normaliseTags, savedRef, setTagsSchema, TagRepo, tagCounts, tagsSchema } from "@/lib/dm/tags";
 import { tagRoutes } from "@/lib/dm/tagRoutes";
 import { RateLimiter } from "@/lib/rateLimit";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 const PLAYER = "222222222222222222";
@@ -182,8 +183,7 @@ describe("tag routes", () => {
     const logs: unknown[] = [];
     let touched = false;
     const routes = tagRoutes({
-      getUserId: async () => userId,
-      dmIds: [DM],
+      getAccess: ownerAccess(userId, [DM]),
       limiter: new RateLimiter(),
       tags: () => {
         touched = true;

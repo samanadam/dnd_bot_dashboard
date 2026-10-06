@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { campaignClause, CAMPAIGN_ID, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, CAMPAIGN_ID, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
 import { encounterSchema, launchCopy, newEncounter, type Encounter } from "./encounter";
 
 export type EncounterKind = "live" | "prepared";
@@ -62,7 +62,7 @@ export class EncounterRepo {
     }
   }
 
-  list(campaign: Selection = null): EncounterSummary[] {
+  list(campaign: ScopedSelection = null): EncounterSummary[] {
     const scope = campaignClause(campaign);
     const rows = this.db
       .prepare(`SELECT * FROM encounters${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY updated_at DESC, id`)

@@ -30,16 +30,19 @@ const schema = z.object({
   AUTH_DISCORD_ID: z.string().min(1),
   AUTH_DISCORD_SECRET: z.string().min(1),
   ALLOWED_GUILD_ID: snowflake,
-  // Comma-separated: holding any one of these roles grants access.
+  // Comma-separated. Read once, on the first start of the role-permission build:
+  // each role becomes a "Bot operator" grant, and from then on access is managed
+  // in /settings/access (see lib/access/grants.ts).
   ALLOWED_ROLE_IDS: z
     .string()
+    .optional()
     .transform((value) =>
-      value
+      (value ?? "")
         .split(",")
         .map((part) => part.trim())
         .filter(Boolean),
     )
-    .pipe(z.array(snowflake).min(1, "at least one role id is required")),
+    .pipe(z.array(snowflake)),
   // Discord user ids allowed into the DM tools (bestiary, NPCs, combat, dice).
   // Empty means nobody: the tools stay hidden until an id is set.
   DM_USER_IDS: z

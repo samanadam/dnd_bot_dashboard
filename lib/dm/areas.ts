@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection, type Selection } from "@/lib/campaign/selection";
 import { refKey } from "./items";
 import { DONE_STATUSES, REWARD_ID, rewardData, rewardInputSchema, rewardStatusSchema, type Reward, type RewardInput } from "./rewards";
 
@@ -99,7 +99,7 @@ export class AreaRepo {
     }
   }
 
-  list(campaign: Selection = null): AreaSummary[] {
+  list(campaign: ScopedSelection = null): AreaSummary[] {
     const scope = campaignClause(campaign);
     const rows = this.db
       .prepare(`SELECT * FROM areas${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY position, name COLLATE NOCASE, id`)

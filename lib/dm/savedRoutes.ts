@@ -21,7 +21,9 @@ export function savedCollection(deps: SavedRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(deps.saved().list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
+      return json(deps.saved().list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -31,6 +33,7 @@ export function savedCollection(deps: SavedRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = savedSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return missing();
       const created = deps.saved().create(parsed.data);
       if (!created.ok) return refusal(created);
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/saved", status: 201 });
@@ -49,6 +52,9 @@ export function savedItem(deps: SavedRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = savedSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      const current = deps.saved().get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
+      if (parsed.data.campaignId !== undefined && !guard.scope.allows(parsed.data.campaignId)) return missing();
       const updated = deps.saved().update(id, parsed.data);
       if (!updated.ok) return refusal(updated);
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/saved/:id", status: 200 });
@@ -58,7 +64,9 @@ export function savedItem(deps: SavedRouteDeps) {
     async DELETE(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      if (!SAVED_ID.test(id) || !deps.saved().remove(id)) return missing();
+      if (!SAVED_ID.test(id)) return missing();
+      const current = deps.saved().get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !deps.saved().remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: "dm/saved/:id", status: 204 });
       return noContent();
     },

@@ -15,7 +15,9 @@ export function sceneCollection(deps: SceneRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(deps.scenes().list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
+      return json(deps.scenes().list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -25,6 +27,7 @@ export function sceneCollection(deps: SceneRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = sceneSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return missing();
       const created = deps.scenes().create(parsed.data);
       if (!created) return errorResponse(409, "conflict", "That is the most scenes you can keep. Delete one first.");
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/scenes", status: 201 });
@@ -39,7 +42,7 @@ export function sceneItem(deps: SceneRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       const scene = SCENE_ID.test(id) ? deps.scenes().get(id) : null;
-      return scene ? json(scene) : missing();
+      return scene && guard.scope.allows(scene.campaignId) ? json(scene) : missing();
     },
 
     async PUT(request: Request, id: string): Promise<Response> {
@@ -50,6 +53,9 @@ export function sceneItem(deps: SceneRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = sceneSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      const current = deps.scenes().get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
+      if (parsed.data.campaignId !== undefined && !guard.scope.allows(parsed.data.campaignId)) return missing();
       const updated = deps.scenes().update(id, parsed.data);
       if (!updated) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/scenes/:id", status: 200 });
@@ -59,7 +65,9 @@ export function sceneItem(deps: SceneRouteDeps) {
     async DELETE(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      if (!SCENE_ID.test(id) || !deps.scenes().remove(id)) return missing();
+      if (!SCENE_ID.test(id)) return missing();
+      const current = deps.scenes().get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !deps.scenes().remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: "dm/scenes/:id", status: 204 });
       return noContent();
     },

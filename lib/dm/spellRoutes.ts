@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseSelectionStrict, type Selection } from "@/lib/campaign/selection";
+import { parseSelectionStrict, type ScopedSelection } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
 import { customFeatSchema, MAX_CUSTOM_FEATS, type CustomFeatInput, type FeatBlock, type FeatRepo } from "./feats";
 import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
@@ -28,8 +28,8 @@ const shareSchema = z.object({ shared: z.boolean() }).strict();
 type Kind = "spell" | "feat";
 
 type Repo = {
-  list: (selection: Selection) => unknown[];
-  get: (id: string) => unknown;
+  list: (selection: ScopedSelection) => unknown[];
+  get: (id: string) => { campaignId: string | null } | null;
   create: (input: never) => unknown;
   update: (id: string, input: never) => unknown;
   setShared: (id: string, shared: boolean) => unknown;
@@ -49,7 +49,9 @@ function collection(kind: Kind, deps: SpellRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(config(kind, deps).repo.list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return errorResponse(404, "not_found", `No such ${kind}.`);
+      return json(config(kind, deps).repo.list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -60,6 +62,7 @@ function collection(kind: Kind, deps: SpellRouteDeps) {
       const c = config(kind, deps);
       const parsed = c.schema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return errorResponse(404, "not_found", `No such ${kind}.`);
       const created = c.repo.create(parsed.data as never);
       if (!created) return errorResponse(409, "conflict", `That is the most ${c.plural} you can keep (${c.limit}). Delete one first.`);
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: c.path, status: 201 });
@@ -75,7 +78,7 @@ function item(kind: Kind, deps: SpellRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       const found = SPELL_ID.test(id) ? config(kind, deps).repo.get(id) : null;
-      return found ? json(found) : missing();
+      return found && guard.scope.allows(found.campaignId) ? json(found) : missing();
     },
 
     async PUT(request: Request, id: string): Promise<Response> {
@@ -87,6 +90,9 @@ function item(kind: Kind, deps: SpellRouteDeps) {
       const c = config(kind, deps);
       const parsed = c.schema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      const current = c.repo.get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
+      if (parsed.data.campaignId !== undefined && !guard.scope.allows(parsed.data.campaignId)) return missing();
       const updated = c.repo.update(id, parsed.data as never);
       if (!updated) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: `${c.path}/:id`, status: 200 });
@@ -103,6 +109,8 @@ function item(kind: Kind, deps: SpellRouteDeps) {
       const parsed = shareSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
       const c = config(kind, deps);
+      const current = c.repo.get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
       const updated = c.repo.setShared(id, parsed.data.shared);
       if (!updated) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PATCH", path: `${c.path}/:id`, status: 200 });
@@ -113,7 +121,9 @@ function item(kind: Kind, deps: SpellRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       const c = config(kind, deps);
-      if (!SPELL_ID.test(id) || !c.repo.remove(id)) return missing();
+      if (!SPELL_ID.test(id)) return missing();
+      const current = c.repo.get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !c.repo.remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: `${c.path}/:id`, status: 204 });
       return noContent();
     },
@@ -152,7 +162,9 @@ export function spellSearch(deps: SpellRouteDeps) {
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
       const query = parseSpellQuery(params);
       if (!query.ok) return errorResponse(400, "bad_request", query.message);
-      const all = [...deps.spells().list(campaign.selection).map(spellRow), ...deps.srdSpells().list().map(srdSpellRow)];
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return errorResponse(404, "not_found", "No such campaign.");
+      const all = [...deps.spells().list(scoped).map(spellRow), ...deps.srdSpells().list().map(srdSpellRow)];
       return json(searchSpells(all, query.query));
     },
   };
@@ -169,7 +181,9 @@ export function featSearch(deps: SpellRouteDeps) {
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
       const query = parseFeatQuery(params);
       if (!query.ok) return errorResponse(400, "bad_request", query.message);
-      const all = [...deps.feats().list(campaign.selection).map(featRow), ...deps.srdFeats().list().map(srdFeatRow)];
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return errorResponse(404, "not_found", "No such campaign.");
+      const all = [...deps.feats().list(scoped).map(featRow), ...deps.srdFeats().list().map(srdFeatRow)];
       return json(searchFeats(all, query.query));
     },
   };

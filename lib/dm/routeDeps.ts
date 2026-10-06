@@ -1,7 +1,6 @@
 import "server-only";
-import { auth } from "@/auth";
+import { getAccess } from "@/lib/access/server";
 import { audit } from "@/lib/audit";
-import { env } from "@/lib/env";
 import { AreaRepo } from "./areas";
 import type { RefLookup } from "./areaView";
 import { CreatureRepo } from "./creatures";
@@ -35,8 +34,7 @@ export function refLookup(): RefLookup {
 /** Production dependencies for the DM route handlers. */
 export function dmDeps() {
   return {
-    getUserId: async () => (await auth())?.user?.id || null,
-    dmIds: env().DM_USER_IDS,
+    getAccess,
     repo: () => new CreatureRepo(getDatabase()),
     encounters: () => new EncounterRepo(getDatabase()),
     scenes: () => new SceneRepo(getDatabase()),

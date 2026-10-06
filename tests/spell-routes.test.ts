@@ -5,6 +5,7 @@ import { featItem, featSearch, spellCollection, spellItem, spellSearch, srdFeat,
 import { SpellRepo, type CustomSpellInput, type SpellBlock } from "@/lib/dm/spells";
 import type { SrdSpellSummary } from "@/lib/dm/srdSpells";
 import { RateLimiter } from "@/lib/rateLimit";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 const PLAYER = "222222222222222222";
@@ -55,8 +56,7 @@ function setup(user: string | null = DM) {
   const db = openDatabase(":memory:");
   const logs: unknown[] = [];
   const deps = {
-    getUserId: async () => user,
-    dmIds: [DM],
+    getAccess: ownerAccess(user, [DM]),
     limiter: new RateLimiter(),
     spells: () => new SpellRepo(db),
     feats: () => new FeatRepo(db),

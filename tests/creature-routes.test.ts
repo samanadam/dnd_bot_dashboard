@@ -4,6 +4,7 @@ import { CreatureRepo } from "@/lib/dm/creatures";
 import { openDatabase } from "@/lib/dm/db";
 import { RateLimiter } from "@/lib/rateLimit";
 import { goblin } from "./fixtures/goblin";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 
@@ -11,8 +12,7 @@ function setup() {
   const repo = new CreatureRepo(openDatabase(":memory:"));
   const logs: unknown[] = [];
   const deps = {
-    getUserId: async () => DM,
-    dmIds: [DM],
+    getAccess: ownerAccess(DM, [DM]),
     limiter: new RateLimiter(),
     repo: () => repo,
     log: (entry: unknown) => logs.push(entry),
@@ -69,8 +69,7 @@ describe("creature routes", () => {
   it("guards before touching the repository", async () => {
     let touched = false;
     const deps = {
-      getUserId: async () => "222222222222222222",
-      dmIds: [DM],
+      getAccess: ownerAccess("222222222222222222", [DM]),
       limiter: new RateLimiter(),
       repo: () => {
         touched = true;

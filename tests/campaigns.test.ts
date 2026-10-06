@@ -160,3 +160,13 @@ describe("campaign writes through the proxy", () => {
     expect(d.fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("scoped campaign clause", () => {
+  it("binds a list of campaigns and matches nothing for an empty one", async () => {
+    const { campaignClause } = await import("@/lib/campaign/selection");
+    expect(campaignClause(["aaaaaaaaaaaa", "bbbbbbbbbbbb"])).toEqual({ sql: "campaign_id IN (?, ?)", args: ["aaaaaaaaaaaa", "bbbbbbbbbbbb"] });
+    expect(campaignClause([])).toEqual({ sql: "0 = 1", args: [] });
+    // Never interpolated, and never anything but a campaign id.
+    expect(campaignClause(["x' OR 1=1 --"])).toEqual({ sql: "0 = 1", args: [] });
+  });
+});
