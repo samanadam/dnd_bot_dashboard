@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Dices, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Providers";
 import { Button, inputBaseClass } from "@/components/ui";
 import { bot, BotError } from "@/lib/bot/client";
@@ -23,6 +23,7 @@ export function PlayerRolls({
   disabled,
   owners,
   encounterId,
+  auto = false,
 }: {
   combatants: readonly Combatant[];
   apply: (change: (encounter: Encounter) => Encounter) => void;
@@ -30,6 +31,8 @@ export function PlayerRolls({
   // Which Discord user's sheet each linked combatant is: /init lands on their own character.
   owners?: ReadonlyMap<string, string>;
   encounterId?: string;
+  // Apply every roll that matches exactly one combatant as it arrives.
+  auto?: boolean;
 }) {
   const toast = useToast();
   const client = useQueryClient();
@@ -49,14 +52,34 @@ export function PlayerRolls({
     retry: false,
   });
   const list: Report[] = reports.data ?? [];
+  const handled = useRef(new Set<string>());
   // Rolls players made on their battle page, for the combatant linked to their sheet.
   const pageRolls = (battleRolls.data ?? []).flatMap((roll) => {
     const target = combatants.find((c) => c.ref?.source === "character" && c.ref.id === roll.characterId);
     return target ? [{ roll, target }] : [];
   });
-  if (list.length === 0 && pageRolls.length === 0) return null;
-
   const matched = matchedReports(list, combatants, owners);
+
+  // Auto-apply: each matching roll once, then dismissed like a click on "Set".
+  useEffect(() => {
+    if (!auto || disabled) return;
+    for (const { report, target } of matched) {
+      const key = `discord:${report.id}`;
+      if (handled.current.has(key)) continue;
+      handled.current.add(key);
+      apply((encounter) => setInitiative(encounter, target.id, report.value));
+      void bot.clearInitiative(report.id).catch(() => undefined).then(() => client.invalidateQueries({ queryKey: keys.initiative }));
+    }
+    for (const { roll, target } of pageRolls) {
+      const key = `page:${roll.characterId}:${roll.at}`;
+      if (handled.current.has(key) || !encounterId) continue;
+      handled.current.add(key);
+      apply((encounter) => setInitiative(encounter, target.id, roll.value));
+      void combat.dismissBattleRoll(encounterId, roll.characterId).catch(() => undefined).then(() => client.invalidateQueries({ queryKey: ["battle-rolls", encounterId] }));
+    }
+  });
+
+  if (list.length === 0 && pageRolls.length === 0) return null;
   const refreshPage = () => void client.invalidateQueries({ queryKey: ["battle-rolls", encounterId] });
   const refresh = () => void client.invalidateQueries({ queryKey: keys.initiative });
 

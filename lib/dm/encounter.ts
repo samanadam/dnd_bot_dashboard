@@ -52,6 +52,9 @@ export const encounterSchema = z
     combatants: z.array(combatantSchema).max(60),
     // Players with access to the campaign can follow it on their battle page.
     shownToPlayers: z.boolean().optional(),
+    // Put initiative players report (on Discord or the battle page) straight into
+    // the order when it matches one combatant. Off unless the DM turns it on.
+    autoApplyInitiative: z.boolean().optional(),
   })
   .strict();
 

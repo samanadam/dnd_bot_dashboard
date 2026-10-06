@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { preferenceCookieLifetime } from "@/lib/consent";
 import { inDemo } from "@/lib/demo/base";
+import { useMyAccess } from "@/lib/access/client";
+import { useCampaigns } from "@/lib/bot/useBotState";
 import { useLocalValue } from "@/lib/useLocalValue";
 import { CAMPAIGN_COOKIE, parseSelection, type Selection } from "./selection";
 
@@ -27,4 +29,18 @@ export function useCampaignSelection(): [Selection, (next: Selection) => void] {
     [router, setRaw],
   );
   return [parseSelection(raw), set];
+}
+
+/**
+ * Where new DM content goes: the picked campaign. For a co-DM limited to some
+ * campaigns who is looking at all of them, their first one, since they cannot
+ * file anything under no campaign.
+ */
+export function useDmDefaultCampaign(): string | null {
+  const [picked] = useCampaignSelection();
+  const scope = useMyAccess()?.grants.get("dm");
+  const campaigns = useCampaigns();
+  if (picked && picked !== "unassigned") return picked;
+  if (scope === undefined || scope === "all") return null;
+  return (campaigns.data ?? []).find((c) => scope.has(c.id) && !c.archived)?.id ?? [...scope].sort()[0] ?? null;
 }

@@ -70,6 +70,36 @@ describe("demo transport", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("shows the demo as the persona picked: an owner, a co-DM or a player", async () => {
+    browserAt("/demo/play");
+    const { personaAccess } = await import("@/lib/demo/persona");
+    const { allowed, gateFor } = await import("@/components/demo/DemoShell");
+    const { accessApi } = await import("@/lib/access/client");
+    const { sheets } = await import("@/lib/sheets/client");
+    const { DEMO_SHEET_WIZARD } = await import("@/lib/demo/sheetFixtures");
+
+    // Owner by default: everything, including the access editor and the DM's notes.
+    expect((await accessApi.me()).owner).toBe(true);
+    expect((await sheets.get(DEMO_SHEET_WIZARD)).dmNotes).toBeTruthy();
+
+    window.localStorage.setItem("demo.portal.viewAs", "player");
+    expect(await accessApi.me()).toEqual({ owner: false, permissions: { play: ["dead0c0de001"] } });
+    await expect(accessApi.grants()).rejects.toMatchObject({ status: 404 });
+    const asPlayer = await sheets.get(DEMO_SHEET_WIZARD);
+    expect(asPlayer.manager).toBe(false);
+    expect("dmNotes" in asPlayer).toBe(false);
+    const player = personaAccess("player");
+    expect(allowed(player, gateFor("/demo/play/c/dead0c0de001"))).toBe(true);
+    expect(allowed(player, gateFor("/demo/dm/combat"))).toBe(false);
+    expect(allowed(player, gateFor("/demo/bot/sessions"))).toBe(false);
+    expect(allowed(player, gateFor("/demo/settings"))).toBe(true);
+    expect(allowed(personaAccess("codm"), gateFor("/demo/settings/access"))).toBe(false);
+    expect(allowed(personaAccess("codm"), gateFor("/demo/dm/party"))).toBe(true);
+    expect(allowed(personaAccess("codm"), gateFor("/demo/bot/music"))).toBe(false);
+    window.localStorage.setItem("demo.portal.viewAs", "");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("answers every client call under /demo without a network request", async () => {
     browserAt("/demo/bot");
     const stats = await bot.stats();

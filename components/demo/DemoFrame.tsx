@@ -4,6 +4,7 @@ import { FlaskConical, LogIn, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PortalLink } from "@/components/PortalLink";
+import { PersonaSwitch } from "./DemoShell";
 import { DEMO_TEXT_CHANNEL, DEMO_VOICE_CHANNEL } from "@/lib/demo/fixtures";
 import type { DemoState } from "@/lib/demo/fixtures";
 import { useDemoState } from "@/lib/demo/store";
@@ -31,6 +32,7 @@ export function DemoBanner() {
         <span className="font-semibold">Demo.</span> Everything here is made up and lives only in this browser tab. Try anything: nothing reaches Discord, the bot or the
         real portal, and a reload starts over.
       </p>
+      <PersonaSwitch />
       <button
         type="button"
         onClick={() => window.location.reload()}

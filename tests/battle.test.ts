@@ -330,3 +330,16 @@ describe("linked states", () => {
     expect(toPlayerView(battle, linked, "999999999999999999", []).me).toBeNull();
   });
 });
+
+describe("initiative reports for linked characters", () => {
+  it("land on the reporting member's own character, whatever name they typed", async () => {
+    const { matchReport } = await import("@/lib/dm/initiativeReports");
+    const { battle } = setup();
+    const aria = battle.encounter.combatants.find((c) => c.name === "Aria")!;
+    const owners = new Map([[aria.id, ARIA]]);
+    expect(matchReport({ label: "Ari", user_id: ARIA }, battle.encounter.combatants, owners)?.id).toBe(aria.id);
+    // Without an id (an older bot), the exact name still matches.
+    expect(matchReport({ label: "aria" }, battle.encounter.combatants, owners)?.id).toBe(aria.id);
+    expect(matchReport({ label: "Ari", user_id: BRAM }, battle.encounter.combatants, owners)).toBeNull();
+  });
+});

@@ -5,7 +5,7 @@ import { usePortalRouter } from "@/components/PortalLink";
 import { useState, type ReactNode } from "react";
 import { CampaignSelect } from "@/components/CampaignSelect";
 import { Button, Notice, inputBaseClass, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import type { CreatureInput, CreatureKind } from "@/lib/dm/creatures";
 import {
@@ -247,9 +247,9 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A new NPC starts in the campaign being looked at; an existing one keeps its own.
-  const [picked] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
   const [campaignId, setCampaignId] = useState<string | null>(
-    initial?.campaignId !== undefined ? initial.campaignId : picked && picked !== "unassigned" ? picked : null,
+    initial?.campaignId !== undefined ? initial.campaignId : defaultCampaign,
   );
 
   const set = <K extends keyof StatBlock>(key: K, value: StatBlock[K]) => setBlock((current) => ({ ...current, [key]: value }));
@@ -293,7 +293,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
 
       {kind === "npc" ? (
         <Panel title="Campaign">
-          <CampaignSelect label="Campaign" noneLabel="Not in a campaign" value={campaignId} onChange={setCampaignId} />
+          <CampaignSelect dmScoped label="Campaign" noneLabel="Not in a campaign" value={campaignId} onChange={setCampaignId} />
         </Panel>
       ) : null}
 

@@ -80,7 +80,7 @@ export function AreaDetailView({ initial }: { initial: AreaDetail }) {
             <input className={inputClass} value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
           </Field>
           <Field label="Campaign">
-            <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
+            <CampaignSelect dmScoped value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
           </Field>
         </div>
         <Field label="Summary" hint="What the party sees and hears when they arrive.">

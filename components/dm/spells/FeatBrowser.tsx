@@ -7,7 +7,7 @@ import { CampaignSelect } from "@/components/CampaignSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
 import { Badge, Button, EmptyState, Field, Notice, inputBaseClass, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useCampaignSelection, useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { customFeatSchema, type CustomFeat, type CustomFeatInput, type FeatBlock } from "@/lib/dm/feats";
 import type { FeatSearchResult } from "@/lib/dm/spellSearch";
@@ -115,7 +115,7 @@ export function FeatForm({
         <textarea className={`${inputBaseClass} min-h-28 w-full py-2.5`} value={value.description} maxLength={20_000} onChange={(event) => set("description", event.target.value)} />
       </Field>
       <Field label="Campaign">
-        <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
+        <CampaignSelect dmScoped value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
       </Field>
       {error ? <Notice tone="danger">{error}</Notice> : null}
       <div className="flex justify-end gap-2">
@@ -188,6 +188,7 @@ export function FeatBrowser() {
   const toast = useToast();
   const client = useQueryClient();
   const [campaign] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<Source>("all");
   const [category, setCategory] = useState("");
@@ -284,7 +285,7 @@ export function FeatBrowser() {
           key={editing.feat?.id ?? (editing.seed ? `seed-${editing.seed.name}` : "new")}
           feat={editing.feat}
           seed={editing.seed}
-          defaultCampaign={campaign && campaign !== "unassigned" ? campaign : null}
+          defaultCampaign={defaultCampaign}
           onCancel={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

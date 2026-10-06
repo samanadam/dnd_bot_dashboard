@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { DmHeader } from "@/components/dm/DmHeader";
 import { FeatBrowser } from "@/components/dm/spells/FeatBrowser";
@@ -11,8 +12,30 @@ const TABS = [
   { id: "feats", label: "Feats" },
 ] as const;
 
+type TabId = (typeof TABS)[number]["id"];
+
 export function SpellsView() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("spells");
+  // The search params hook needs a boundary for pages rendered ahead of time (the demo).
+  return (
+    <Suspense>
+      <SpellsTabs />
+    </Suspense>
+  );
+}
+
+/** The open tab lives in the URL (?tab=feats), so a link or a reload keeps it. */
+function SpellsTabs() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tab: TabId = params.get("tab") === "feats" ? "feats" : "spells";
+  const setTab = (next: TabId) => {
+    const query = new URLSearchParams(params.toString());
+    if (next === "spells") query.delete("tab");
+    else query.set("tab", next);
+    const search = query.toString();
+    router.replace(`${pathname}${search ? `?${search}` : ""}`, { scroll: false });
+  };
   return (
     <div className="space-y-6">
       <DmHeader

@@ -1,7 +1,7 @@
 "use client";
 
 import { grantInputSchema, type StoredGrant } from "@/lib/access/grants";
-import type { AccessSummary } from "@/lib/access/permissions";
+import { currentPersona, PERSONA_ACCESS } from "./persona";
 import type { GrantsView, GuildRole } from "@/lib/access/routes";
 import { DmError } from "@/lib/dm/client";
 
@@ -33,10 +33,9 @@ function fail(status: number, code: string, message: string): never {
 
 export async function demoAccessCall<T>(method: string, path: string, body?: unknown): Promise<T> {
   await new Promise((resolve) => setTimeout(resolve, 80));
-  if (method === "GET" && path === "me") {
-    const summary: AccessSummary = { owner: true, permissions: { "bot.view": "all", "bot.recording": "all", "bot.music": "all", "bot.sessions": "all", "bot.manage": "all", play: "all", "sheets.manage": "all", dm: "all" } };
-    return summary as T;
-  }
+  if (method === "GET" && path === "me") return PERSONA_ACCESS[currentPersona()] as T;
+  // Only the owner edits access, as in the portal.
+  if (currentPersona() !== "owner") return fail(404, "not_found", "Unknown endpoint.");
   if (method === "GET" && path === "grants") {
     const view: GrantsView = {
       grants,

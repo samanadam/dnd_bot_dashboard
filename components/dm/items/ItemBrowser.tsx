@@ -6,7 +6,7 @@ import { useDeferredValue, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
 import { Badge, Button, EmptyState, Notice, inputBaseClass, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useCampaignSelection, useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import type { ItemSearchResult } from "@/lib/dm/itemRoutes";
 import type { CustomItem } from "@/lib/dm/items";
@@ -60,6 +60,7 @@ export function ItemBrowser() {
   const toast = useToast();
   const client = useQueryClient();
   const [campaign] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<Source>("all");
   const [category, setCategory] = useState("");
@@ -146,7 +147,7 @@ export function ItemBrowser() {
         <ItemForm
           key={editing === "new" ? "new" : editing.id}
           item={editing === "new" ? undefined : editing}
-          defaultCampaign={campaign && campaign !== "unassigned" ? campaign : null}
+          defaultCampaign={defaultCampaign}
           onCancel={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

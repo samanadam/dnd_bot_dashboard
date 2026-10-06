@@ -354,7 +354,7 @@ export function SpellForm({
       </Field>
       {fixedCampaign ? null : (
         <Field label="Campaign">
-          <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
+          <CampaignSelect dmScoped value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
         </Field>
       )}
       {error ? <Notice tone="danger">{error}</Notice> : null}

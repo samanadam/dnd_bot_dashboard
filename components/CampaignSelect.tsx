@@ -17,6 +17,7 @@ export function CampaignSelect({
   disabled,
   compact,
   id,
+  dmScoped = false,
 }: {
   value: string | null;
   onChange: (next: string | null) => void;
@@ -25,9 +26,14 @@ export function CampaignSelect({
   disabled?: boolean;
   compact?: boolean;
   id?: string;
+  // For DM content: a co-DM limited to some campaigns can only file things there,
+  // and never under no campaign (the server refuses both).
+  dmScoped?: boolean;
 }) {
   const campaigns = useCampaigns();
-  const options = (campaigns.data ?? []).filter((campaign) => !campaign.archived || campaign.id === value);
+  const scope = useMyAccess()?.grants.get("dm");
+  const scoped = dmScoped && scope !== undefined && scope !== "all" ? scope : null;
+  const options = (campaigns.data ?? []).filter((campaign) => (!campaign.archived || campaign.id === value) && (!scoped || scoped.has(campaign.id)));
   const known = options.some((campaign) => campaign.id === value);
 
   return (
@@ -39,7 +45,13 @@ export function CampaignSelect({
       onChange={(event) => onChange(event.target.value || null)}
       className={`${inputBaseClass} ${compact ? "h-8 max-w-44 px-2 text-xs" : "h-11 w-full"}`}
     >
-      <option value="">{noneLabel}</option>
+      {scoped ? (
+        <option value="" disabled>
+          Pick one of your campaigns
+        </option>
+      ) : (
+        <option value="">{noneLabel}</option>
+      )}
       {value && !known ? <option value={value}>Unknown campaign</option> : null}
       {options.map((campaign) => (
         <option key={campaign.id} value={campaign.id}>

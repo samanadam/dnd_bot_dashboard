@@ -6,7 +6,7 @@ import { useDeferredValue, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
 import { Badge, Button, EmptyState, Notice, inputBaseClass, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useCampaignSelection, useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import type { SpellSearchResult } from "@/lib/dm/spellSearch";
 import { SCHOOLS, type CustomSpell, type SpellBlock } from "@/lib/dm/spells";
@@ -99,6 +99,7 @@ export function SpellBrowser() {
   const toast = useToast();
   const client = useQueryClient();
   const [campaign] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState<Source>("all");
   const [levels, setLevels] = useState<number[]>([]);
@@ -245,7 +246,7 @@ export function SpellBrowser() {
           key={editing.spell?.id ?? (editing.seed ? `seed-${editing.seed.name}` : "new")}
           spell={editing.spell}
           seed={editing.seed}
-          defaultCampaign={campaign && campaign !== "unassigned" ? campaign : null}
+          defaultCampaign={defaultCampaign}
           onCancel={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

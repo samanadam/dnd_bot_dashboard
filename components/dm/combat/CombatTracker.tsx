@@ -224,6 +224,18 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
           </p>
         ) : null}
         {launchError ? <p className="mt-3 text-xs text-danger">{launchError}</p> : null}
+        {!prepared ? (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              className="accent-[var(--accent)]"
+              checked={Boolean(encounter.autoApplyInitiative)}
+              disabled={locked}
+              onChange={(event) => apply((e) => ({ ...e, autoApplyInitiative: event.target.checked }))}
+            />
+            Put players&apos; initiative in by itself when it matches one combatant (from /init or the battle page)
+          </label>
+        ) : null}
         {!prepared && !started && missingPlayers.length > 0 && encounter.combatants.length > 0 ? (
           <p className="mt-3 text-xs text-muted">
             Type the players&apos; initiative into their boxes, then start. Anyone without initiative goes last.
@@ -231,7 +243,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
         ) : null}
       </section>
 
-      {!prepared ? <PlayerRolls combatants={encounter.combatants} apply={apply} disabled={locked} owners={owners} encounterId={initial.id} /> : null}
+      {!prepared ? <PlayerRolls combatants={encounter.combatants} apply={apply} disabled={locked} owners={owners} encounterId={initial.id} auto={Boolean(encounter.autoApplyInitiative)} /> : null}
 
       {adding ? (
         <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-5">

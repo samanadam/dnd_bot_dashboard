@@ -12,7 +12,7 @@ import { derive } from "@/lib/sheets/derive";
 import { applyOps, opBatchSchema } from "@/lib/sheets/ops";
 import type { StoredSheet } from "@/lib/sheets/repo";
 import { newVitals } from "@/lib/sheets/vitals";
-import { resolveAccess } from "@/lib/access/permissions";
+import { personaAccess } from "./persona";
 import { playerLabels, toPlayerView, type BattleNote, type LinkedState } from "@/lib/combat/battleView";
 import { campaignSettingsSchema, noteInputSchema, type StoredNote } from "@/lib/combat/store";
 import { DEMO_USER } from "./fixtures";
@@ -22,7 +22,7 @@ import { readDemo, updateDemo } from "./store";
 // The sheet API, played by the browser for the public demo. Same schemas and
 // the same pure rules as the server; everything lives in this tab.
 
-const access = () => resolveAccess(DEMO_USER.id, [], [DEMO_USER.id], []);
+const access = () => personaAccess();
 const ID = "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})";
 const NAME = "Demo DM";
 

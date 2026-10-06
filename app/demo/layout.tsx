@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { AppShell } from "@/components/AppShell";
 import { DemoBanner, DemoSignIn } from "@/components/demo/DemoFrame";
+import { DemoShell } from "@/components/demo/DemoShell";
 import { Providers } from "@/components/Providers";
-import { DEMO_USER } from "@/lib/demo/fixtures";
-import { tools } from "@/lib/tools/registry";
 
 // The public demo. Deliberately no auth(), env(), database or bot here or in any
 // page below: every page renders made-up data, and the browser clients answer
@@ -19,10 +17,9 @@ export const metadata: Metadata = {
 export default function DemoLayout({ children }: LayoutProps<"/demo">) {
   return (
     <Providers>
-      <AppShell tools={tools} user={{ name: DEMO_USER.name, image: null }} signOut={<DemoSignIn />}>
-        <DemoBanner />
+      <DemoShell signOut={<DemoSignIn />} banner={<DemoBanner />}>
         {children}
-      </AppShell>
+      </DemoShell>
     </Providers>
   );
 }
