@@ -28,10 +28,20 @@ from a laptop or a phone at the table.
   recordings, managing character sheets, or the whole DM Screen as a co-DM.
   Presets for Player, Bot operator and Co-DM. Owners (`DM_USER_IDS`) always
   have everything.
+- **Party** (players): detailed character sheets per campaign, with the
+  numbers worked out (multiclass slots, saves, skills, spell DC), spells you
+  prepare and cast, inventory, feats, resources, companions, backstory and a
+  portrait. Rolls are made by the server and can be posted to Discord. A
+  battle page follows the fight the DM shows: initiative order, health as
+  bands, your own character, notes on enemies, rolling initiative.
 - **DM Screen** (owners, and roles granted the DM tools):
   - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
     blocks where every bonus and damage roll is one click.
   - **NPCs**: your campaign's people with stat blocks, private notes and tags.
+  - **Spells and feats**: every SRD 5.1 and 5.2 spell and feat with filters,
+    and your own (players can add homebrew you then share).
+  - **Party**: every character sheet in a campaign, owner and in-play
+    controls, DM-only notes, and Discord turn pings.
   - **Areas**: the places of your campaign. Each links prepared encounters
     (launch them straight into Combat) and holds rewards: items, and
     "pointers" (if the party does this, that follows in the story, optionally
