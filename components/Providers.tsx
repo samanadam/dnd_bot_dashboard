@@ -3,6 +3,7 @@
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { BotError } from "@/lib/bot/client";
+import { DmError } from "@/lib/dm/client";
 
 let toastCounter = 0;
 
@@ -16,7 +17,11 @@ export function Providers({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const push = useCallback((tone: Toast["tone"], message: string) => {
     const id = ++toastCounter;
-    setToasts((current) => [...current.slice(-3), { id, tone, message }]);
+    // A failed action is reported by the global handler and often by its caller
+    // too; the same message twice is shown once.
+    setToasts((current) =>
+      current.some((toast) => toast.tone === tone && toast.message === message) ? current : [...current.slice(-3), { id, tone, message }],
+    );
     setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), tone === "danger" ? 7000 : 3500);
   }, []);
 
@@ -28,8 +33,8 @@ export function Providers({ children }: { children: ReactNode }) {
         // are operator-written and safe to show verbatim; React escapes them.
         mutationCache: new MutationCache({
           onError: (error) => {
-            if (error instanceof BotError && error.status === 401) return;
-            push("danger", error instanceof BotError ? error.message : "Something went wrong.");
+            if ((error instanceof BotError || error instanceof DmError) && error.status === 401) return;
+            push("danger", error instanceof BotError || error instanceof DmError ? error.message : "Something went wrong.");
           },
         }),
       }),

@@ -22,8 +22,8 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
   const stop = useMusicMutation(() => bot.stop(), (s) => ({ ...s, playing: false, paused: false, current: null, position_seconds: 0 }));
   const loop = useMusicMutation((mode: LoopMode) => bot.loop(mode), (s, mode) => ({ ...s, loop: mode }));
   const seek = useMusicMutation((seconds: number) => bot.seek(seconds), (s, seconds) => ({ ...s, position_seconds: seconds }));
-  // Held here, not in the progress bar: the bar remounts on every poll, which
-  // would throw away a drag that is still in progress.
+  // Held here, not in the progress bar: the bar remounts on every track change,
+  // which would throw away a drag that is still in progress.
   const [dragging, setDragging] = useState<number | null>(null);
   const join = useMusicMutation((channelId: string) => bot.join(channelId));
   const leave = useMusicMutation(() => bot.leave());
@@ -66,7 +66,7 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
             <div className="text-sm text-muted">{state.queue.length ? `${state.queue.length} up next` : "Queue is empty"}</div>
             {current && (
               <Progress
-                key={`${current.source}:${current.id}:${state.position_seconds}`}
+                key={`${current.source}:${current.id}`}
                 position={state.position_seconds}
                 duration={current.duration_seconds}
                 running={isPlaying}
@@ -183,10 +183,15 @@ function Progress({
   // Called once, when the slider is let go; dragging only moves the marker.
   onSeek?: (seconds: number) => void;
 }) {
-  // Remounted (via key) whenever the server reports a new position, so the
-  // anchor is always the latest reported value.
-  const [anchorAt] = useState(() => Date.now());
+  // Re-anchored, not remounted, when the server reports a new position: a
+  // remount would replace the slider under a drag that is still in progress.
+  const [anchorAt, setAnchorAt] = useState(() => Date.now());
   const [now, setNow] = useState(anchorAt);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the clock restarts from each reported position
+    setAnchorAt(Date.now());
+  }, [position]);
 
   useEffect(() => {
     if (!running) return;
@@ -194,7 +199,7 @@ function Progress({
     return () => clearInterval(id);
   }, [running]);
 
-  const shown = dragging ?? (running ? position + (now - anchorAt) / 1000 : position);
+  const shown = dragging ?? (running ? position + Math.max(0, now - anchorAt) / 1000 : position);
   const clamped = duration ? Math.min(shown, duration) : shown;
   const pct = duration ? Math.min(100, (clamped / duration) * 100) : 0;
   const commit = () => {
@@ -280,7 +285,8 @@ function VolumeSlider({ volume, enabled }: { volume: number; enabled: boolean })
           client.setQueryData<PlayerState>(keys.music, (s) => (s ? { ...s, volume: value } : s));
           clearTimeout(timer.current);
           timer.current = setTimeout(() => {
-            mutation.mutate(value, { onSettled: () => setDraft(null) });
+            // Kept while the slider has moved on since: the next request is still to come.
+            mutation.mutate(value, { onSettled: () => setDraft((current) => (current === value ? null : current)) });
           }, 200);
         }}
       />

@@ -27,7 +27,15 @@ function errorText(error: unknown) {
 
 function LayerChip({ layer, onStop, onVolume }: { layer: SoundLayer; onStop: () => void; onVolume: (volume: number) => void }) {
   const [draft, setDraft] = useState(layer.volume);
+  // Follows the bot when the volume changes elsewhere (a scene, another tab).
+  const [reported, setReported] = useState(layer.volume);
+  if (layer.volume !== reported) {
+    setReported(layer.volume);
+    setDraft(layer.volume);
+  }
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // A stopped layer is gone on the bot; a volume change still waiting would fail.
+  useEffect(() => () => clearTimeout(timer.current), []);
   const Icon = layer.kind === "ambience" ? CloudRain : Zap;
   return (
     <li className="flex min-w-0 items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft px-3 py-2">
@@ -171,6 +179,8 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
   const allTagNames = useMemo(() => tagged.counts.map((entry) => entry.tag), [tagged.counts]);
 
   function trigger(kind: SoundKind, track: Track) {
+    // The buttons are disabled then; this stops the number keys too.
+    if (!voice.ready || board.isError) return;
     const existing = kind === "ambience" ? playingAmbience.get(track.id) : undefined;
     setPending(track.id);
     const done = { onSettled: () => setPending(null), onError: (error: unknown) => toast("danger", errorText(error)) };
