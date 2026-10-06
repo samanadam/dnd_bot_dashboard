@@ -141,6 +141,21 @@ function webTrack(source: string, id: string, title?: string): Track {
   return { id, title: name, source: source as Track["source"], duration_seconds: 180 };
 }
 
+/** A made-up listing for a SoundCloud set link: six tracks named after the set. */
+function demoSet(link: unknown): { title: string; tracks: Track[] } {
+  const match = typeof link === "string" ? /^https:\/\/soundcloud\.com\/([a-z0-9_-]+)\/sets\/([a-z0-9_-]+)$/.exec(link) : null;
+  if (!match) fail(400, "bad_request", "That is not a public SoundCloud set link.");
+  const [, artist, name] = match!;
+  const title = name.replace(/[-_]+/g, " ");
+  const tracks = Array.from({ length: 6 }, (_, index) => ({
+    id: `https://soundcloud.com/${artist}/${name.slice(0, 100)}-track-${index + 1}`,
+    title: `${title} (track ${index + 1})`,
+    source: "soundcloud" as const,
+    duration_seconds: 150 + index * 30,
+  }));
+  return { title: title[0].toUpperCase() + title.slice(1), tracks };
+}
+
 function joinIfNeeded(state: DemoState, channel: unknown) {
   const player = state.bot.player;
   if (player.connected) return;
@@ -455,8 +470,12 @@ const routes: Record<string, Handler> = {
     const query = String(body.query);
     if (/^https:\/\//.test(query)) return [webTrack(String(body.source), query)];
     const words = ["tavern", "battle", "forest", "rain"].includes(query.toLowerCase()) ? query : query.slice(0, 40);
+    // Each query gets its own ids, so a result is not "already saved" from another search.
+    let hash = 0;
+    for (const character of query.toLowerCase()) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
     return [1, 2, 3].map((n) => {
-      const id = String(body.source) === "soundcloud" ? `https://soundcloud.com/demo-artist/${words.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${n}` : `https://www.youtube.com/watch?v=demo${String(n).padStart(7, "0")}`;
+      const videoId = `demo${((hash + n) % 36 ** 7).toString(36).padStart(7, "0")}`;
+      const id = String(body.source) === "soundcloud" ? `https://soundcloud.com/demo-artist/${words.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${n}` : `https://www.youtube.com/watch?v=${videoId}`;
       return { id, title: `${words} (demo result ${n})`, source: body.source as Track["source"], duration_seconds: 180 * n };
     });
   },
@@ -471,6 +490,24 @@ const routes: Record<string, Handler> = {
       else if (body.position === "next") player.queue.unshift(track);
       else player.queue.push(track);
       return playerView(state);
+    }),
+  "POST music/set": (_p, body) => ({ ...demoSet(body.id), truncated: false, skipped: 0 }),
+  "POST music/play-set": (_p, body) =>
+    updateDemo((state) => {
+      settlePlayer(state);
+      const tracks = [...demoSet(body.id).tracks];
+      if (body.shuffle === true) tracks.sort(() => Math.random() - 0.5);
+      joinIfNeeded(state, body.channel_id);
+      const player = state.bot.player;
+      const room = 100 - player.queue.length - (player.current ? 1 : 0);
+      if (room <= 0) fail(409, "conflict", "The queue is full (100 tracks).");
+      const batch = tracks.slice(0, room);
+      if (!player.current || body.position === "now") {
+        Object.assign(player, { current: batch.shift()!, playing: true, paused: false, position: 0 });
+        player.queue.unshift(...batch);
+      } else if (body.position === "next") player.queue.unshift(...batch);
+      else player.queue.push(...batch);
+      return { ...playerView(state), queued: Math.min(tracks.length, room), skipped: tracks.length - Math.min(tracks.length, room) };
     }),
   "POST music/pause": () => updateDemo((state) => (settlePlayer(state), (state.bot.player.paused = true), playerView(state))),
   "POST music/resume": () =>

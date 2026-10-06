@@ -5,7 +5,7 @@ import { CloudDownload, CloudRain, ExternalLink, Link2, ListEnd, ListStart, Musi
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
-import { Button, EmptyState, Field, inputClass, Notice, Skeleton } from "@/components/ui";
+import { Badge, Button, EmptyState, Field, inputClass, Notice, Skeleton } from "@/components/ui";
 import { bot, BotError } from "@/lib/bot/client";
 import type { QueuePosition, SoundKind, Track } from "@/lib/bot/types";
 import { keys, useMusicState, useSoundboard } from "@/lib/bot/useBotState";
@@ -16,13 +16,14 @@ import { savedRef, hasAllTags, tagCounts, tagsSchema } from "@/lib/dm/tags";
 import { SAVED_KEY, useSaved } from "@/lib/dm/useSaved";
 import { TAGS_KEY, useTags } from "@/lib/dm/useTags";
 import { formatDuration } from "@/lib/format";
-import { detectLink, refFromTrack, trackUrl, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
+import { detectLink, isSetRef, refFromTrack, trackUrl, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
+import { SetCard, ShuffleToggle, totalSeconds, useSetShuffle } from "../bot/music/SetCard";
 import { TagChips, TagFilter, TagInput } from "./Tags";
 import { useVoiceTarget } from "./Soundboard";
 
 const KIND_LABEL: Record<SavedKind, string> = { music: "Music", ambience: "Ambience", sfx: "Effects" };
 const KIND_HINT: Record<SavedKind, string> = {
-  music: "Play now, play next or add to the queue.",
+  music: "Play now, play next or add to the queue. Albums and playlists queue whole.",
   ambience: "Loops under the music. Tap again to stop.",
   sfx: "Plays once. Saved on the bot the first time, then instant.",
 };
@@ -118,6 +119,7 @@ export function SavedLinks() {
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SavedTrack | null>(null);
   const [preparing, setPreparing] = useState<string | null>(null);
+  const [shuffle, setShuffle] = useSetShuffle();
 
   // Until the bot answers, assume a source is on; afterwards only what it reports.
   const sourceOn = (name: WebSource) => (music.data ? music.data.sources[name] === true : true);
@@ -160,7 +162,14 @@ export function SavedLinks() {
   }
 
   const playMusic = (item: SavedTrack, position: QueuePosition) =>
-    run(item.id, () => bot.play({ source: item.source, id: trackUrl(item.source, item.ref), position, ...channel }), position === "now" ? `Playing ${item.title}` : `Queued ${item.title}`);
+    isSetRef(item.source, item.ref)
+      ? run(item.id, async () => {
+          // A saved album or playlist is queued whole, in order or shuffled.
+          const result = await bot.playSet({ id: trackUrl(item.source, item.ref), position, shuffle, ...channel });
+          const skipped = result.skipped > 0 ? ` (${result.skipped} skipped)` : "";
+          toast("ok", `Queued ${result.queued} track${result.queued === 1 ? "" : "s"} from ${item.title}${skipped}`);
+        })
+      : run(item.id, () => bot.play({ source: item.source, id: trackUrl(item.source, item.ref), position, ...channel }), position === "now" ? `Playing ${item.title}` : `Queued ${item.title}`);
 
   const ambienceLayer = (item: SavedTrack) => layers.find((layer) => layer.kind === "ambience" && layer.track_id === trackUrl(item.source, item.ref));
 
@@ -180,7 +189,8 @@ export function SavedLinks() {
     run(item.id, () => bot.prepareSound({ kind: item.kind as SoundKind, id: trackUrl(item.source, item.ref), source: item.source }), `${item.title} is ready.`);
 
   async function prepareAll() {
-    const sounds = mine.filter((item) => item.kind !== "music");
+    // A sound from a service the bot has turned off can only fail.
+    const sounds = mine.filter((item) => item.kind !== "music" && sourceOn(item.source));
     let failed = 0;
     for (const [index, item] of sounds.entries()) {
       setPreparing(`${index + 1}/${sounds.length}`);
@@ -191,16 +201,20 @@ export function SavedLinks() {
       }
     }
     setPreparing(null);
+    void client.invalidateQueries({ queryKey: keys.soundboard });
     toast(failed ? "danger" : "ok", failed ? `${sounds.length - failed} ready, ${failed} could not be saved.` : `${sounds.length} sounds are ready.`);
   }
 
   // A pasted link is looked up as that one item, on whichever service it names;
-  // anything else is a search on the chosen service.
+  // a SoundCloud album or playlist link becomes a set card; anything else is a
+  // search on the chosen service.
   const lookup = useMutation({
-    mutationFn: async (query: string): Promise<{ source: WebSource; tracks: Track[] }> => {
+    mutationFn: async (query: string): Promise<{ source: WebSource; tracks: Track[]; set?: { ref: string; link: string } }> => {
       const found = detectLink(query);
       const name = found?.source ?? source;
-      const tracks = await bot.search(name, found ? trackUrl(found.source, found.ref) : query);
+      if (!sourceOn(name)) throw new BotError(409, "source_disabled", `${WEB_SOURCE_LABEL[name]} is turned off on the bot.`);
+      if (found?.set) return { source: name, tracks: [], set: { ref: found.ref, link: trackUrl(name, found.ref) } };
+      const tracks = await bot.search(name, found ? trackUrl(found.source, found.ref) : query.slice(0, 200));
       return { source: name, tracks };
     },
     onError: (error) => toast("danger", errorText(error, `${sourceLabel} did not answer.`)),
@@ -222,7 +236,8 @@ export function SavedLinks() {
         kind,
         ref,
         title: track.title,
-        durationSeconds: track.duration_seconds ? Math.max(1, Math.round(track.duration_seconds)) : null,
+        // A set's length is the sum of its tracks, kept within what the table allows.
+        durationSeconds: track.duration_seconds ? Math.min(86_400, Math.max(1, Math.round(track.duration_seconds))) : null,
         campaignId: campaignForNew,
       });
       if (wanted.data.length > 0) {
@@ -249,8 +264,42 @@ export function SavedLinks() {
     onSettled: () => setDeleting(null),
   });
 
+  const isSaved = (from: WebSource, ref: string) =>
+    items.some((item) => item.source === from && item.kind === kind && item.ref === ref && (item.campaignId ?? null) === campaignForNew);
+
+  // One search result (or one track of a set): open it, or save it to this tab.
+  const resultRow = (track: Track, from: WebSource) => {
+    const ref = refFromTrack(from, track.id);
+    const already = ref !== null && isSaved(from, ref);
+    return (
+      <li key={track.id} className="flex items-center gap-3 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium" title={track.title}>
+            {track.title}
+          </div>
+          <div className="text-xs text-muted">
+            {formatDuration(track.duration_seconds)} · {WEB_SOURCE_LABEL[from]}
+          </div>
+        </div>
+        {ref ? <IconLink source={from} reference={ref} title={track.title} /> : null}
+        <Button
+          size="sm"
+          variant="primary"
+          icon={already ? undefined : Save}
+          busy={ref !== null && pending === ref}
+          disabled={!ref || already || busy}
+          onClick={() => ref && void save(track, from, ref)}
+        >
+          {already ? "Saved" : kind === "music" ? "Save" : "Save and get ready"}
+        </Button>
+      </li>
+    );
+  };
+
   const Icon = KIND_ICON[kind];
-  const sounds = mine.filter((item) => item.kind !== "music").length;
+  const sounds = mine.filter((item) => item.kind !== "music" && sourceOn(item.source)).length;
+  // One bot action at a time: a single play or save, or the whole "get all ready" run.
+  const busy = pending !== null || preparing !== null;
 
   return (
     <section aria-label="Saved links" className="space-y-4">
@@ -312,8 +361,9 @@ export function SavedLinks() {
               <input
                 type="search"
                 className={`${inputClass} h-10 pl-10`}
-                placeholder={kind === "music" ? "A link, or tavern music" : kind === "ambience" ? "rain on a roof, 10 hours" : "door slam sound effect"}
-                maxLength={200}
+                placeholder={kind === "music" ? "A link, an album or playlist, or tavern music" : kind === "ambience" ? "rain on a roof, 10 hours" : "door slam sound effect"}
+                // Room for a full album or playlist link; a typed search is cut to 200.
+                maxLength={300}
                 value={text}
                 onChange={(event) => setText(event.target.value)}
               />
@@ -338,39 +388,29 @@ export function SavedLinks() {
           </div>
         </form>
 
-        {lookup.data ? (
+        {lookup.data?.set ? (
+          <SetCard
+            key={`${lookup.data.set.link}:${kind}`}
+            link={lookup.data.set.link}
+            // A set is queued and saved as music; ambience and effects pick single tracks from it.
+            canQueue={kind === "music"}
+            playable={voice.ready && sourceOn("soundcloud")}
+            channel={voice.channelId}
+            onSave={(listing) => {
+              const set = lookup.data?.set;
+              if (set) void save({ id: set.link, title: listing.title, source: "soundcloud", duration_seconds: totalSeconds(listing) }, "soundcloud", set.ref);
+            }}
+            saved={isSaved("soundcloud", lookup.data.set.ref)}
+            saving={pending === lookup.data.set.ref}
+            renderTrack={(track) => resultRow(track, "soundcloud")}
+            openByDefault={kind !== "music"}
+          />
+        ) : lookup.data ? (
           lookup.data.tracks.length === 0 ? (
             <p className="text-sm text-faint">Nothing found.</p>
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border" aria-label="Results">
-              {lookup.data.tracks.map((track) => {
-                const from = lookup.data.source;
-                const ref = refFromTrack(from, track.id);
-                const already = ref !== null && items.some((item) => item.source === from && item.kind === kind && item.ref === ref && (item.campaignId ?? null) === campaignForNew);
-                return (
-                  <li key={track.id} className="flex items-center gap-3 px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium" title={track.title}>
-                        {track.title}
-                      </div>
-                      <div className="text-xs text-muted">
-                        {formatDuration(track.duration_seconds)} · {WEB_SOURCE_LABEL[from]}
-                      </div>
-                    </div>
-                    {ref ? <IconLink source={from} reference={ref} title={track.title} /> : null}
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      icon={already ? undefined : Save}
-                      busy={ref !== null && pending === ref}
-                      disabled={!ref || already || pending !== null}
-                      onClick={() => ref && void save(track, from, ref)}
-                    >
-                      {already ? "Saved" : kind === "music" ? "Save" : "Save and get ready"}
-                    </Button>
-                  </li>
-                );
-              })}
+              {lookup.data.tracks.map((track) => resultRow(track, lookup.data.source))}
             </ul>
           )
         ) : null}
@@ -381,7 +421,7 @@ export function SavedLinks() {
             <input type="search" className={`${inputClass} h-9 pl-9`} placeholder={`Find in ${KIND_LABEL[kind].toLowerCase()}`} aria-label={`Find in ${KIND_LABEL[kind].toLowerCase()}`} maxLength={80} value={filter} onChange={(event) => setFilter(event.target.value)} />
           </div>
           {kind !== "music" ? (
-            <Button size="sm" icon={CloudDownload} busy={preparing !== null} disabled={sounds === 0 || !anyOn} onClick={() => void prepareAll()}>
+            <Button size="sm" icon={CloudDownload} busy={preparing !== null} disabled={sounds === 0 || !anyOn || pending !== null} onClick={() => void prepareAll()}>
               {preparing ? `Getting ready ${preparing}` : "Get all ready"}
             </Button>
           ) : null}
@@ -416,8 +456,11 @@ export function SavedLinks() {
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium" title={item.title}>
-                      {item.title}
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium" title={item.title}>
+                        {item.title}
+                      </span>
+                      {isSetRef(item.source, item.ref) ? <Badge tone="accent">Set</Badge> : null}
                     </div>
                     <div className="text-xs text-muted">
                       {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
@@ -426,9 +469,10 @@ export function SavedLinks() {
                   </div>
                   {item.kind === "music" ? (
                     <>
-                      <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
-                      <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
-                      <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
+                      {isSetRef(item.source, item.ref) ? <ShuffleToggle on={shuffle} onChange={setShuffle} /> : null}
+                      <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
+                      <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
+                      <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
                     </>
                   ) : item.kind === "ambience" ? (
                     <Button
@@ -438,18 +482,18 @@ export function SavedLinks() {
                       aria-pressed={Boolean(ambienceLayer(item))}
                       aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
                       busy={pending === item.id}
-                      disabled={!voice.ready || pending !== null || !sourceOn(item.source)}
+                      disabled={!voice.ready || busy || !sourceOn(item.source)}
                       onClick={() => void toggleAmbience(item)}
                     >
                       {ambienceLayer(item) ? "Stop" : "Loop"}
                     </Button>
                   ) : (
-                    <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || pending !== null || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
+                    <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
                       Play
                     </Button>
                   )}
                   {item.kind !== "music" ? (
-                    <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={pending !== null || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
+                    <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={busy || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
                   ) : null}
                   <IconLink source={item.source} reference={item.ref} title={item.title} />
                   <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />

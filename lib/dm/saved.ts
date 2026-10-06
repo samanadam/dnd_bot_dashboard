@@ -10,7 +10,8 @@ import { savedRef } from "./tags";
 // handed. How they are grouped is up to tags (tags.ts), not to this table.
 //
 // What is stored is a reference, never a URL: the 11-character video id for
-// YouTube, the lower-case `artist/track` path for SoundCloud. It is matched
+// YouTube, the lower-case `artist/track` path for SoundCloud (or, for music,
+// `artist/sets/name`: an album or playlist). It is matched
 // against one strict pattern on the way in and again on the way out, so nothing
 // in this table can carry a host, a query string or an option flag into a bot
 // call.
@@ -39,7 +40,8 @@ export const savedSchema = z
     campaignId: campaignIdSchema.nullable().optional(),
   })
   .strict()
-  .refine((value) => isRef(value.source, value.ref), { path: ["ref"], message: "not a valid link for that source" });
+  // A SoundCloud set is accepted as music only; ambience and effects are single tracks.
+  .refine((value) => isRef(value.source, value.ref, value.kind), { path: ["ref"], message: "not a valid link for that source" });
 
 export type { WebSource };
 export type SavedInput = z.infer<typeof savedSchema>;

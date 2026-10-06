@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isTrackLink, isWebSource, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
+import { isSetLink, isTrackLink, isWebSource, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
 
 // The exhaustive list of bot API calls the portal may proxy. Anything not
 // matched here is refused before a request is ever built, so a client bug (or
@@ -59,6 +59,7 @@ const trackId = z
 // source and nothing else: the portal rebuilds it from a stored reference, so a
 // free-form link never gets past.
 const linkMessage = (name: WebSource) => `must be a plain ${WEB_SOURCE_LABEL[name]} link`;
+const setLink = z.string().max(300).refine(isSetLink, "must be a plain public SoundCloud set link");
 const layerId = z.string().regex(/^[0-9a-f]{8}$/, "invalid layer id");
 const soundKind = z.enum(["ambience", "sfx"]);
 const channelBody = z.object({ channel_id: snowflake }).strict();
@@ -308,6 +309,33 @@ const rules: Rule[] = [
         channel_id: snowflake.optional(),
         // A queue slot, not an index: the bot accepts only these three.
         position: z.enum(["now", "next", "end"]).optional(),
+      })
+      .strict()
+      // A set has its own call; this one only ever takes a single track.
+      .refine((value) => !/soundcloud\.com\/[^/]+\/sets(\/|$|\?|#)/i.test(value.id), { path: ["id"], message: "use music/play-set for a set" }),
+  },
+  // SoundCloud albums and playlists: listed, or queued whole. Exactly one set
+  // link form; the bot rebuilds it again and checks every entry as a track.
+  {
+    method: "POST",
+    path: "music/set",
+    bucket: "control",
+    timeoutMs: 30_000,
+    body: z.object({ source: z.literal("soundcloud"), id: setLink }).strict(),
+  },
+  {
+    method: "POST",
+    path: "music/play-set",
+    bucket: "control",
+    timeoutMs: 45_000,
+    audit: true,
+    body: z
+      .object({
+        source: z.literal("soundcloud"),
+        id: setLink,
+        position: z.enum(["now", "next", "end"]).optional(),
+        shuffle: z.boolean().optional(),
+        channel_id: snowflake.optional(),
       })
       .strict(),
   },

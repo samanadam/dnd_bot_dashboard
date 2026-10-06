@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
-import { isTrackLink, isWebSource, WEB_SOURCES } from "@/lib/webAudio";
+import { isSetLink, isTrackLink, isWebSource, WEB_SOURCES } from "@/lib/webAudio";
 
 // A scene is a saved arrangement of sound: optionally a music track, plus
 // looping ambience and one-shot effects. The portal stores it; playing it is the
@@ -15,6 +15,9 @@ const trackId = z
   .max(512)
   .regex(/^[^\x00-\x1f\x7f]+$/, "invalid track id");
 const title = z.string().trim().min(1).max(200);
+
+// Anything naming a SoundCloud set must be exactly the one set link form.
+const looksLikeSet = (id: string) => /soundcloud\.com\/[^/]+\/sets(\/|$)/i.test(id);
 const volume = z.number().min(0).max(2);
 
 export const MAX_LAYERS = 12;
@@ -39,9 +42,15 @@ export const sceneSchema = z
     category: z.string().trim().max(40),
     // Stop the sounds already playing before this scene starts.
     replace: z.boolean(),
+    // A SoundCloud set (album or playlist) as music is queued whole when the
+    // scene runs, shuffled when `shuffle` is set. Older scenes have no `shuffle`.
     music: z
-      .object({ source: z.enum(["r2", ...WEB_SOURCES]), id: trackId, title, volume: volume.nullable() })
+      .object({ source: z.enum(["r2", ...WEB_SOURCES]), id: trackId, title, volume: volume.nullable(), shuffle: z.boolean().optional() })
       .strict()
+      .refine((music) => !looksLikeSet(music.id) || (music.source === "soundcloud" && isSetLink(music.id)), {
+        path: ["id"],
+        message: "must be a plain SoundCloud set link",
+      })
       .nullable(),
     layers: z.array(layerSchema).max(MAX_LAYERS),
     // Left out on an update it is unchanged; null files the scene under no campaign.

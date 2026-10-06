@@ -194,6 +194,25 @@ const routes = {
     else Object.assign(player, { current: track, playing: true, paused: false, position_seconds: 0 });
     return ok(state(), 202);
   },
+  "POST music/set": (body) => {
+    const tracks = mockSet(body);
+    return tracks ? ok({ title: `Set ${body.id.split("/").pop()}`, tracks, truncated: false, skipped: 0 }) : fail(502, "resolver_error", "That is not a public SoundCloud set link.");
+  },
+  "POST music/play-set": (body) => {
+    const tracks = mockSet(body);
+    if (!tracks) return fail(502, "resolver_error", "That is not a public SoundCloud set link.");
+    if (body.shuffle === true) tracks.sort(() => Math.random() - 0.5);
+    if (!player.connected) {
+      if (!body.channel_id) return fail(409, "conflict", "The bot is not in a voice channel. Give a channel_id.");
+      Object.assign(player, { connected: true, channel_id: body.channel_id, owner: active.size ? "recording" : "music" });
+    }
+    const queued = tracks.length;
+    const startNow = !player.current || body.position === "now";
+    if (startNow) Object.assign(player, { current: tracks.shift(), playing: true, paused: false, position_seconds: 0 });
+    if (body.position === "end") player.queue.push(...tracks);
+    else player.queue.unshift(...tracks);
+    return ok({ ...state(), queued, skipped: 0 }, 202);
+  },
   "POST music/pause": () => (state(), Object.assign(player, { paused: true }), ok(state())),
   "POST music/resume": () => (state(), Object.assign(player, { paused: false, playing: !!player.current }), ok(state())),
   "POST music/skip": () => {
@@ -265,6 +284,15 @@ const routes = {
     return ok(boardState());
   },
 };
+
+const SOUNDCLOUD_SET = /^https:\/\/soundcloud\.com\/([a-z0-9_-]{1,120})\/sets\/([a-z0-9_-]{1,115})$/;
+
+// Five made-up tracks for a set link, as the real bot lists them.
+function mockSet(body) {
+  const match = body.source === "soundcloud" ? SOUNDCLOUD_SET.exec(body.id ?? "") : null;
+  if (!match) return null;
+  return [1, 2, 3, 4, 5].map((n) => ({ id: `https://soundcloud.com/${match[1]}/${match[2].slice(0, 100)}-${n}`, title: `${match[2]} (track ${n})`, source: "soundcloud", duration_seconds: 200 + n * 20 }));
+}
 
 const SOUNDCLOUD = /^https:\/\/soundcloud\.com\/([a-z0-9_-]{1,120})\/([a-z0-9_-]{1,120})$/;
 

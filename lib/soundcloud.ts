@@ -67,3 +67,56 @@ export function parseSoundCloudLink(input: string): string | null {
   const ref = `${segments[0].toLowerCase()}/${segments[1].toLowerCase()}`;
   return isSoundCloudRef(ref) ? ref : null;
 }
+
+// Sets: SoundCloud albums and playlists share `artist/sets/name`. A set is only
+// ever queued as music, through the bot's own set calls; every other call
+// still refuses one. The name is capped at 115 so the whole reference fits the
+// 241 characters the saved-links table allows.
+
+/** Exactly what a stored SoundCloud set reference looks like: `artist/sets/name`. */
+export const SC_SET_REF = /^[a-z0-9_-]{1,120}\/sets\/[a-z0-9_-]{1,115}$/;
+
+/** The one link form the bot accepts for a SoundCloud set. */
+export const SOUNDCLOUD_SET_LINK = /^https:\/\/soundcloud\.com\/[a-z0-9_-]{1,120}\/sets\/[a-z0-9_-]{1,115}$/;
+
+export function isSoundCloudSetRef(ref: string): boolean {
+  if (!SC_SET_REF.test(ref)) return false;
+  return !NOT_A_TRACK.has(ref.split("/")[0]);
+}
+
+/** The one set URL sent to the bot. Throws on anything that is not a set reference. */
+export function soundcloudSetUrl(ref: string): string {
+  if (!isSoundCloudSetRef(ref)) throw new Error("Not a SoundCloud set.");
+  return `https://soundcloud.com/${ref}`;
+}
+
+/** Whether `link` is exactly the set link form the bot accepts. */
+export function isSoundCloudSetLink(link: string): boolean {
+  return SOUNDCLOUD_SET_LINK.test(link) && isSoundCloudSetRef(link.slice("https://soundcloud.com/".length));
+}
+
+/**
+ * `artist/sets/name` in a pasted public set link, or null. Private sets (a
+ * fourth `s-<token>` part), other hosts, credentials and odd ports come back
+ * null; a query string or fragment is ignored, not kept.
+ */
+export function parseSoundCloudSetLink(input: string): string | null {
+  const text = input.trim();
+  if (!text || text.length > MAX_INPUT) return null;
+
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username || url.password || url.port) return null;
+  if (!HOSTS.has(url.hostname)) return null;
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length !== 3 || segments[1].toLowerCase() !== "sets") return null;
+  if (!SLUG.test(segments[0]) || !SLUG.test(segments[2])) return null;
+  const ref = `${segments[0].toLowerCase()}/sets/${segments[2].toLowerCase()}`;
+  return isSoundCloudSetRef(ref) ? ref : null;
+}

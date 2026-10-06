@@ -12,7 +12,7 @@ import { keys, useLibrary, useMusicState, useSoundboard } from "@/lib/bot/useBot
 import { useCampaignSelection } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { useSaved } from "@/lib/dm/useSaved";
-import { isTrackLink, isWebSource, trackUrl, WEB_SOURCES } from "@/lib/webAudio";
+import { isSetLink, isSetRef, isTrackLink, isWebSource, trackUrl, WEB_SOURCES } from "@/lib/webAudio";
 import type { Scene, SceneInput } from "@/lib/dm/scenes";
 import { useVoiceTarget } from "./Soundboard";
 
@@ -90,6 +90,17 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface-2 px-3 py-2">
             <Music2 className="size-4 text-accent" aria-hidden />
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{input.music.title}</span>
+            {isSetLink(input.music.id) ? (
+              <label className="flex items-center gap-1.5 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  className="size-3.5 accent-[var(--accent)]"
+                  checked={input.music.shuffle ?? false}
+                  onChange={(event) => set({ music: input.music ? { ...input.music, shuffle: event.target.checked } : null })}
+                />
+                Shuffle
+              </label>
+            ) : null}
             <Volume label="Music volume" value={input.music.volume ?? 1} onChange={(volume) => set({ music: input.music ? { ...input.music, volume } : null })} />
             <Button size="icon" variant="ghost" aria-label="Remove music" onClick={() => set({ music: null })} icon={X} />
           </div>
@@ -119,7 +130,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
               <optgroup label="Saved links">
                 {savedMusic.map((item) => (
                   <option key={item.id} value={`yt:${item.id}`}>
-                    {item.title}
+                    {isSetRef(item.source, item.ref) ? `${item.title} (set)` : item.title}
                   </option>
                 ))}
               </optgroup>
@@ -218,6 +229,7 @@ export function Scenes() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Scene | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const scenes = useQuery({ queryKey: ["dm", "scenes", selection], queryFn: () => dm.listScenes(selection ?? undefined) });
   const list = useMemo(() => scenes.data ?? [], [scenes.data]);
@@ -260,7 +272,12 @@ export function Scenes() {
       }
       if (scene.music) {
         step = `starting ${scene.music.title}`;
-        await bot.play({ source: scene.music.source, id: scene.music.id, position: "now", ...channel });
+        // A SoundCloud album or playlist is queued whole, the rest played as one track.
+        if (scene.music.source === "soundcloud" && isSetLink(scene.music.id)) {
+          await bot.playSet({ id: scene.music.id, position: "now", shuffle: scene.music.shuffle ?? false, ...channel });
+        } else {
+          await bot.play({ source: scene.music.source, id: scene.music.id, position: "now", ...channel });
+        }
         if (scene.music.volume !== null) await bot.volume(scene.music.volume);
       }
       for (const layer of scene.layers) {
@@ -353,15 +370,18 @@ export function Scenes() {
         open={deleting !== null}
         title={`Delete ${deleting?.name ?? "scene"}?`}
         confirmLabel="Delete"
-        onClose={() => setDeleting(null)}
+        busy={removing}
+        onClose={() => !removing && setDeleting(null)}
         onConfirm={async () => {
-          if (!deleting) return;
+          if (!deleting || removing) return;
+          setRemoving(true);
           try {
             await dm.deleteScene(deleting.id);
             refresh();
           } catch (error) {
             toast("danger", errorText(error, "Could not delete the scene."));
           } finally {
+            setRemoving(false);
             setDeleting(null);
           }
         }}

@@ -50,6 +50,9 @@ from a laptop or a phone at the table.
     ahead of the game). Saved sounds can be added to scenes. Needs the bot's
     link resolver turned on (`MUSIC_YTDLP_ENABLED`); SoundCloud works from
     a server where YouTube asks for a sign-in.
+    A SoundCloud album or playlist link opens as a set: queue it whole (in
+    order or shuffled, up to 50 tracks), save it as music, use it as a scene's
+    music, or open its track list to play or save single tracks.
   - **Prepared encounters**: build a fight ahead of time, with allies, and launch
     a fresh copy at full hit points when it starts.
   - **Player rolls**: players report their initiative in Discord with `/init`;

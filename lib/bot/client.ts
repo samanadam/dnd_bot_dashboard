@@ -13,6 +13,8 @@ import type {
   LoopMode,
   PlayerState,
   SessionSummary,
+  SetListing,
+  SetPlayResult,
   TrashedSession,
   Soundboard,
   SoundboardState,
@@ -116,6 +118,10 @@ export const bot = {
   search: (source: TrackSource, query: string) => call<Track[]>("POST", "music/search", { source, query }),
   play: (input: { source: TrackSource; id: string; channel_id?: string; position?: QueuePosition }) =>
     call<PlayerState>("POST", "music/play", input),
+  // SoundCloud albums and playlists: `id` is the plain set link (soundcloudSetUrl).
+  setTracks: (id: string) => call<SetListing>("POST", "music/set", { source: "soundcloud", id }),
+  playSet: (input: { id: string; position?: QueuePosition; shuffle?: boolean; channel_id?: string }) =>
+    call<SetPlayResult>("POST", "music/play-set", { source: "soundcloud", ...input }),
   pause: () => call<PlayerState>("POST", "music/pause"),
   resume: () => call<PlayerState>("POST", "music/resume"),
   skip: () => call<PlayerState>("POST", "music/skip"),

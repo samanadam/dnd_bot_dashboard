@@ -33,6 +33,8 @@ export function usePlay(state: PlayerState) {
       play.mutate(track, { onSuccess: () => toast("ok", state.current ? `Queued: ${track.title}` : `Playing: ${track.title}`) }),
     pendingId: play.isPending ? play.variables?.id : undefined,
     needsChannel: !state.connected && !hasChannel,
+    // The channel to join along with a play, when the bot is not in voice yet.
+    channel: !state.connected && hasChannel ? channelId.trim() : undefined,
   };
 }
 
@@ -41,6 +43,7 @@ export function TrackRow({
   onPlay,
   busy,
   enabled,
+  playable = true,
   playing,
   onDelete,
   tags,
@@ -50,6 +53,8 @@ export function TrackRow({
   onPlay: () => void;
   busy: boolean;
   enabled: boolean;
+  // False while the bot is out of voice with no channel to join.
+  playable?: boolean;
   playing?: boolean;
   onDelete?: () => void;
   // Given only to the DM, who is the one that can read and change tags.
@@ -62,7 +67,7 @@ export function TrackRow({
         size="icon"
         variant={playing ? "primary" : "secondary"}
         className="rounded-full"
-        disabled={!enabled}
+        disabled={!enabled || !playable}
         busy={busy}
         onClick={onPlay}
         aria-label={`Play ${track.title}`}
@@ -204,6 +209,7 @@ export function TrackLibrary({ state, enabled, canManage = false }: { state: Pla
               key={track.id}
               track={track}
               enabled={enabled}
+              playable={!needsChannel}
               busy={pendingId === track.id}
               playing={state.current?.id === track.id}
               onPlay={() => play(track)}

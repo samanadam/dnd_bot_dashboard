@@ -82,6 +82,12 @@ export type Track = {
   duration_seconds: number | null;
 };
 
+// A SoundCloud album or playlist, as the bot lists it. Tracks are in set order.
+export type SetListing = { title: string; tracks: Track[]; truncated: boolean; skipped: number };
+
+// What queueing a set answers: the player, how many tracks went in, how many did not.
+export type SetPlayResult = PlayerState & { queued: number; skipped: number };
+
 export type LoopMode = "off" | "track" | "queue";
 
 // Where /music/play puts a track. The bot rejects anything else with a 409.

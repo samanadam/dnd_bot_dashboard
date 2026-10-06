@@ -65,9 +65,9 @@ describe("web sources together", () => {
   const YT = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
   it("tells which service a pasted link belongs to", () => {
-    expect(detectLink(YT)).toEqual({ source: "youtube", ref: "dQw4w9WgXcQ" });
-    expect(detectLink("https://youtu.be/dQw4w9WgXcQ?t=4")).toEqual({ source: "youtube", ref: "dQw4w9WgXcQ" });
-    expect(detectLink(LINK)).toEqual({ source: "soundcloud", ref: REF });
+    expect(detectLink(YT)).toEqual({ source: "youtube", ref: "dQw4w9WgXcQ", set: false });
+    expect(detectLink("https://youtu.be/dQw4w9WgXcQ?t=4")).toEqual({ source: "youtube", ref: "dQw4w9WgXcQ", set: false });
+    expect(detectLink(LINK)).toEqual({ source: "soundcloud", ref: REF, set: false });
     expect(detectLink("tavern music")).toBeNull();
     expect(detectLink("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
   });
