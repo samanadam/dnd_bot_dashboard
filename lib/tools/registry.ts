@@ -62,6 +62,7 @@ export const tools: Tool[] = [
       { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
       { href: "/dm/areas", label: "Areas", icon: "map" },
       { href: "/dm/items", label: "Items", icon: "gem" },
+      { href: "/dm/spells", label: "Spells", icon: "sparkles" },
       { href: "/dm/npcs", label: "NPCs", icon: "users" },
       { href: "/dm/dice", label: "Dice", icon: "dice" },
       { href: "/dm/soundboard", label: "Sound", icon: "audio" },
