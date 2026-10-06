@@ -11,6 +11,7 @@ import { env } from "@/lib/env";
 import { FeatRepo } from "@/lib/dm/feats";
 import { SpellRepo } from "@/lib/dm/spells";
 import { getSrdFeat, getSrdSpell, listSrdFeats, listSrdSpells } from "@/lib/dm/srdSpells";
+import { diskPortraits } from "./portraitStore";
 import { SheetRepo } from "./repo";
 import type { RollToAnnounce } from "./routes";
 
@@ -43,6 +44,11 @@ export function sheetDeps() {
     playsIn: (userId: string, roleIds: string[], campaignId: string) => can(resolveAccess(userId, roleIds, env().DM_USER_IDS, loadGrants()), "play", campaignId),
     syncName,
     announce,
+    removePortrait: diskPortraits.remove,
     log: audit,
   };
+}
+
+export function portraitDeps() {
+  return { getAccess, sheets: () => new SheetRepo(getDatabase()), portraits: diskPortraits, log: audit };
 }

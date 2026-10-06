@@ -1,4 +1,5 @@
 import { can, type Access } from "@/lib/access/permissions";
+import { derive } from "./derive";
 import type { StoredSheet } from "./repo";
 
 // Who may do what with a sheet. A manager holds sheets.manage (or dm, which
@@ -52,3 +53,26 @@ export type SheetSummary = {
   vitalsVersion: number;
   version: number;
 };
+
+export function summaryOf(sheet: StoredSheet, userId: string, ownerName: string | null): SheetSummary {
+  const derived = derive(sheet.body, sheet.vitals, sheet.edition);
+  return {
+    id: sheet.id,
+    campaignId: sheet.campaignId,
+    name: sheet.name,
+    edition: sheet.edition,
+    classes: sheet.body.classes.map((c) => `${c.name} ${c.level}`).join(" / "),
+    level: derived.totalLevel,
+    status: sheet.status,
+    active: sheet.active,
+    owner: sheet.ownerUserId ? { name: ownerName ?? "A player", you: sheet.ownerUserId === userId } : null,
+    hp: sheet.vitals.hp,
+    maxHp: derived.maxHp,
+    ac: derived.ac.value,
+    conditions: sheet.vitals.conditions.map((c) => c.name),
+    concentration: sheet.vitals.concentration?.name ?? null,
+    nameSync: sheet.nameSync,
+    vitalsVersion: sheet.vitalsVersion,
+    version: sheet.version,
+  };
+}

@@ -6,6 +6,7 @@ import type { StoredEncounter } from "@/lib/dm/encounters";
 import type { CustomFeat } from "@/lib/dm/feats";
 import type { CustomItem } from "@/lib/dm/items";
 import type { CustomSpell } from "@/lib/dm/spells";
+import { demoSheets } from "./sheetFixtures";
 import type { Reward } from "@/lib/dm/rewards";
 import type { SavedTrack } from "@/lib/dm/saved";
 import type { Scene } from "@/lib/dm/scenes";
@@ -508,6 +509,7 @@ export function demoFixtures(now: number) {
   };
 
   return {
+    play: { sheets: demoSheets(now, CAMPAIGN_EMBER) },
     bot: {
       startedAt: now - 3 * 24 * 3600_000,
       library,

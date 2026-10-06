@@ -67,6 +67,7 @@ export const tools: Tool[] = [
       { href: "/dm/areas", label: "Areas", icon: "map", permission: "dm" },
       { href: "/dm/items", label: "Items", icon: "gem", permission: "dm" },
       { href: "/dm/spells", label: "Spells", icon: "sparkles", permission: "dm" },
+      { href: "/dm/party", label: "Party", icon: "users", permission: "dm" },
       { href: "/dm/npcs", label: "NPCs", icon: "users", permission: "dm" },
       { href: "/dm/dice", label: "Dice", icon: "dice", permission: "dm" },
       { href: "/dm/soundboard", label: "Sound", icon: "audio", permission: "dm" },
@@ -79,8 +80,10 @@ export const tools: Tool[] = [
     href: "/play",
     icon: "users",
     status: "live",
-    permission: "play",
-    links: [{ href: "/play", label: "My characters", icon: "users", permission: "play" }],
+    links: [
+      { href: "/play", label: "My characters", icon: "users", permission: "play" },
+      { href: "/play", label: "Party sheets", icon: "users", permission: "sheets.manage" },
+    ],
   },
   {
     id: "more",

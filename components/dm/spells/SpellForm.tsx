@@ -60,12 +60,18 @@ export function SpellForm({
   defaultCampaign,
   onSaved,
   onCancel,
+  submit,
+  fixedCampaign = false,
 }: {
   spell?: CustomSpell;
   seed?: SpellBlock;
   defaultCampaign: string | null;
   onSaved: (saved: CustomSpell) => void;
   onCancel: () => void;
+  // Where a new spell goes; the DM's own library unless a player's homebrew route is given.
+  submit?: (input: CustomSpellInput) => Promise<CustomSpell>;
+  // Homebrew stays in the campaign it is made in: no picker.
+  fixedCampaign?: boolean;
 }) {
   const toast = useToast();
   const start: CustomSpellInput = spell
@@ -95,7 +101,7 @@ export function SpellForm({
     setBusy(true);
     setError(null);
     try {
-      const saved = spell ? await dm.updateSpell(spell.id, parsed.data) : await dm.createSpell(parsed.data);
+      const saved = spell ? await dm.updateSpell(spell.id, parsed.data) : submit ? await submit(parsed.data) : await dm.createSpell(parsed.data);
       toast("ok", spell ? "Spell saved." : "Spell added.");
       onSaved(saved);
     } catch (caught) {
@@ -346,9 +352,11 @@ export function SpellForm({
       <Field label="At higher levels">
         <textarea className={`${inputBaseClass} min-h-16 w-full py-2.5`} value={value.higherLevel} maxLength={4_000} onChange={(event) => set("higherLevel", event.target.value)} />
       </Field>
-      <Field label="Campaign">
-        <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
-      </Field>
+      {fixedCampaign ? null : (
+        <Field label="Campaign">
+          <CampaignSelect value={campaignId} onChange={setCampaignId} label="Campaign" noneLabel="Not in a campaign" />
+        </Field>
+      )}
       {error ? <Notice tone="danger">{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         <Button icon={X} onClick={onCancel}>

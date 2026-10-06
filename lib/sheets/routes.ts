@@ -13,7 +13,7 @@ import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, sp
 import type { SpellRepo } from "@/lib/dm/spells";
 import { RateLimiter } from "@/lib/rateLimit";
 import { errorResponse } from "@/lib/requestGuard";
-import { canEdit, canManage, sheetView, type SheetSummary } from "./access";
+import { canEdit, canManage, sheetView, summaryOf, type SheetSummary } from "./access";
 import { MAX_BODY_BYTES, sheetBodySchema } from "./body";
 import { derive } from "./derive";
 import { opBatchSchema, type SpellFacts } from "./ops";
@@ -42,6 +42,8 @@ export type SheetRouteDeps = DmGuardDeps & {
   announce?: (roll: RollToAnnounce, userId: string) => Promise<boolean>;
   // Whether a signed-in user (by their last-seen roles) plays in a campaign: who may be given a sheet.
   playsIn?: (userId: string, roleIds: string[], campaignId: string) => boolean;
+  // Deletes a portrait file once its sheet is gone.
+  removePortrait?: (name: string) => void;
   rng?: Rng;
   rollLimiter?: RateLimiter;
   log?: AuditLog;
@@ -60,26 +62,7 @@ function ownerName(deps: SheetRouteDeps, sheet: StoredSheet): string | null {
 }
 
 function summary(deps: SheetRouteDeps, sheet: StoredSheet, userId: string): SheetSummary {
-  const derived = derive(sheet.body, sheet.vitals, sheet.edition);
-  return {
-    id: sheet.id,
-    campaignId: sheet.campaignId,
-    name: sheet.name,
-    edition: sheet.edition,
-    classes: sheet.body.classes.map((c) => `${c.name} ${c.level}`).join(" / "),
-    level: derived.totalLevel,
-    status: sheet.status,
-    active: sheet.active,
-    owner: sheet.ownerUserId ? { name: ownerName(deps, sheet) ?? "A player", you: sheet.ownerUserId === userId } : null,
-    hp: sheet.vitals.hp,
-    maxHp: derived.maxHp,
-    ac: derived.ac.value,
-    conditions: sheet.vitals.conditions.map((c) => c.name),
-    concentration: sheet.vitals.concentration?.name ?? null,
-    nameSync: sheet.nameSync,
-    vitalsVersion: sheet.vitalsVersion,
-    version: sheet.version,
-  };
+  return summaryOf(sheet, userId, ownerName(deps, sheet));
 }
 
 /** Loads a sheet the caller may edit, or answers 404. */
@@ -214,6 +197,7 @@ export function sheetItem(deps: SheetRouteDeps) {
       if (found instanceof Response) return found;
       if (!canManage(found.guard.access, found.sheet.campaignId)) return missing();
       if (!deps.sheets().remove(id)) return missing();
+      if (found.sheet.portrait) deps.removePortrait?.(found.sheet.portrait);
       audit(deps, found.guard, "DELETE", "sheets/:id", 204);
       await syncName(deps, found.sheet.campaignId, found.sheet.ownerUserId, id);
       return noContent();
