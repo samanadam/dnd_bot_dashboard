@@ -1,3 +1,5 @@
+"use client";
+
 import { Swords, Users } from "lucide-react";
 import { PortalLink } from "@/components/PortalLink";
 import { Card, EmptyState, Notice, PageHeader } from "@/components/ui";
