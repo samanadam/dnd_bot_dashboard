@@ -11,12 +11,15 @@ export const metadata: Metadata = { title: "Encounter" };
 export const dynamic = "force-dynamic";
 
 export default async function EncounterPage(props: PageProps<"/dm/combat/[id]">) {
-  await requireDm();
+  const { scope } = await requireDm();
   const { id } = await props.params;
   if (!ENCOUNTER_ID.test(id)) notFound();
   const db = getDatabase();
   const stored = new EncounterRepo(db).get(id);
-  if (!stored) notFound();
-  const custom = new CreatureRepo(db).list().map((c) => summarise(c.id, c.id, "custom", c.kind, c.statBlock, c.tags));
+  if (!stored || !scope.allows(stored.campaignId)) notFound();
+  const custom = new CreatureRepo(db)
+    .list()
+    .filter((c) => c.kind === "monster" || scope.allows(c.campaignId))
+    .map((c) => summarise(c.id, c.id, "custom", c.kind, c.statBlock, c.tags));
   return <EncounterView stored={stored} creatures={[...custom, ...listSrd()]} />;
 }

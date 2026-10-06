@@ -3,17 +3,18 @@ import { matchRule } from "@/lib/bot/allowlist";
 import { handleBotRequest, ReadCache, type ProxyDeps } from "@/lib/bot/proxy";
 import { daysLeft } from "@/components/bot/TrashCard";
 import { RateLimiter } from "@/lib/rateLimit";
+import { legacyAllows } from "./helpers/access";
 
 const ID = "2026-09-09-2130-a1b2c3d4";
 
 describe("renaming and deleting a session through the proxy", () => {
-  it("is DM-only, and every write is audited", () => {
+  it("needs bot.manage (purging: the owner), and every write is audited", () => {
     for (const action of ["update", "trash", "restore", "purge"]) {
       const rule = matchRule("POST", ["sessions", ID, action])?.rule;
-      expect(rule?.dmOnly, action).toBe(true);
+      expect(rule?.permission, action).toBe(action === "purge" ? "owner" : "bot.manage");
       expect(rule?.audit, action).toBe(true);
     }
-    expect(matchRule("GET", ["sessions", "trash"])?.rule.dmOnly).toBe(true);
+    expect(matchRule("GET", ["sessions", "trash"])?.rule.permission).toBe("bot.manage");
   });
 
   it("has no other way in", () => {
@@ -50,7 +51,7 @@ function deps(isDm: boolean): ProxyDeps & { fetchImpl: ReturnType<typeof vi.fn> 
   const fetchImpl = vi.fn(async () => Response.json({ deleted: ID }));
   return {
     getUserId: async () => "42",
-    isDm: () => isDm,
+    allows: legacyAllows(() => isDm),
     botUrl: "https://bot.example/api/v1",
     botToken: "test-token-abcdefghijklmnop",
     fetchImpl,

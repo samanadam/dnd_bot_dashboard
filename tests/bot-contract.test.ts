@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleBotRequest, ReadCache } from "@/lib/bot/proxy";
 import { RateLimiter } from "@/lib/rateLimit";
+import { legacyAllows } from "./helpers/access";
 
 // Contract test against a REAL bot API, not a mock. Every other test checks the
 // portal against its own idea of the bot; this is the one that catches the two
@@ -28,6 +29,7 @@ async function call(method: string, path: string, body?: unknown, deps: { token?
   const target = query ? `${request.url}` : request.url;
   const response = await handleBotRequest(new Request(target, request), route.split("/"), {
     getUserId: async () => "portal-user",
+    allows: legacyAllows(),
     botUrl: url!,
     botToken: deps.token ?? token!,
     // Fresh per call: the contract is what the bot says, not a cached answer.

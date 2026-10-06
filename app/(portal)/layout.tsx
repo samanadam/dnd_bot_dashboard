@@ -3,8 +3,7 @@ import { signOut } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { Providers } from "@/components/Providers";
 import { requireUser } from "@/lib/session";
-import { isDm } from "@/lib/dm/isDm";
-import { env } from "@/lib/env";
+import { getAccess } from "@/lib/access/server";
 import { visibleTools } from "@/lib/tools/registry";
 
 export default async function PortalLayout({ children }: LayoutProps<"/">) {
@@ -30,7 +29,7 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
 
   return (
     <Providers>
-      <AppShell tools={visibleTools(isDm(user.id, env().DM_USER_IDS))} user={{ name: user.name ?? null, image: user.image ?? null }} signOut={signOutButton}>
+      <AppShell tools={visibleTools((await getAccess())!)} user={{ name: user.name ?? null, image: user.image ?? null }} signOut={signOutButton}>
         {children}
       </AppShell>
     </Providers>

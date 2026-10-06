@@ -11,7 +11,7 @@ export const PERMISSIONS = [
   "bot.recording",
   "bot.music",
   "bot.sessions",
-  "bot.campaigns",
+  "bot.manage",
   "play",
   "sheets.manage",
   "dm",
@@ -25,8 +25,11 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; description:
   "bot.view": { label: "See the bot", description: "Bot status, recording and music state, the campaign list." },
   "bot.recording": { label: "Recording", description: "Start, stop, split and recover recordings." },
   "bot.music": { label: "Music", description: "Play, queue and upload music; join and leave voice." },
-  "bot.sessions": { label: "Sessions", description: "Session list, transcripts, search, renaming and the trash." },
-  "bot.campaigns": { label: "Campaigns", description: "Create and edit campaigns, terms and corrections." },
+  "bot.sessions": { label: "Sessions", description: "Session list, transcripts and transcript search." },
+  "bot.manage": {
+    label: "Manage recordings",
+    description: "Edit campaigns, rename, file and trash sessions, sync transcription, upload and delete music.",
+  },
   play: { label: "Player area", description: "Their own character sheets, spells and the battle page." },
   "sheets.manage": { label: "Manage sheets", description: "See and edit every sheet, assign owners." },
   dm: { label: "Co-DM", description: "Every DM tool. Includes managing sheets." },
@@ -34,7 +37,8 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; description:
 
 export const PRESETS: Record<"player" | "operator" | "codm", { label: string; permissions: Permission[] }> = {
   player: { label: "Player", permissions: ["play"] },
-  operator: { label: "Bot operator", permissions: ["bot.view", "bot.recording", "bot.music", "bot.sessions", "bot.campaigns"] },
+  // Exactly what ALLOWED_ROLE_IDS gave before role grants existed.
+  operator: { label: "Bot operator", permissions: ["bot.view", "bot.recording", "bot.music", "bot.sessions"] },
   codm: { label: "Co-DM", permissions: ["dm", "bot.view"] },
 };
 
@@ -100,6 +104,16 @@ export function can(access: Access, permission: Permission, campaignId?: string 
   if (campaignId === undefined || scope === "all") return true;
   if (campaignId === null) return false;
   return scope.has(campaignId);
+}
+
+/**
+ * The bot proxy's check: may this user call a rule needing `permission`?
+ * "owner" rules are for DM_USER_IDS alone. A different user id than the one the
+ * access was resolved for is always refused.
+ */
+export function allowsFor(access: Access | null): (userId: string, permission: Permission | "owner") => boolean {
+  return (userId, permission) =>
+    access !== null && access.userId === userId && (permission === "owner" ? access.owner : can(access, permission));
 }
 
 /** The campaigns where the user holds a permission, or null when nowhere. */

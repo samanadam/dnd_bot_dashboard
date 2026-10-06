@@ -9,15 +9,21 @@ export const dynamic = "force-dynamic";
 
 type Props = PageProps<"/dm/bestiary/custom/[id]">;
 
-export async function generateMetadata(props: Props): Promise<Metadata> {
+/** The creature, when the caller's DM access reaches it: library monsters always, NPCs by campaign. */
+async function reachable(props: Props) {
+  const { scope } = await requireDm();
   const { id } = await props.params;
-  return { title: CREATURE_ID.test(id) ? (new CreatureRepo(getDatabase()).get(id)?.statBlock.name ?? "Creature") : "Creature" };
+  const creature = CREATURE_ID.test(id) ? new CreatureRepo(getDatabase()).get(id) : null;
+  return creature && (creature.kind === "monster" || scope.allows(creature.campaignId)) ? creature : null;
+}
+
+// Gated like the page: the title must not name a creature the visitor may not see.
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  return { title: (await reachable(props))?.statBlock.name ?? "Creature" };
 }
 
 export default async function CustomCreaturePage(props: Props) {
-  await requireDm();
-  const { id } = await props.params;
-  const creature = CREATURE_ID.test(id) ? new CreatureRepo(getDatabase()).get(id) : null;
+  const creature = await reachable(props);
   if (!creature) notFound();
   return <CreatureView creature={creature} />;
 }

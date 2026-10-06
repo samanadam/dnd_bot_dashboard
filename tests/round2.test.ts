@@ -243,11 +243,11 @@ describe("allowlist for the new bot calls", () => {
       expect(seek.safeParse(bad).success).toBe(false);
     }
 
-    expect(matchRule("POST", ["transcription", "sync"])).toMatchObject({ rule: { dmOnly: true, audit: true } });
-    expect(matchRule("GET", ["transcription"])?.rule.dmOnly).toBeUndefined();
-    expect(matchRule("GET", ["initiative"])?.rule.dmOnly).toBe(true);
+    expect(matchRule("POST", ["transcription", "sync"])).toMatchObject({ rule: { permission: "bot.manage", audit: true } });
+    expect(matchRule("GET", ["transcription"])?.rule.permission).toBe("bot.view");
+    expect(matchRule("GET", ["initiative"])?.rule.permission).toBe("dm");
     const clear = matchRule("POST", ["initiative", "clear"])!;
-    expect(clear.rule.dmOnly).toBe(true);
+    expect(clear.rule.permission).toBe("dm");
     expect(clear.rule.body!.safeParse({}).success).toBe(true);
     expect(clear.rule.body!.safeParse({ id: 4 }).success).toBe(true);
     for (const bad of [{ id: 0 }, { id: "4" }, { id: 4.5 }, { all: true }]) expect(clear.rule.body!.safeParse(bad).success).toBe(false);

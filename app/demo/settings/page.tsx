@@ -10,5 +10,5 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function DemoSettingsPage() {
   // The theme is a plain display preference; the demo shares it with the portal.
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
-  return <SettingsView theme={theme} user={DEMO_USER} expires={null} signOut={<DemoSignIn />} />;
+  return <SettingsView theme={theme} user={DEMO_USER} expires={null} signOut={<DemoSignIn />} canSeeBot owner />;
 }

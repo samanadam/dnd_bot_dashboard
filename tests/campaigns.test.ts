@@ -7,6 +7,7 @@ import { openDatabase } from "@/lib/dm/db";
 import { EncounterRepo } from "@/lib/dm/encounters";
 import { RateLimiter } from "@/lib/rateLimit";
 import { goblin } from "./fixtures/goblin";
+import { legacyAllows } from "./helpers/access";
 
 const CAMPAIGN = "0123456789ab";
 const OTHER = "ba9876543210";
@@ -79,12 +80,12 @@ describe("campaign allowlist", () => {
     expect(matchRule("GET", ["campaigns", CAMPAIGN])).not.toBeNull();
     expect(matchRule("GET", ["campaigns", "ABCDEF012345"])).toBeNull();
     expect(matchRule("GET", ["campaigns", "short"])).toBeNull();
-    expect(matchRule("POST", ["campaigns", CAMPAIGN, "update"])?.rule.dmOnly).toBe(true);
+    expect(matchRule("POST", ["campaigns", CAMPAIGN, "update"])?.rule.permission).toBe("bot.manage");
     expect(matchRule("POST", ["campaigns", "..", "update"])).toBeNull();
     expect(matchRule("DELETE", ["campaigns", CAMPAIGN])).toBeNull();
   });
 
-  it("makes every write a DM-only, audited call", () => {
+  it("makes every write a bot.manage, audited call", () => {
     const writes: [string, string[]][] = [
       ["POST", ["campaigns"]],
       ["POST", ["campaigns", CAMPAIGN, "update"]],
@@ -94,7 +95,7 @@ describe("campaign allowlist", () => {
     ];
     for (const [method, segments] of writes) {
       const rule = matchRule(method, segments)?.rule;
-      expect(rule?.dmOnly, segments.join("/")).toBe(true);
+      expect(rule?.permission, segments.join("/")).toBe("bot.manage");
       expect(rule?.audit, segments.join("/")).toBe(true);
     }
   });
@@ -130,7 +131,7 @@ describe("campaign writes through the proxy", () => {
     const fetchImpl = vi.fn(async () => Response.json({ ok: true }));
     return {
       getUserId: async () => "42",
-      isDm: () => isDm,
+      allows: legacyAllows(() => isDm),
       botUrl: "https://bot.example/api/v1",
       botToken: "test-token-abcdefghijklmnop",
       fetchImpl,

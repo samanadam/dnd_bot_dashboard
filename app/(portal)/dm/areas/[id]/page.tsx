@@ -12,12 +12,13 @@ export const metadata: Metadata = { title: "Area" };
 export const dynamic = "force-dynamic";
 
 export default async function AreaPage(props: PageProps<"/dm/areas/[id]">) {
-  await requireDm();
+  const { scope } = await requireDm();
   const { id } = await props.params;
   if (!AREA_ID.test(id)) notFound();
   const db = getDatabase();
   const areas = new AreaRepo(db);
-  const area = areas.get(id);
+  const found = areas.get(id);
+  const area = found && scope.allows(found.campaignId) ? found : null;
   if (!area) notFound();
   return <AreaView detail={areaDetail(area, { areas, encounters: new EncounterRepo(db), lookup: refLookup() })} />;
 }

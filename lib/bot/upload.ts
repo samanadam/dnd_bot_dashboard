@@ -40,8 +40,8 @@ export async function handleBotUpload(request: Request, deps: ProxyDeps): Promis
     log({ event: "bot_refused", userId, method: "POST", path, status: 403, detail: "cross_origin" });
     return errorResponse(403, "forbidden", "Cross-origin request refused.");
   }
-  if (!deps.isDm?.(userId)) {
-    log({ event: "bot_refused", userId, method: "POST", path, status: 404, detail: "dm_only" });
+  if (!deps.allows(userId, "bot.manage")) {
+    log({ event: "bot_refused", userId, method: "POST", path, status: 404, detail: "needs_bot.manage" });
     return errorResponse(404, "not_found", "Unknown endpoint.");
   }
 

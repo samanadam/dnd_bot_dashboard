@@ -61,11 +61,12 @@ export function campaignScope(access: Access, permission: Permission): CampaignS
 
 export type Guarded = { ok: true; userId: string; access: Access; scope: CampaignScope };
 
-export async function guardApi(request: Request, deps: DmGuardDeps, permission: Permission): Promise<Guarded | Refusal> {
+export async function guardApi(request: Request, deps: DmGuardDeps, permission: Permission | "owner" | "signed-in"): Promise<Guarded | Refusal> {
   const access = await deps.getAccess();
   if (!access) return { ok: false, response: errorResponse(401, "unauthorized", "Sign in required.") };
   // The same answer as an unknown URL: other portal users learn nothing.
-  if (!can(access, permission)) return { ok: false, response: errorResponse(404, "not_found", "Unknown endpoint.") };
+  const allowed = permission === "signed-in" ? true : permission === "owner" ? access.owner : can(access, permission);
+  if (!allowed) return { ok: false, response: errorResponse(404, "not_found", "Unknown endpoint.") };
   if (request.headers.get(PORTAL_HEADER) !== "1" || !isSameOrigin(request)) {
     return { ok: false, response: errorResponse(403, "forbidden", "Cross-origin request refused.") };
   }
@@ -77,7 +78,8 @@ export async function guardApi(request: Request, deps: DmGuardDeps, permission: 
       response: errorResponse(429, "rate_limited", "Too many requests. Slow down.", { "Retry-After": String(wait) }),
     };
   }
-  return { ok: true, userId: access.userId, access, scope: campaignScope(access, permission) };
+  const scoped: Permission = permission === "owner" || permission === "signed-in" ? "dm" : permission;
+  return { ok: true, userId: access.userId, access, scope: campaignScope(access, scoped) };
 }
 
 /** The DM tools' gate: the `dm` permission, scoped to the user's campaigns. */
