@@ -23,5 +23,11 @@ were retrieved through the Open5e API and converted by
 `scripts/import-srd-items.mts`, which keeps only entries whose own document is
 one of those two and drops every other book.
 
-Monsters and items from other books are not part of this repository. The DM adds them
+The spells and feats in `spells-2014.json`, `spells-2024.json`, `feats-2014.json` and
+`feats-2024.json` come from the same two documents (SRD 5.1 and SRD 5.2) under the same
+license. They were retrieved through the Open5e API and converted by
+`scripts/import-srd-spells.mts`, which keeps only entries whose own document is one of
+those two.
+
+Monsters, items, spells and feats from other books are not part of this repository. The DM adds them
 privately through the portal; they are stored only on the server.

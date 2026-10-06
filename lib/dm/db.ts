@@ -138,6 +138,33 @@ const MIGRATIONS: readonly string[] = [
    );
    CREATE INDEX area_rewards_area ON area_rewards (area_id, position);
    CREATE INDEX area_rewards_ref ON area_rewards (ref_key);`,
+  // Custom spells and feats, per campaign like items. author_user_id NULL is the
+  // DM's own; otherwise a player's homebrew, private to its author and the DM
+  // until shared. SRD spells and feats are bundled files, not rows.
+  `CREATE TABLE spells (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     campaign_id TEXT,
+     author_user_id TEXT,
+     shared INTEGER NOT NULL DEFAULT 1 CHECK (shared IN (0, 1)),
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX spells_campaign ON spells (campaign_id, name);
+   CREATE INDEX spells_author ON spells (author_user_id);
+   CREATE TABLE feats (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     campaign_id TEXT,
+     author_user_id TEXT,
+     shared INTEGER NOT NULL DEFAULT 1 CHECK (shared IN (0, 1)),
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX feats_campaign ON feats (campaign_id, name);
+   CREATE INDEX feats_author ON feats (author_user_id);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

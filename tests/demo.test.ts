@@ -123,6 +123,7 @@ describe("demo code stays away from server-side data", () => {
     "@/lib/dm/routeDeps",
     "@/lib/dm/srd",
     "@/lib/dm/srdItems",
+    "@/lib/dm/srdSpells",
     "@/lib/bot/proxy",
     "@/lib/bot/upload",
     "@/lib/campaign/selected",
