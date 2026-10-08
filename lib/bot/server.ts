@@ -25,6 +25,7 @@ const SERVER_PATHS: readonly RegExp[] = [
   /^turn\/announce$/,
 ];
 
+// botUrl is BOT_API_URL as configured, which already ends in /api/v1.
 export type BotServerDeps = { botUrl: string; botToken: string; fetchImpl?: typeof fetch };
 
 export type BotServerResult<T> =
@@ -52,7 +53,7 @@ export async function botServer<T>(
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
   let upstream: Response;
   try {
-    upstream = await (deps.fetchImpl ?? fetch)(`${deps.botUrl}/api/v1/${path}`, {
+    upstream = await (deps.fetchImpl ?? fetch)(`${deps.botUrl}/${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${deps.botToken}`,

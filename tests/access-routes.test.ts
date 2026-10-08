@@ -102,7 +102,7 @@ describe("server-side bot client", () => {
   it("refuses any path outside its list and attaches the token itself", async () => {
     const { botServer } = await import("@/lib/bot/server");
     const fetchImpl = vi.fn(async () => Response.json([{ id: ROLE, name: "Players", color: 0, position: 1 }]));
-    const deps = { botUrl: "https://bot.example", botToken: "secret-token-abcdefgh", fetchImpl };
+    const deps = { botUrl: "https://bot.example/api/v1", botToken: "secret-token-abcdefgh", fetchImpl };
     const ok = await botServer("GET", "guild/roles", { deps });
     expect(ok.ok).toBe(true);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
@@ -118,7 +118,7 @@ describe("server-side bot client", () => {
   it("validates answers and shapes errors", async () => {
     const { botServer } = await import("@/lib/bot/server");
     const { z } = await import("zod");
-    const odd = { botUrl: "https://bot.example", botToken: "t".repeat(20), fetchImpl: vi.fn(async () => Response.json({ nope: 1 })) };
+    const odd = { botUrl: "https://bot.example/api/v1", botToken: "t".repeat(20), fetchImpl: vi.fn(async () => Response.json({ nope: 1 })) };
     expect(await botServer("GET", "guild/roles", { deps: odd, schema: z.array(z.string()) })).toMatchObject({ ok: false, code: "bad_upstream" });
     const refused = { ...odd, fetchImpl: vi.fn(async () => Response.json({ error: { code: "guild_unavailable", message: "x" } }, { status: 503 })) };
     expect(await botServer("GET", "guild/roles", { deps: refused })).toMatchObject({ ok: false, status: 503, code: "guild_unavailable" });
