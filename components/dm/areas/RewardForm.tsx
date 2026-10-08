@@ -92,7 +92,7 @@ export function RewardForm({
           ) : (
             <ItemPicker campaign={campaign} onPick={(result) => setItem({ ref: result.ref, label: result.name })} />
           )}
-          <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-[8rem_1fr]">
             <Field label="Quantity">
               <input className={inputClass} type="number" min={1} max={9999} value={quantity} onChange={(event) => setQuantity(Math.max(1, Math.floor(Number(event.target.value)) || 1))} />
             </Field>

@@ -28,7 +28,7 @@ export function DemoBanner() {
   return (
     <div role="note" className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
       <FlaskConical className="size-4 shrink-0 text-accent" aria-hidden />
-      <p className="min-w-0 flex-1">
+      <p className="min-w-0 flex-1 basis-64">
         <span className="font-semibold">Demo.</span> Everything here is made up and lives only in this browser tab. Try anything: nothing reaches Discord, the bot or the
         real portal, and a reload starts over.
       </p>

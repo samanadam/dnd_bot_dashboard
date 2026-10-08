@@ -193,7 +193,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
           </EmptyState>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.slice(0, limit).map((monster) => (
             <li key={monster.id}>
               <PortalLink

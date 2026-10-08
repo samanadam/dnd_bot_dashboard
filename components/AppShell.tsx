@@ -4,7 +4,7 @@ import { Dices, Home, Settings, X, type LucideIcon } from "lucide-react";
 import { PortalLink } from "@/components/PortalLink";
 import { usePathname } from "next/navigation";
 import { stripBase } from "@/lib/demo/base";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { Tool } from "@/lib/tools/registry";
 import { ICON_BY_NAME } from "./icons";
 import { PresenceDot } from "./bot/LivePresence";
@@ -66,8 +66,12 @@ export function AppShell({
   // Mobile bottom tabs follow the tool the user is in.
   const current = tools.find((tool) => tool.status === "live" && tool.links.length > 1 && (pathname === tool.href || pathname.startsWith(`${tool.href}/`)));
 
+  // Height of the mobile tab bar (it wraps to a second row past five links), so
+  // floating controls such as the dice button and sticky save bars clear it.
+  const tabBarHeight = current ? (current.links.length > 5 ? "9rem" : "4.5rem") : "0rem";
+
   return (
-    <div className="min-h-dvh lg:pl-72">
+    <div className="min-h-dvh lg:pl-72" style={{ "--tabbar-h": tabBarHeight } as CSSProperties}>
       <div className="theme-art" aria-hidden />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-border bg-surface/70 backdrop-blur-xl lg:flex">
@@ -93,7 +97,7 @@ export function AppShell({
                     </div>
                     <div className="ml-5 mt-1 space-y-0.5 border-l border-border pl-3">
                       {tool.links.map((link) => (
-                        <NavItem key={link.href} href={link.href} icon={ICONS[link.icon]} label={link.label} active={isActive(pathname, link.href)} />
+                        <NavItem key={`${link.href}:${link.label}`} href={link.href} icon={ICONS[link.icon]} label={link.label} active={isActive(pathname, link.href)} />
                       ))}
                     </div>
                   </>
@@ -133,7 +137,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10 ${current ? "pb-28 lg:pb-10" : ""}`}>{children}</main>
+      <main className={`mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10 ${current ? (current.links.length > 5 ? "pb-44 lg:pb-10" : "pb-28 lg:pb-10") : ""}`}>{children}</main>
 
       {/* Mobile bottom tabs for the current tool */}
       {current && (
@@ -146,7 +150,7 @@ export function AppShell({
               const active = isActive(pathname, link.href);
               return (
                 <PortalLink
-                  key={link.href}
+                  key={`${link.href}:${link.label}`}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
                   className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${active ? "text-accent" : "text-muted"}`}

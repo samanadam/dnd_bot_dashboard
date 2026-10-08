@@ -125,7 +125,7 @@ function FeatureEditor({
         <Button size="icon" variant="danger-ghost" className="size-8" icon={Trash2} aria-label={`Remove ${feature.name || "entry"}`} onClick={onRemove} />
       </div>
       {open ? (
-        <div id={`${id}-body`} className="grid gap-3 border-t border-border p-3 sm:grid-cols-6">
+        <div id={`${id}-body`} className="grid gap-3 border-t border-border p-3 grid-cols-1 sm:grid-cols-6">
           <Labeled id={`${id}-name`} label="Name" className="sm:col-span-6">
             <input id={`${id}-name`} className={inputClass} value={feature.name} maxLength={120} onChange={(e) => onChange({ ...feature, name: e.target.value })} />
           </Labeled>
@@ -298,7 +298,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       ) : null}
 
       <Panel title="Identity">
-        <div className="grid gap-4 sm:grid-cols-6">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-6">
           <Labeled id="cf-name" label="Name" className="sm:col-span-4">
             <input id="cf-name" className={`${inputClass} font-display text-lg`} value={block.name} maxLength={120} required placeholder="Captain Vex" onChange={(e) => set("name", e.target.value)} />
           </Labeled>
@@ -353,7 +353,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       </Panel>
 
       <Panel title="Defense and movement">
-        <div className="grid gap-4 sm:grid-cols-6">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-6">
           <Labeled id="cf-ac" label="Armor class" className="sm:col-span-1">
             <input id="cf-ac" inputMode="numeric" className={`${inputClass} text-center text-lg tabular-nums`} value={String(block.ac)} onChange={(e) => set("ac", Math.max(0, Math.min(40, toInt(e.target.value.replace(/\D/g, ""), 0))))} />
           </Labeled>
@@ -413,7 +413,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
             </div>
           ))}
         </div>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        <div className="mt-5 grid gap-5 grid-cols-1 sm:grid-cols-2">
           <div>
             <h3 className="mb-2 text-xs font-medium text-muted">Saving throws</h3>
             <KeyValueEditor
@@ -486,7 +486,7 @@ export function CreatureForm({ id, initial, kind: initialKind = "monster" }: { i
       </Panel>
 
       {/* Sticky save bar. On phones it sits above the tab bar and leaves room for the dice button. */}
-      <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] z-30 lg:bottom-4">
+      <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+var(--tabbar-h,4.5rem)+0.5rem)] z-30 lg:bottom-4">
         <div className="flex items-center justify-end gap-2 rounded-2xl border border-border bg-surface/95 py-2.5 pl-3 pr-20 shadow-2xl backdrop-blur-xl lg:pr-24">
           <span className="mr-auto hidden truncate text-sm text-muted sm:block">{block.name || "Unnamed creature"}</span>
           <Button onClick={() => router.back()} disabled={busy}>

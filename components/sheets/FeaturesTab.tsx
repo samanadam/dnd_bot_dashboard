@@ -85,7 +85,7 @@ export function FeaturesTab({ sheet, editing }: { sheet: SheetHandle; editing: b
               <li key={feature.id} className="rounded-2xl border border-border p-3">
                 {editing ? (
                   <div className="space-y-2">
-                    <div className="grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
+                    <div className="grid gap-2 grid-cols-1 sm:grid-cols-[1fr_12rem_auto]">
                       <TextField label="Name" value={feature.name} max={120} onChange={(name) => update((b) => ({ ...b, features: b.features.map((f, i) => (i === index ? { ...f, name: name || f.name } : f)) }))} />
                       <TextField label="From" value={feature.source} max={80} placeholder="Fighter 2" onChange={(source) => update((b) => ({ ...b, features: b.features.map((f, i) => (i === index ? { ...f, source } : f)) }))} />
                       <div className="flex items-end">
@@ -133,7 +133,7 @@ export function FeaturesTab({ sheet, editing }: { sheet: SheetHandle; editing: b
               <li key={feat.id} className="rounded-2xl border border-border p-3">
                 {editing ? (
                   <div className="space-y-2">
-                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <div className="grid gap-2 grid-cols-1 sm:grid-cols-[1fr_auto]">
                       <TextField label="Name" value={feat.name} max={120} onChange={(name) => update((b) => ({ ...b, feats: b.feats.map((f, i) => (i === index ? { ...f, name: name || f.name } : f)) }))} />
                       <div className="flex items-end">
                         <Button size="icon" variant="danger-ghost" icon={Trash2} aria-label={`Remove ${feat.name}`} onClick={() => update((b) => ({ ...b, feats: b.feats.filter((_, i) => i !== index) }))} />

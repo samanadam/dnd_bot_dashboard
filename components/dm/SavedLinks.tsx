@@ -69,7 +69,7 @@ function EditRow({ item, tags: current, suggestions, onDone }: { item: SavedTrac
   });
   return (
     <form
-      className="grid gap-3 rounded-2xl border border-accent/40 bg-surface p-3 sm:grid-cols-[1fr_1fr_auto]"
+      className="grid gap-3 rounded-2xl border border-accent/40 bg-surface p-3 grid-cols-1 sm:grid-cols-[1fr_1fr_auto]"
       onSubmit={(event) => {
         event.preventDefault();
         if (title.trim()) save.mutate();
@@ -349,7 +349,7 @@ export function SavedLinks() {
 
       <div role="tabpanel" className="space-y-4">
         <form
-          className="grid gap-3 rounded-2xl border border-border bg-surface-2 p-3 sm:grid-cols-[1fr_9rem_11rem_auto]"
+          className="grid gap-3 rounded-2xl border border-border bg-surface-2 p-3 grid-cols-1 sm:grid-cols-[1fr_9rem_11rem_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             if (text.trim()) lookup.mutate(text.trim());
@@ -440,7 +440,7 @@ export function SavedLinks() {
             </EmptyState>
           </div>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {visible.map((item) =>
               editing === item.id ? (
                 <li key={item.id} className="sm:col-span-2">
@@ -449,55 +449,58 @@ export function SavedLinks() {
               ) : (
                 <li
                   key={item.id}
-                  className={`flex items-center gap-2 rounded-2xl border p-2 pl-3 ${
+                  className={`@container rounded-2xl border p-2 pl-3 ${
                     (item.kind === "ambience" && ambienceLayer(item)) || (item.kind === "music" && music.data?.current?.id === trackUrl(item.source, item.ref))
                       ? "border-accent bg-accent-soft"
                       : "border-border bg-surface-2"
                   }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium" title={item.title}>
-                        {item.title}
-                      </span>
-                      {isSetRef(item.source, item.ref) ? <Badge tone="accent">Set</Badge> : null}
+                  {/* Narrow rows put the actions on a line of their own so the title stays readable. */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 @md:flex-nowrap">
+                    <div className="min-w-0 flex-1 basis-full @md:basis-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium" title={item.title}>
+                          {item.title}
+                        </span>
+                        {isSetRef(item.source, item.ref) ? <Badge tone="accent">Set</Badge> : null}
+                      </div>
+                      <div className="text-xs text-muted">
+                        {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
+                      </div>
+                      <TagChips tags={tagged.tagsOf(savedRef(item.id))} className="mt-1" />
                     </div>
-                    <div className="text-xs text-muted">
-                      {formatDuration(item.durationSeconds)} · {WEB_SOURCE_LABEL[item.source]}
-                    </div>
-                    <TagChips tags={tagged.tagsOf(savedRef(item.id))} className="mt-1" />
+                    {item.kind === "music" ? (
+                      <>
+                        {isSetRef(item.source, item.ref) ? <ShuffleToggle on={shuffle} onChange={setShuffle} /> : null}
+                        <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
+                        <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
+                        <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
+                      </>
+                    ) : item.kind === "ambience" ? (
+                      <Button
+                        size="sm"
+                        variant={ambienceLayer(item) ? "primary" : "secondary"}
+                        icon={ambienceLayer(item) ? Square : CloudRain}
+                        aria-pressed={Boolean(ambienceLayer(item))}
+                        aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
+                        busy={pending === item.id}
+                        disabled={!voice.ready || busy || !sourceOn(item.source)}
+                        onClick={() => void toggleAmbience(item)}
+                      >
+                        {ambienceLayer(item) ? "Stop" : "Loop"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
+                        Play
+                      </Button>
+                    )}
+                    {item.kind !== "music" ? (
+                      <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={busy || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
+                    ) : null}
+                    <IconLink source={item.source} reference={item.ref} title={item.title} />
+                    <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />
+                    <Button size="icon" variant="danger-ghost" aria-label={`Delete ${item.title}`} icon={Trash2} onClick={() => setDeleting(item)} />
                   </div>
-                  {item.kind === "music" ? (
-                    <>
-                      {isSetRef(item.source, item.ref) ? <ShuffleToggle on={shuffle} onChange={setShuffle} /> : null}
-                      <Button size="icon" variant="primary" aria-label={`Play ${item.title} now`} title="Play now" icon={Play} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "now")} />
-                      <Button size="icon" aria-label={`Play ${item.title} next`} title="Play next" icon={ListStart} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "next")} />
-                      <Button size="icon" aria-label={`Add ${item.title} to the queue`} title="Add to the queue" icon={ListEnd} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void playMusic(item, "end")} />
-                    </>
-                  ) : item.kind === "ambience" ? (
-                    <Button
-                      size="sm"
-                      variant={ambienceLayer(item) ? "primary" : "secondary"}
-                      icon={ambienceLayer(item) ? Square : CloudRain}
-                      aria-pressed={Boolean(ambienceLayer(item))}
-                      aria-label={`${ambienceLayer(item) ? "Stop" : "Loop"} ${item.title}`}
-                      busy={pending === item.id}
-                      disabled={!voice.ready || busy || !sourceOn(item.source)}
-                      onClick={() => void toggleAmbience(item)}
-                    >
-                      {ambienceLayer(item) ? "Stop" : "Loop"}
-                    </Button>
-                  ) : (
-                    <Button size="sm" icon={Zap} aria-label={`Play ${item.title} once`} busy={pending === item.id} disabled={!voice.ready || busy || !sourceOn(item.source)} onClick={() => void fireEffect(item)}>
-                      Play
-                    </Button>
-                  )}
-                  {item.kind !== "music" ? (
-                    <Button size="icon" variant="ghost" aria-label={`Get ${item.title} ready`} title="Save it on the bot now, so it starts at once" icon={CloudDownload} disabled={busy || !sourceOn(item.source)} onClick={() => void prepareOne(item)} />
-                  ) : null}
-                  <IconLink source={item.source} reference={item.ref} title={item.title} />
-                  <Button size="icon" variant="ghost" aria-label={`Edit ${item.title}`} icon={Pencil} onClick={() => setEditing(item.id)} />
-                  <Button size="icon" variant="danger-ghost" aria-label={`Delete ${item.title}`} icon={Trash2} onClick={() => setDeleting(item)} />
                 </li>
               ),
             )}

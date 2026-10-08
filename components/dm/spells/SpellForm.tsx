@@ -119,7 +119,7 @@ export function SpellForm({
         void save();
       }}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
         <Field label="Name">
           <input className={inputClass} value={value.name} maxLength={120} onChange={(event) => set("name", event.target.value)} autoFocus />
         </Field>
@@ -190,7 +190,7 @@ export function SpellForm({
         <Check label="Material" checked={value.components.material} onChange={(next) => setComponent("material", next)} />
       </div>
       {value.components.material ? (
-        <div className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_10rem_auto]">
           <Field label="Material">
             <input className={inputClass} value={value.components.materialText} maxLength={500} onChange={(event) => setComponent("materialText", event.target.value)} />
           </Field>
@@ -209,7 +209,7 @@ export function SpellForm({
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Field label="Attack">
           <select className={`${inputBaseClass} h-11 w-full`} value={value.attack ?? ""} onChange={(event) => set("attack", (event.target.value || null) as CustomSpellInput["attack"])}>
             <option value="">None</option>
@@ -243,7 +243,7 @@ export function SpellForm({
         </Field>
       </div>
       {value.effect ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           <Field label="Roll" hint={effectRollError ?? undefined}>
             <input
               className={inputClass}

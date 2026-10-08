@@ -67,7 +67,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
         if (input.name.trim()) void save();
       }}
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <Field label="Scene name">
           <input className={inputClass} value={input.name} maxLength={60} required placeholder="Rainy tavern" onChange={(e) => set({ name: e.target.value })} />
         </Field>
@@ -162,7 +162,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
           <p className="text-sm text-faint">No sounds yet.</p>
         )}
         {layerCount < 12 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {(["ambience", "sfx"] as const).map((kind) => (
               <select
                 key={kind}
@@ -343,7 +343,7 @@ export function Scenes() {
         groups.map(([category, items]) => (
           <div key={category || "none"} className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">{category || "Other"}</h3>
-            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {items.map((scene) => (
                 <li key={scene.id} className="flex items-center gap-2 rounded-2xl border border-border bg-surface-2 p-2 pl-3">
                   <div className="min-w-0 flex-1">

@@ -274,7 +274,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
           </EmptyState>
         </div>
       ) : (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
+        <div className="grid items-start gap-5 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
           <ol ref={listRef} className="space-y-2.5" aria-label="Initiative order">
             {encounter.combatants.map((c) => (
               <CombatantRow

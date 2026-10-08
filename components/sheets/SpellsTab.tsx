@@ -178,7 +178,7 @@ export function SpellsTab({ sheet, editing, campaignId }: { sheet: SheetHandle; 
       {derived.casting.length === 0 ? (
         <Notice tone="neutral">None of this character&apos;s classes casts spells. Set a class&apos;s casting type under editing to use this tab, or keep spells from items and feats here anyway.</Notice>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {derived.casting.map((c) => (
             <div key={c.classId} className="rounded-2xl border border-border bg-surface p-3 text-sm shadow-card">
               <p className="font-medium">{c.name}</p>

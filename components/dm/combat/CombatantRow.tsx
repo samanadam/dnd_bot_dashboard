@@ -62,7 +62,7 @@ export function CombatantRow(props: Props) {
       } ${state === "down" ? "opacity-70" : ""}`}
     >
       {props.active ? <span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-accent" aria-hidden /> : null}
-      <div className="flex items-center gap-3 p-3 pl-4">
+      <div className="flex items-center gap-2 p-3 pl-4 sm:gap-3">
         <div className="flex flex-col items-center">
           <label htmlFor={`${rowId}-init`} className="text-[9px] font-semibold uppercase tracking-widest text-faint">
             Init

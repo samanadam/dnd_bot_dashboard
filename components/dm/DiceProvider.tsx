@@ -319,7 +319,7 @@ function DiceTray({ open, onOpenChange }: { open: boolean; onOpenChange: (value:
   if (onDicePage && !open) return null;
 
   return (
-    <div className="fixed right-4 z-40 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] lg:bottom-6 lg:right-6">
+    <div className="fixed right-4 z-40 bottom-[calc(env(safe-area-inset-bottom,0px)+var(--tabbar-h,4.5rem)+1rem)] lg:bottom-6 lg:right-6">
       {open ? (
         <div
           ref={panelRef}

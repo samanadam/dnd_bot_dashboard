@@ -68,7 +68,7 @@ export function InventoryTab({ sheet, editing }: { sheet: SheetHandle; editing: 
             {items.map((item) => (
               <li key={item.id} className="py-2">
                 {editing ? (
-                  <div className="grid gap-2 sm:grid-cols-6">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-6">
                     <div className="sm:col-span-2">
                       <TextField label="Name" value={item.name} max={120} onChange={(name) => setItem(item.id, (it) => ({ ...it, name: name || it.name }))} />
                     </div>
@@ -121,7 +121,7 @@ export function InventoryTab({ sheet, editing }: { sheet: SheetHandle; editing: 
           </ul>
         )}
         {editing ? (
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
             <NumberField label="Attunement slots" value={body.inventory.attunementMax} min={0} max={6} onChange={(attunementMax) => update((b) => ({ ...b, inventory: { ...b.inventory, attunementMax } }))} />
             <label className="block text-xs text-muted">
               Carrying

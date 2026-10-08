@@ -49,7 +49,7 @@ function BotConnectionCard() {
   const stats = useStats();
   return (
       <Card title="Bot connection" subtitle="What the portal sees from the bot right now" icon={Server}>
-        <dl className="grid gap-x-8 divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
+        <dl className="grid gap-x-8 divide-y divide-border grid-cols-1 sm:grid-cols-2 sm:divide-y-0">
           <Row label="Status">
             <PresenceDot />
           </Row>
@@ -82,7 +82,7 @@ export function SettingsView({ theme, user, expires, signOut, canSeeBot, owner }
         <ThemePicker initial={theme} />
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
         {canSeeBot ? (
         <Card title="This device" subtitle="Defaults remembered only in this browser" icon={MonitorSmartphone}>
           <div className="space-y-4">

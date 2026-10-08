@@ -35,7 +35,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
   const error = errorKey ? (ERRORS[errorKey] ?? "Sign-in failed. Try again.") : undefined;
 
   return (
-    <main className="relative grid min-h-dvh lg:grid-cols-2">
+    <main className="relative grid min-h-dvh grid-cols-1 lg:grid-cols-2">
       <ThemeMenu initial={theme} />
       {/* Brand side. The theme artwork fills it; the fades keep the text readable on any theme. */}
       <section className="relative hidden overflow-hidden border-r border-border bg-surface lg:flex lg:flex-col lg:justify-end lg:p-12">

@@ -79,7 +79,7 @@ export function SheetListView({
       {[...groups.entries()].map(([group, items]) => (
         <section key={group} className="space-y-2">
           {manager ? <h2 className="text-sm font-semibold text-muted">{group}</h2> : null}
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {items.map((sheet) => (
               <li key={sheet.id}>
                 <PortalLink href={`${base}/${sheet.id}`} className="block rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-border-strong">

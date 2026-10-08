@@ -120,10 +120,10 @@ export function VitalsBar({ sheet }: { sheet: SheetHandle }) {
         </select>
         <span className="inline-flex items-center gap-1 text-xs text-muted">
           Exhaustion {vitals.exhaustion}
-          <button type="button" className="rounded px-1 hover:bg-surface-3" aria-label="Less exhaustion" onClick={() => void apply([{ op: "exhaustion", delta: -1 }])} disabled={vitals.exhaustion === 0}>
+          <button type="button" className="grid size-8 place-items-center rounded-lg hover:bg-surface-3 disabled:opacity-40 sm:size-6" aria-label="Less exhaustion" onClick={() => void apply([{ op: "exhaustion", delta: -1 }])} disabled={vitals.exhaustion === 0}>
             −
           </button>
-          <button type="button" className="rounded px-1 hover:bg-surface-3" aria-label="More exhaustion" onClick={() => void apply([{ op: "exhaustion", delta: 1 }])} disabled={vitals.exhaustion === 6}>
+          <button type="button" className="grid size-8 place-items-center rounded-lg hover:bg-surface-3 disabled:opacity-40 sm:size-6" aria-label="More exhaustion" onClick={() => void apply([{ op: "exhaustion", delta: 1 }])} disabled={vitals.exhaustion === 6}>
             +
           </button>
         </span>

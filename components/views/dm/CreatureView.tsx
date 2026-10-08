@@ -27,7 +27,7 @@ export function CreatureView({ creature }: { creature: Creature }) {
           </>
         }
       />
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-6 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="rounded-3xl border border-border bg-surface p-5 shadow-card sm:p-8">
           <RollableStatBlock block={creature.statBlock} />
         </div>
