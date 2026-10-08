@@ -22,7 +22,7 @@ export function DicePage() {
   const latest = history[0];
 
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid items-start gap-6 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         <section className="rounded-3xl border border-border bg-surface p-5 shadow-card">
           <DiceRoller autoFocus />
@@ -33,7 +33,7 @@ export function DicePage() {
         </section>
         <section className="rounded-3xl border border-border bg-surface p-5 shadow-card">
           <h2 className="font-display text-lg font-semibold">Quick rolls</h2>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-2">
             {PRESETS.map((preset) => (
               <button
                 key={preset.label}

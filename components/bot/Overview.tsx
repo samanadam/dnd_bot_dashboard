@@ -63,12 +63,12 @@ export function Overview() {
         )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <ActiveRecordings />
         <StartRecording />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card title="Session length" subtitle="Last 12 finished sessions" icon={BarChart3}>
           {sessions.isPending ? (
             <Skeleton className="h-40" />

@@ -37,7 +37,7 @@ export function StoryTab({ sheet, editing }: { sheet: SheetHandle; editing: bool
     <div className="space-y-4">
       <Section title="Who they are">
         {editing ? (
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-4">
             {LOOKS.map(({ key, label }) => (
               <TextField key={key} label={label} value={String(body.identity[key])} max={key === "faith" ? 80 : 40} onChange={(value) => update((b) => ({ ...b, identity: { ...b.identity, [key]: value } }))} />
             ))}
@@ -95,13 +95,13 @@ export function CompanionsTab({ sheet, editing }: { sheet: SheetHandle; editing:
           Familiars, animal companions, mounts and summons.
         </EmptyState>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {body.companions.map((companion, index) => {
             const state = vitals.companions[companion.id] ?? { hp: companion.maxHp, tempHp: 0, conditions: [] };
             return (
               <li key={companion.id} className="space-y-2 rounded-2xl border border-border p-3 text-sm">
                 {editing ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
                     <TextField label="Name" value={companion.name} max={120} onChange={(name) => update((b) => ({ ...b, companions: b.companions.map((c, i) => (i === index ? { ...c, name: name || c.name } : c)) }))} />
                     <label className="block text-xs text-muted">
                       Kind

@@ -20,7 +20,7 @@ function AttackEditor({ attack, onChange, onRemove }: { attack: Attack; onChange
   const damage = attack.damage[0] ?? { roll: "1d6", type: "", addAbility: true };
   const error = diceError(damage.roll);
   return (
-    <div className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-6">
+    <div className="grid gap-2 rounded-2xl border border-border p-3 grid-cols-1 sm:grid-cols-6">
       <div className="sm:col-span-2">
         <TextField label="Name" value={attack.name} max={120} onChange={(name) => onChange({ ...attack, name: name || attack.name })} />
       </div>
@@ -65,7 +65,7 @@ function AttackEditor({ attack, onChange, onRemove }: { attack: Attack; onChange
 function ResourceEditor({ resource, onChange, onRemove }: { resource: Resource; onChange: (next: Resource) => void; onRemove: () => void }) {
   const fixed = typeof resource.max === "number";
   return (
-    <div className="grid gap-2 rounded-2xl border border-border p-3 sm:grid-cols-5">
+    <div className="grid gap-2 rounded-2xl border border-border p-3 grid-cols-1 sm:grid-cols-5">
       <div className="sm:col-span-2">
         <TextField label="Name" value={resource.name} max={120} onChange={(name) => onChange({ ...resource, name: name || resource.name })} />
       </div>

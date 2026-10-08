@@ -64,7 +64,7 @@ export function NpcDirectory({ npcs }: { npcs: NpcCard[] }) {
           ))}
         </div>
       ) : null}
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((npc) => (
           <li key={npc.id}>
             <PortalLink

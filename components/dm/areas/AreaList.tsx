@@ -71,12 +71,12 @@ export function AreaList({ areas }: { areas: AreaSummary[] }) {
           </EmptyState>
         </div>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-3 grid-cols-1 md:grid-cols-2">
           {areas.map((area, index) => {
             const complete = area.rewardsTotal > 0 && area.rewardsDone === area.rewardsTotal;
             return (
-              <li key={area.id} className="group relative flex items-center gap-4 rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-accent/50">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+              <li key={area.id} className="group relative flex items-center gap-2 rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-accent/50 sm:gap-4">
+                <span className="hidden size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent sm:grid">
                   <MapPin className="size-5" aria-hidden />
                 </span>
                 <PortalLink href={`/dm/areas/${area.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">

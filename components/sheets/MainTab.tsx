@@ -97,7 +97,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
     <div className="space-y-4">
       {editing ? (
         <Section title="Character">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
             <TextField label="Name" value={body.identity.name} max={120} onChange={(name) => update((b) => ({ ...b, identity: { ...b.identity, name: name || b.identity.name } }))} />
             <TextField label="Species" value={body.identity.species} max={120} onChange={(species) => update((b) => ({ ...b, identity: { ...b.identity, species } }))} />
             <TextField label="Background" value={body.identity.background} max={120} onChange={(background) => update((b) => ({ ...b, identity: { ...b.identity, background } }))} />
@@ -177,7 +177,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
         </div>
       </Section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Section title="Combat">
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div title={derived.ac.why}>
@@ -224,7 +224,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
             ))}
           </div>
           {editing ? (
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
               <label className="block text-xs text-muted">
                 AC rule
                 <select
@@ -361,7 +361,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
           ) : null
         }
       >
-        <ul className="grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-1 text-sm grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {SKILL_IDS.map((skill) => {
             const info = derived.skills[skill];
             return (
@@ -395,7 +395,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
 
       <Section title="Proficiencies and languages">
         {editing ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             <ListField label="Armor" value={body.proficiencies.armor} onChange={(armor) => update((b) => ({ ...b, proficiencies: { ...b.proficiencies, armor } }))} />
             <ListField label="Weapons" value={body.proficiencies.weapons} onChange={(weapons) => update((b) => ({ ...b, proficiencies: { ...b.proficiencies, weapons } }))} />
             <ListField label="Tools" value={body.proficiencies.tools} onChange={(tools) => update((b) => ({ ...b, proficiencies: { ...b.proficiencies, tools } }))} />
@@ -404,7 +404,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
             <ListField label="Resistances" value={body.combat.resistances} max={20} onChange={(resistances) => update((b) => ({ ...b, combat: { ...b.combat, resistances } }))} />
           </div>
         ) : (
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <dl className="grid gap-2 text-sm grid-cols-1 sm:grid-cols-2">
             {(
               [
                 ["Armor", body.proficiencies.armor],

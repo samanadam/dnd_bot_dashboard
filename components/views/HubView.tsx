@@ -22,7 +22,7 @@ export function HubView({ name, tools }: { name: string | null; tools: Tool[] })
         </h1>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {tools.map((tool) => {
           if (tool.id === "bot") {
             return (
@@ -52,7 +52,7 @@ export function HubView({ name, tools }: { name: string | null; tools: Tool[] })
                     const LinkIcon = ICON_BY_NAME[link.icon];
                     return (
                       <PortalLink
-                        key={link.href}
+                        key={`${link.href}:${link.label}`}
                         href={link.href}
                         className="flex items-center gap-2 rounded-2xl border border-border bg-surface-2 px-3 py-2.5 text-sm font-medium transition hover:border-accent/50 hover:text-accent"
                       >

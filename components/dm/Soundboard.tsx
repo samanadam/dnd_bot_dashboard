@@ -279,7 +279,7 @@ export function Soundboard({ compact = false }: { compact?: boolean }) {
       {layers.length > 0 && (
         <section aria-label="Playing now">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Playing now</h3>
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {layers.map((layer) => (
               <LayerChip
                 key={layer.id}

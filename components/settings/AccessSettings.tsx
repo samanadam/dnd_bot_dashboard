@@ -105,7 +105,7 @@ function GrantEditor({
           </Button>
         ))}
       </div>
-      <fieldset className="grid gap-2 sm:grid-cols-2">
+      <fieldset className="grid gap-2 grid-cols-1 sm:grid-cols-2">
         <legend className="sr-only">Permissions</legend>
         {PERMISSIONS.map((permission) => (
           <label key={permission} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg/30 p-3 transition hover:border-border-strong">
@@ -134,7 +134,7 @@ function GrantEditor({
           </label>
         </div>
         {!draft.all ? (
-          <div className="grid gap-1.5 sm:grid-cols-2">
+          <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2">
             {(view.campaigns ?? []).map((campaign) => (
               <label key={campaign.id} className="flex items-center gap-2 text-sm">
                 <input
@@ -277,7 +277,7 @@ export function AccessSettings() {
                 <li key={grant.roleId} className="flex flex-wrap items-center gap-3 py-3">
                   <RoleChip role={role} fallback={grant.label} />
                   <Badge tone="accent">{presetOf(grant.permissions)}</Badge>
-                  <span className="min-w-0 flex-1 text-xs text-muted">
+                  <span className="min-w-0 flex-1 basis-48 text-xs text-muted">
                     {grant.permissions.map((p) => PERMISSION_LABELS[p as Permission]?.label ?? p).join(" · ") || "Nothing"}
                     <span className="block">{scopeText(grant.scope, view.campaigns)}</span>
                   </span>

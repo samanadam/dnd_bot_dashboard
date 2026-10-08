@@ -22,7 +22,7 @@ export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
       <div className="space-y-6">
         {header}
         <Skeleton className="h-56" />
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
           <Skeleton className="h-80" />
           <Skeleton className="h-80" />
         </div>
@@ -51,7 +51,7 @@ export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
     <div className="space-y-6">
       {header}
       <TransportBar state={state} enabled={enabled} />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="space-y-6">
           <TrackLibrary state={state} enabled={enabled} canManage={canManage} />
           {WEB_SOURCES.filter((name) => state.sources[name]).map((name) => (

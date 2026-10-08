@@ -29,7 +29,7 @@ export function SpellBlockView({ spell }: { spell: SpellBlock }) {
   return (
     <div className="space-y-3 text-sm">
       <p className="text-xs italic text-muted">{spellLevelLine(spell)}</p>
-      <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+      <dl className="grid gap-x-4 gap-y-1 grid-cols-1 sm:grid-cols-2">
         {facts.map(([label, value]) => (
           <div key={label} className="flex gap-2">
             <dt className="shrink-0 font-semibold">{label}</dt>

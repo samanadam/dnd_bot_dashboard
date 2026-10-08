@@ -18,7 +18,7 @@ export function PlayHomeView({ campaigns }: { campaigns: PlayCampaign[] | null }
           </EmptyState>
         </div>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
         {(campaigns ?? []).map((campaign) => (
           <PortalLink key={campaign.id} href={`/play/c/${campaign.id}`} className="block">
             <Card title={campaign.name} icon={Swords} className="transition hover:border-border-strong">

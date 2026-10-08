@@ -27,7 +27,7 @@ export function DmMusic() {
   return (
     <div className="space-y-4">
       <TransportBar state={state} enabled={enabled} />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
         <QueueList state={state} enabled={enabled} />
         <TrackLibrary state={state} enabled={enabled} canManage />
       </div>

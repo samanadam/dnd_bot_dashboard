@@ -84,10 +84,10 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
           <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
             <ClipboardList className="size-4" aria-hidden /> Prepared
           </h2>
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 grid-cols-1 md:grid-cols-2">
             {prepared.map((encounter) => (
               <li key={encounter.id} className="flex items-center gap-3 rounded-3xl border border-dashed border-accent/40 bg-surface p-4 shadow-card">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+                <span className="hidden size-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent sm:grid">
                   <ClipboardList className="size-5" aria-hidden />
                 </span>
                 <PortalLink href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 hover:text-accent">
@@ -113,10 +113,10 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
           </EmptyState>
         </div>
       ) : running.length === 0 ? null : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-3 grid-cols-1 md:grid-cols-2">
           {running.map((encounter) => (
-            <li key={encounter.id} className="group relative flex items-center gap-4 rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-accent/50">
-              <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${encounter.round ? "bg-accent-soft text-accent" : "bg-surface-2 text-faint"}`}>
+            <li key={encounter.id} className="group relative flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-accent/50 sm:flex-nowrap sm:gap-4">
+              <span className={`hidden size-12 shrink-0 place-items-center rounded-2xl sm:grid ${encounter.round ? "bg-accent-soft text-accent" : "bg-surface-2 text-faint"}`}>
                 <Swords className="size-5" aria-hidden />
               </span>
               <PortalLink href={`/dm/combat/${encounter.id}`} className="min-w-0 flex-1 after:absolute after:inset-0 after:rounded-3xl">
@@ -125,7 +125,8 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
                   {encounter.combatants} combatant{encounter.combatants === 1 ? "" : "s"} · {encounter.round ? `in progress, round ${encounter.round}` : "ready"}
                 </span>
               </PortalLink>
-              <span className="relative z-10">
+              {/* Own line on phones so the name keeps its width. */}
+              <span className="relative z-10 order-last basis-full sm:order-none sm:basis-auto">
                 <CampaignSelect dmScoped
                   compact
                   label={`Campaign for ${encounter.name}`}
@@ -146,7 +147,7 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
                 aria-label={`Delete ${encounter.name}`}
                 onClick={() => setDeleting(encounter)}
               />
-              <ChevronRight className="size-4 shrink-0 text-faint" aria-hidden />
+              <ChevronRight className="hidden size-4 shrink-0 text-faint sm:block" aria-hidden />
             </li>
           ))}
         </ul>

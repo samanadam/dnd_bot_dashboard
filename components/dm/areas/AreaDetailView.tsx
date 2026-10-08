@@ -75,7 +75,7 @@ export function AreaDetailView({ initial }: { initial: AreaDetail }) {
           void run(() => dm.updateArea(area.id, area.version, { name, summary, notes, campaignId }), "Area saved.").then((saved) => saved && router.refresh());
         }}
       >
-        <div className="grid gap-3 sm:grid-cols-[1fr_16rem]">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_16rem]">
           <Field label="Name">
             <input className={inputClass} value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
           </Field>

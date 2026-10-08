@@ -27,7 +27,7 @@ function CreateCampaign({ canManage }: { canManage: boolean }) {
   return (
     <Card title="New campaign" subtitle="Sessions, NPCs, encounters and names are kept apart per campaign" icon={Plus}>
       <form
-        className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-3 grid-cols-1 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           if (!name.trim() || !channelValid) return;
@@ -76,7 +76,7 @@ function Settings({ campaign, canManage }: { campaign: Campaign; canManage: bool
 
   return (
     <form
-      className="grid gap-3 sm:grid-cols-3"
+      className="grid gap-3 grid-cols-1 sm:grid-cols-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (!name.trim() || !channelValid || !languageValid) return;
@@ -150,7 +150,7 @@ function Glossary({ detail, canManage }: { detail: CampaignDetail; canManage: bo
   const rowsValid = cleanRows.length <= 200 && cleanRows.every((row) => row.heard.length <= 80 && row.correct.length <= 80);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
       <div className="space-y-3">
         <Field
           label="Names to expect"
@@ -311,7 +311,7 @@ export function CampaignsPanel({ canManage }: { canManage: boolean }) {
           </EmptyState>
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-[18rem_1fr]">
           <ul className="space-y-2" aria-label="Campaigns">
             {list.map((campaign) => (
               <li key={campaign.id}>

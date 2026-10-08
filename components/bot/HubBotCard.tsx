@@ -36,7 +36,7 @@ export function HubBotCard() {
         <PresenceDot />
       </div>
 
-      <dl className="relative mt-8 grid gap-4 sm:grid-cols-3">
+      <dl className="relative mt-8 grid gap-4 grid-cols-1 sm:grid-cols-3">
         {facts.map((fact) => (
           <div key={fact.label} className="min-w-0 rounded-2xl border border-border bg-surface-2/60 p-4">
             <dt className="text-xs text-muted">{fact.label}</dt>

@@ -62,7 +62,7 @@ export function TrackRow({
   onEditTags?: () => void;
 }) {
   return (
-    <li className={`group flex items-center gap-3 px-5 py-2.5 transition hover:bg-surface-2/60 ${playing ? "bg-accent-soft" : ""}`}>
+    <li className={`group flex items-center gap-2 px-3 py-2.5 transition sm:gap-3 sm:px-5 hover:bg-surface-2/60 ${playing ? "bg-accent-soft" : ""}`}>
       <Button
         size="icon"
         variant={playing ? "primary" : "secondary"}
@@ -78,9 +78,10 @@ export function TrackRow({
         <div className={`truncate text-sm ${playing ? "font-semibold text-accent" : "font-medium"}`} title={track.title}>
           {track.title}
         </div>
+        <div className="font-mono text-xs tabular-nums text-muted sm:hidden">{formatDuration(track.duration_seconds)}</div>
         {tags && tags.length > 0 ? <TagChips tags={tags} max={4} className="mt-1" /> : null}
       </div>
-      <span className="font-mono text-xs tabular-nums text-muted">{formatDuration(track.duration_seconds)}</span>
+      <span className="hidden font-mono text-xs tabular-nums text-muted sm:inline">{formatDuration(track.duration_seconds)}</span>
       {onEditTags && (
         <Button
           size="icon"
