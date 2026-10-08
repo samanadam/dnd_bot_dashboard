@@ -3,6 +3,7 @@ import { openDatabase } from "@/lib/dm/db";
 import { encounterCollection, encounterItem } from "@/lib/dm/encounterRoutes";
 import { EncounterRepo } from "@/lib/dm/encounters";
 import { RateLimiter } from "@/lib/rateLimit";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 
@@ -25,7 +26,7 @@ describe("EncounterRepo", () => {
 function setup() {
   const repo = new EncounterRepo(openDatabase(":memory:"));
   const logs: unknown[] = [];
-  const deps = { getUserId: async () => DM, dmIds: [DM], limiter: new RateLimiter(), encounters: () => repo, log: (e: unknown) => logs.push(e) };
+  const deps = { getAccess: ownerAccess(DM, [DM]), limiter: new RateLimiter(), encounters: () => repo, log: (e: unknown) => logs.push(e) };
   return { logs, collection: encounterCollection(deps), item: encounterItem(deps) };
 }
 
@@ -69,8 +70,7 @@ describe("encounter routes", () => {
 
   it("refuses non-DM users before touching storage", async () => {
     const deps = {
-      getUserId: async () => "222222222222222222",
-      dmIds: [DM],
+      getAccess: ownerAccess("222222222222222222", [DM]),
       limiter: new RateLimiter(),
       encounters: () => {
         throw new Error("must not be called");

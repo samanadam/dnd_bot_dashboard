@@ -138,6 +138,117 @@ const MIGRATIONS: readonly string[] = [
    );
    CREATE INDEX area_rewards_area ON area_rewards (area_id, position);
    CREATE INDEX area_rewards_ref ON area_rewards (ref_key);`,
+  // Custom spells and feats, per campaign like items. author_user_id NULL is the
+  // DM's own; otherwise a player's homebrew, private to its author and the DM
+  // until shared. SRD spells and feats are bundled files, not rows.
+  `CREATE TABLE spells (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     campaign_id TEXT,
+     author_user_id TEXT,
+     shared INTEGER NOT NULL DEFAULT 1 CHECK (shared IN (0, 1)),
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX spells_campaign ON spells (campaign_id, name);
+   CREATE INDEX spells_author ON spells (author_user_id);
+   CREATE TABLE feats (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     campaign_id TEXT,
+     author_user_id TEXT,
+     shared INTEGER NOT NULL DEFAULT 1 CHECK (shared IN (0, 1)),
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX feats_campaign ON feats (campaign_id, name);
+   CREATE INDEX feats_author ON feats (author_user_id);`,
+  // Role-based access. A Discord role maps to permissions for all campaigns or
+  // the ones listed. The owner (DM_USER_IDS) is never a row here. portal_users
+  // remembers who has signed in, so a sheet can be assigned to them, and their
+  // roles as last seen, so the grant editor can say who a change affects.
+  `CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   CREATE TABLE role_grants (
+     role_id TEXT PRIMARY KEY CHECK (length(role_id) BETWEEN 17 AND 20),
+     label TEXT NOT NULL DEFAULT '',
+     permissions TEXT NOT NULL,
+     all_campaigns INTEGER NOT NULL CHECK (all_campaigns IN (0, 1)),
+     updated_at TEXT NOT NULL,
+     updated_by TEXT NOT NULL
+   );
+   CREATE TABLE role_grant_campaigns (
+     role_id TEXT NOT NULL REFERENCES role_grants (role_id) ON DELETE CASCADE,
+     campaign_id TEXT NOT NULL,
+     PRIMARY KEY (role_id, campaign_id)
+   );
+   CREATE TABLE portal_users (
+     user_id TEXT PRIMARY KEY,
+     display_name TEXT NOT NULL,
+     avatar_url TEXT,
+     role_ids TEXT NOT NULL DEFAULT '[]',
+     first_seen TEXT NOT NULL,
+     last_seen TEXT NOT NULL
+   );`,
+  // Character sheets. A sheet belongs to exactly one campaign; owner_user_id
+  // NULL means the DM holds it unassigned. One active sheet per player per
+  // campaign: the one combat and the bot use. body changes with a version check;
+  // vitals change only through operations, each bumping vitals_version.
+  `CREATE TABLE characters (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     owner_user_id TEXT,
+     name TEXT NOT NULL,
+     edition TEXT NOT NULL CHECK (edition IN ('2014', '2024')),
+     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'retired', 'dead')),
+     is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+     version INTEGER NOT NULL,
+     body TEXT NOT NULL,
+     vitals_version INTEGER NOT NULL,
+     vitals TEXT NOT NULL,
+     dm_notes TEXT NOT NULL DEFAULT '',
+     portrait TEXT,
+     name_sync TEXT NOT NULL DEFAULT 'ok' CHECK (name_sync IN ('ok', 'pending')),
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX characters_campaign ON characters (campaign_id, name);
+   CREATE INDEX characters_owner ON characters (owner_user_id, campaign_id);
+   CREATE UNIQUE INDEX characters_one_active ON characters (campaign_id, owner_user_id)
+     WHERE is_active = 1 AND owner_user_id IS NOT NULL;`,
+  // The battle players follow: their notes on combatants, initiative they rolled
+  // on the battle page, and per-campaign turn-ping settings. target_label is
+  // what the author saw when writing, so a kept note never leaks a real name.
+  `CREATE TABLE battle_notes (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     encounter_id TEXT NOT NULL,
+     encounter_name TEXT NOT NULL,
+     combatant_id TEXT NOT NULL,
+     target_label TEXT NOT NULL,
+     author_user_id TEXT NOT NULL,
+     visibility TEXT NOT NULL CHECK (visibility IN ('private', 'party')),
+     keep INTEGER NOT NULL CHECK (keep IN (0, 1)),
+     text TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX battle_notes_encounter ON battle_notes (encounter_id);
+   CREATE INDEX battle_notes_campaign ON battle_notes (campaign_id, keep);
+   CREATE TABLE battle_initiative (
+     encounter_id TEXT NOT NULL,
+     character_id TEXT NOT NULL,
+     value INTEGER NOT NULL,
+     breakdown TEXT NOT NULL,
+     at TEXT NOT NULL,
+     PRIMARY KEY (encounter_id, character_id)
+   );
+   CREATE TABLE campaign_settings (
+     campaign_id TEXT PRIMARY KEY,
+     turn_ping_enabled INTEGER NOT NULL DEFAULT 0 CHECK (turn_ping_enabled IN (0, 1)),
+     turn_ping_channel_id TEXT
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

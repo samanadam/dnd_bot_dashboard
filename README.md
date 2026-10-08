@@ -23,10 +23,25 @@ from a laptop or a phone at the table.
   follow the campaign picked in the switcher. A session recorded with no
   campaign can be filed later, even after it is transcribed.
 - **Settings**: 12 themes, per-device defaults, account and connection info.
-- **DM Screen** (only for ids in `DM_USER_IDS`):
+- **Access** (owners only, Settings > Access): give Discord roles permissions,
+  for every campaign or chosen ones: the player area, bot controls, managing
+  recordings, managing character sheets, or the whole DM Screen as a co-DM.
+  Presets for Player, Bot operator and Co-DM. Owners (`DM_USER_IDS`) always
+  have everything.
+- **Party** (players): detailed character sheets per campaign, with the
+  numbers worked out (multiclass slots, saves, skills, spell DC), spells you
+  prepare and cast, inventory, feats, resources, companions, backstory and a
+  portrait. Rolls are made by the server and can be posted to Discord. A
+  battle page follows the fight the DM shows: initiative order, health as
+  bands, your own character, notes on enemies, rolling initiative.
+- **DM Screen** (owners, and roles granted the DM tools):
   - **Bestiary**: all SRD 5.1 and 5.2 monsters plus your own, with full stat
     blocks where every bonus and damage roll is one click.
   - **NPCs**: your campaign's people with stat blocks, private notes and tags.
+  - **Spells and feats**: every SRD 5.1 and 5.2 spell and feat with filters,
+    and your own (players can add homebrew you then share).
+  - **Party**: every character sheet in a campaign, owner and in-play
+    controls, DM-only notes, and Discord turn pings.
   - **Areas**: the places of your campaign. Each links prepared encounters
     (launch them straight into Combat) and holds rewards: items, and
     "pointers" (if the party does this, that follows in the story, optionally
@@ -113,7 +128,9 @@ You still need a Discord application to sign in.
 3. Add the redirect `http://localhost:3000/api/auth/callback/discord`, plus the
    same path on your production URL.
 4. Turn on Developer Mode in Discord, then copy the server id into
-   `ALLOWED_GUILD_ID` and the admin role id(s) into `ALLOWED_ROLE_IDS`.
+   `ALLOWED_GUILD_ID` and your own user id into `DM_USER_IDS`. Sign in and give
+   roles access under Settings > Access. (An existing install's
+   `ALLOWED_ROLE_IDS` become Bot operator grants on the first start.)
 
 The portal asks only for `identify` and `guilds.members.read`. It needs no bot
 token of its own and never sees anyone's email.

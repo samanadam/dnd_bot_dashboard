@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, CloudOff, Dices, Flag, Loader, Play, Plus, Swords, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CloudOff, Dices, Eye, EyeOff, Flag, Loader, Play, Plus, Swords, TriangleAlert, X } from "lucide-react";
 import { usePortalRouter } from "@/components/PortalLink";
 import { useEffect, useRef, useState } from "react";
 import { dm, DmError } from "@/lib/dm/client";
@@ -29,7 +29,9 @@ import { AddCombatant } from "./AddCombatant";
 import { PlayerRolls } from "./PlayerRolls";
 import { CombatantRow } from "./CombatantRow";
 import { SidePanel } from "./SidePanel";
+import { BattleNotesPanel } from "./BattleNotesPanel";
 import { useEncounter, type SaveStatus } from "./useEncounter";
+import { useLinked } from "./useLinked";
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 
@@ -67,6 +69,23 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
   const unrolled = encounter.combatants.filter((c) => c.kind !== "player" && c.initiative === null);
   const missingPlayers = encounter.combatants.filter((c) => c.kind === "player" && c.initiative === null);
   const locked = status === "conflict";
+  const { linked, send, owners } = useLinked(encounter, apply, locked);
+  const canShow = !prepared && initial.campaignId !== null;
+
+  /** Next turn; a linked character's timed conditions tick on their sheet as their turn starts. */
+  const advance = () => {
+    const next = nextTurn(encounter);
+    apply(nextTurn);
+    const actor = next.combatants[next.turn];
+    if (actor && linked(actor) && encounter.round > 0 && (next.turn !== encounter.turn || next.round !== encounter.round)) {
+      void send(actor, [{ op: "tickConditions" }]);
+    }
+  };
+  // The keyboard handler always calls the latest version.
+  const advanceRef = useRef(advance);
+  useEffect(() => {
+    advanceRef.current = advance;
+  });
 
   // Follow the turn: the new actor's row scrolls into view and its stat block opens.
   useEffect(() => {
@@ -84,7 +103,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
       if (target && (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)) return;
       if (event.key === "n" || event.key === "ArrowRight") {
         event.preventDefault();
-        apply(nextTurn);
+        advanceRef.current();
       } else if (event.key === "p" || event.key === "ArrowLeft") {
         event.preventDefault();
         apply(previousTurn);
@@ -144,6 +163,18 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
             <Button icon={Plus} onClick={() => setAdding((open) => !open)} aria-expanded={adding} disabled={locked}>
               Add
             </Button>
+            {!prepared ? (
+              <Button
+                icon={encounter.shownToPlayers ? Eye : EyeOff}
+                variant={encounter.shownToPlayers ? "primary" : "secondary"}
+                aria-pressed={Boolean(encounter.shownToPlayers)}
+                disabled={locked || !canShow}
+                title={canShow ? "Players in this campaign can follow the fight on their battle page" : "File the encounter under a campaign to show it to players"}
+                onClick={() => apply((e) => ({ ...e, shownToPlayers: !e.shownToPlayers }))}
+              >
+                {encounter.shownToPlayers ? "Players see this" : "Show to players"}
+              </Button>
+            ) : null}
             <Button
               icon={Dices}
               disabled={locked || unrolled.length === 0}
@@ -175,10 +206,10 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
             ) : started ? (
               <>
                 <Button size="icon" icon={ChevronLeft} aria-label="Previous turn (P)" disabled={locked} onClick={() => apply(previousTurn)} />
-                <Button variant="primary" size="lg" icon={ChevronRight} disabled={locked} onClick={() => apply(nextTurn)}>
+                <Button variant="primary" size="lg" icon={ChevronRight} disabled={locked} onClick={advance}>
                   Next turn
                 </Button>
-                <Button size="icon" variant="ghost" icon={Flag} aria-label="End combat" title="End combat" disabled={locked} onClick={() => apply(endCombat)} />
+                <Button size="icon" variant="ghost" icon={Flag} aria-label="End combat" title="End combat: players stop seeing it and fight-only notes are cleared" disabled={locked} onClick={() => apply(endCombat)} />
               </>
             ) : (
               <Button variant="primary" size="lg" icon={Play} disabled={locked || encounter.combatants.length === 0} onClick={() => apply(startCombat)}>
@@ -193,6 +224,18 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
           </p>
         ) : null}
         {launchError ? <p className="mt-3 text-xs text-danger">{launchError}</p> : null}
+        {!prepared ? (
+          <label className="mt-3 flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              className="accent-[var(--accent)]"
+              checked={Boolean(encounter.autoApplyInitiative)}
+              disabled={locked}
+              onChange={(event) => apply((e) => ({ ...e, autoApplyInitiative: event.target.checked }))}
+            />
+            Put players&apos; initiative in by itself when it matches one combatant (from /init or the battle page)
+          </label>
+        ) : null}
         {!prepared && !started && missingPlayers.length > 0 && encounter.combatants.length > 0 ? (
           <p className="mt-3 text-xs text-muted">
             Type the players&apos; initiative into their boxes, then start. Anyone without initiative goes last.
@@ -200,7 +243,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
         ) : null}
       </section>
 
-      {!prepared ? <PlayerRolls combatants={encounter.combatants} apply={apply} disabled={locked} /> : null}
+      {!prepared ? <PlayerRolls combatants={encounter.combatants} apply={apply} disabled={locked} owners={owners} encounterId={initial.id} auto={Boolean(encounter.autoApplyInitiative)} /> : null}
 
       {adding ? (
         <section className="rounded-3xl border border-border bg-surface p-4 shadow-card sm:p-5">
@@ -210,6 +253,8 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
           </div>
           <AddCombatant
             creatures={creatures}
+            campaignId={prepared ? null : initial.campaignId}
+            present={encounter.combatants.flatMap((c) => (c.ref?.source === "character" ? [c.ref.id] : []))}
             disabled={locked || encounter.combatants.length >= MAX_COMBATANTS}
             onAdd={(list) =>
               apply((e) => {
@@ -239,21 +284,39 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
                 selected={c.id === selected?.id}
                 combatStarted={started}
                 onSelect={() => setSelectedId(c.id)}
-                onDamage={(n) => apply((e) => damage(e, c.id, n))}
-                onHeal={(n) => apply((e) => heal(e, c.id, n))}
-                onTemp={(n) => apply((e) => setTempHp(e, c.id, n))}
+                onDamage={(n) => {
+                  apply((e) => damage(e, c.id, n));
+                  if (linked(c)) void send(c, [{ op: "damage", amount: n }]);
+                }}
+                onHeal={(n) => {
+                  apply((e) => heal(e, c.id, n));
+                  if (linked(c)) void send(c, [{ op: "heal", amount: n }]);
+                }}
+                onTemp={(n) => {
+                  apply((e) => setTempHp(e, c.id, n));
+                  if (linked(c)) void send(c, [{ op: "setTemp", tempHp: n, mode: "max" }]);
+                }}
                 onInitiative={(value) => apply((e) => setInitiative(e, c.id, value))}
-                onToggleCondition={(name, rounds) => apply((e) => toggleCondition(e, c.id, name, rounds))}
-                onConcentration={(value) => apply((e) => patchCombatant(e, c.id, { concentration: value }))}
+                onToggleCondition={(name, rounds) => {
+                  const had = c.conditions.some((condition) => condition.name === name);
+                  apply((e) => toggleCondition(e, c.id, name, rounds));
+                  if (linked(c)) void send(c, [had ? { op: "removeCondition", name } : { op: "addCondition", name, rounds }]);
+                }}
+                onConcentration={(value) => {
+                  apply((e) => patchCombatant(e, c.id, { concentration: value }));
+                  if (linked(c)) void send(c, [value ? { op: "concentrate", spellRef: null, name: "Concentrating" } : { op: "dropConcentration" }]);
+                }}
                 onRemove={() => apply((e) => removeCombatant(e, c.id))}
               />
             ))}
           </ol>
           <aside className="rounded-3xl border border-border bg-surface p-5 shadow-card xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto" aria-label="Stat block">
-            <SidePanel combatant={selected} />
+            <SidePanel combatant={selected} onPatch={locked || !selected ? undefined : (patch) => apply((e) => patchCombatant(e, selected.id, patch))} />
           </aside>
         </div>
       )}
+
+      {encounter.shownToPlayers ? <BattleNotesPanel encounterId={initial.id} combatants={encounter.combatants} /> : null}
 
       <p className="hidden text-xs text-faint lg:block">
         Shortcuts: <kbd className="rounded border border-border px-1 font-mono">N</kbd> next turn, <kbd className="rounded border border-border px-1 font-mono">P</kbd> previous turn.

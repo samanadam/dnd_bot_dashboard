@@ -209,6 +209,7 @@ export type QueueItem = {
 
 export type TranscriptionQueue = { items: QueueItem[]; can_sync: boolean };
 
-export type InitiativeReport = { id: number; label: string; value: number; at: string };
+// user_id and source come from bots that know the roster (older ones send neither).
+export type InitiativeReport = { id: number; label: string; value: number; at: string; user_id?: string; source?: "typed" | "rolled" };
 
 export type ApiErrorBody = { error: { code: string; message: string } };

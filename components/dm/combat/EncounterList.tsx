@@ -8,7 +8,7 @@ import { CampaignSelect } from "@/components/CampaignSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
 import { Button, EmptyState, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import type { EncounterSummary } from "@/lib/dm/encounters";
 
@@ -21,14 +21,14 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
   const [launching, setLaunching] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<EncounterSummary | null>(null);
   // New encounters start in the campaign being looked at.
-  const [picked] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
 
   async function create() {
     const clean = name.trim();
     if (!clean) return;
     setBusy(true);
     try {
-      const created = await dm.createEncounter(clean, picked && picked !== "unassigned" ? picked : null, prepare ? "prepared" : "live");
+      const created = await dm.createEncounter(clean, defaultCampaign, prepare ? "prepared" : "live");
       router.push(`/dm/combat/${created.id}`);
     } catch (error) {
       toast("danger", error instanceof DmError ? error.message : "Could not create the encounter.");
@@ -126,7 +126,7 @@ export function EncounterList({ encounters }: { encounters: EncounterSummary[] }
                 </span>
               </PortalLink>
               <span className="relative z-10">
-                <CampaignSelect
+                <CampaignSelect dmScoped
                   compact
                   label={`Campaign for ${encounter.name}`}
                   noneLabel="No campaign"

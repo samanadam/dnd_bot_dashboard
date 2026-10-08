@@ -9,7 +9,7 @@ import { useToast } from "@/components/Providers";
 import { Button, EmptyState, Field, inputClass, Notice, Skeleton } from "@/components/ui";
 import { bot, BotError } from "@/lib/bot/client";
 import { keys, useLibrary, useMusicState, useSoundboard } from "@/lib/bot/useBotState";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useCampaignSelection, useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { useSaved } from "@/lib/dm/useSaved";
 import { isSetLink, isSetRef, isTrackLink, isWebSource, trackUrl, WEB_SOURCES } from "@/lib/webAudio";
@@ -80,7 +80,7 @@ function Editor({ draft, categories, onCancel, onSaved }: { draft: Draft; catego
           </datalist>
         </Field>
         <Field label="Campaign">
-          <CampaignSelect label="Campaign" noneLabel="Any campaign" value={input.campaignId ?? null} onChange={(next) => set({ campaignId: next })} />
+          <CampaignSelect dmScoped label="Campaign" noneLabel="Any campaign" value={input.campaignId ?? null} onChange={(next) => set({ campaignId: next })} />
         </Field>
       </div>
 
@@ -239,7 +239,7 @@ export function Scenes() {
     return [...byCategory.entries()].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
   }, [list]);
   const categories = useMemo(() => [...new Set(list.map((scene) => scene.category).filter(Boolean))], [list]);
-  const campaignForNew = selection && selection !== "unassigned" ? selection : null;
+  const campaignForNew = useDmDefaultCampaign();
 
   const sourceOf = (link: string) => {
     const source = WEB_SOURCES.find((name) => isTrackLink(name, link));

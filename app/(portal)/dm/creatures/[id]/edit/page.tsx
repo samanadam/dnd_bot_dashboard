@@ -9,9 +9,10 @@ export const metadata: Metadata = { title: "Edit creature" };
 export const dynamic = "force-dynamic";
 
 export default async function EditCreaturePage(props: PageProps<"/dm/creatures/[id]/edit">) {
-  await requireDm();
+  const { scope } = await requireDm();
   const { id } = await props.params;
   const creature = CREATURE_ID.test(id) ? new CreatureRepo(getDatabase()).get(id) : null;
-  if (!creature) notFound();
+  // Same rule as the API: library monsters need access to every campaign, NPCs to theirs.
+  if (!creature || !(creature.kind === "monster" ? scope.everywhere : scope.allows(creature.campaignId))) notFound();
   return <EditCreatureView creature={creature} />;
 }

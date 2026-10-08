@@ -8,6 +8,7 @@ import { sceneSchema } from "@/lib/dm/scenes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { isSoundCloudSetLink, isSoundCloudSetRef, parseSoundCloudLink, parseSoundCloudSetLink, soundcloudSetUrl } from "@/lib/soundcloud";
 import { detectLink, isRef, isSetLink, isSetRef, isTrackLink, trackUrl } from "@/lib/webAudio";
+import { legacyAllows } from "./helpers/access";
 
 // SoundCloud albums and playlists ("sets"). A set has exactly one link form,
 // is only ever music, and has its own two bot calls; every other path still
@@ -141,6 +142,7 @@ describe("the proxy and sets", () => {
     const fetchImpl = vi.fn(async () => Response.json({ ok: true }));
     return {
       getUserId: async () => "42",
+      allows: legacyAllows(),
       botUrl: "https://bot.example/api/v1",
       botToken: "test-token-abcdefghijklmnop",
       fetchImpl,

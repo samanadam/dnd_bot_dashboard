@@ -9,6 +9,10 @@ export const creatureRefSchema = z.union([
   z.object({ source: z.literal("custom"), id: z.string().regex(/^[0-9a-f-]{36}$/) }).strict(),
 ]);
 
+/** A player character in the fight is a link to their sheet, which holds their HP and conditions. */
+export const characterRefSchema = z.object({ source: z.literal("character"), id: z.string().regex(/^[0-9a-f-]{36}$/) }).strict();
+export const combatantRefSchema = z.union([creatureRefSchema, characterRefSchema]);
+
 const conditionSchema = z
   .object({ name: z.string().trim().min(1).max(40), rounds: z.number().int().min(1).max(1000).nullable() })
   .strict();
@@ -18,7 +22,7 @@ export const combatantSchema = z
     id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
     name: z.string().trim().min(1).max(80),
     kind: z.enum(["monster", "npc", "player"]),
-    ref: creatureRefSchema.nullable(),
+    ref: combatantRefSchema.nullable(),
     initiative: z.number().int().min(-20).max(60).nullable(),
     initiativeBonus: z.number().int().min(-20).max(40),
     ac: z.number().int().min(0).max(40),
@@ -31,6 +35,12 @@ export const combatantSchema = z
     // have no such field and read as false.
     friendly: z.boolean().default(false),
     notes: z.string().max(2000),
+    // What players see on their battle page. Older encounters have none of these.
+    // Missing on older encounters, which read as the defaults noted.
+    alias: z.string().trim().max(40).nullable().optional(), // instead of the real name, until revealed (none)
+    revealed: z.boolean().optional(), // party members are revealed, everyone else is not
+    hidden: z.boolean().optional(), // players do not see this combatant at all (false)
+    playerNumber: z.number().int().min(1).max(999).nullable().optional(), // the N in "Enemy N" (none)
   })
   .strict();
 
@@ -40,14 +50,25 @@ export const encounterSchema = z
     round: z.number().int().min(0).max(10_000),
     turn: z.number().int().min(0).max(59),
     combatants: z.array(combatantSchema).max(60),
+    // Players with access to the campaign can follow it on their battle page.
+    shownToPlayers: z.boolean().optional(),
+    // Put initiative players report (on Discord or the battle page) straight into
+    // the order when it matches one combatant. Off unless the DM turns it on.
+    autoApplyInitiative: z.boolean().optional(),
   })
   .strict();
 
 export type CreatureRef = z.infer<typeof creatureRefSchema>;
+export type CombatantRef = z.infer<typeof combatantRefSchema>;
 export type Condition = z.infer<typeof conditionSchema>;
 export type Combatant = z.infer<typeof combatantSchema>;
 export type Encounter = z.infer<typeof encounterSchema>;
 export type NewCombatant = Omit<Combatant, "id">;
+
+/** On the party's side: players and friendly NPCs. */
+export const isPartySide = (c: Pick<Combatant, "kind" | "friendly">) => c.kind === "player" || c.friendly;
+/** Whether players see a combatant's real name. */
+export const isRevealed = (c: Pick<Combatant, "kind" | "friendly" | "revealed">) => c.revealed ?? isPartySide(c);
 
 export const MAX_COMBATANTS = 60;
 
@@ -67,6 +88,7 @@ const mapOne = (enc: Encounter, id: string, fn: (c: Combatant) => Combatant): En
 export function launchCopy(enc: Encounter): Encounter {
   return {
     ...enc,
+    shownToPlayers: false,
     round: 0,
     turn: 0,
     combatants: enc.combatants.map((c) => ({
@@ -85,12 +107,15 @@ export function newEncounter(name: string): Encounter {
 }
 
 export function addCombatant(enc: Encounter, input: NewCombatant, newId: () => string): Encounter {
+  // Enemies get the next number for players' "Enemy N"; removing one never renumbers the rest.
+  const playerNumber = isPartySide(input) ? null : (input.playerNumber ?? Math.max(0, ...enc.combatants.map((c) => c.playerNumber ?? 0)) + 1);
   if (enc.combatants.length >= MAX_COMBATANTS) return enc;
+  const full: Omit<Combatant, "id"> = { ...input, playerNumber };
   const base = input.name.trim().replace(/\s+\d+$/, "").slice(0, 74) || "Combatant";
   const taken = new Set(enc.combatants.map((c) => c.name));
   let name = base;
   for (let n = 2; taken.has(name); n++) name = `${base} ${n}`;
-  return { ...enc, combatants: [...enc.combatants, { ...input, id: newId(), name }] };
+  return { ...enc, combatants: [...enc.combatants, { ...full, id: newId(), name }] };
 }
 
 export function removeCombatant(enc: Encounter, id: string): Encounter {
@@ -134,8 +159,9 @@ export function startCombat(enc: Encounter): Encounter {
   return { ...sortByInitiative({ ...enc, round: 0 }), round: 1, turn: 0 };
 }
 
+/** The fight is over: back to round 0, and players no longer follow it. */
 export function endCombat(enc: Encounter): Encounter {
-  return { ...enc, round: 0, turn: 0 };
+  return { ...enc, round: 0, turn: 0, shownToPlayers: false };
 }
 
 function tickConditions(c: Combatant): Combatant {
@@ -194,7 +220,7 @@ export function toggleCondition(enc: Encounter, id: string, name: string, rounds
   });
 }
 
-export type CombatantPatch = Partial<Pick<Combatant, "name" | "ac" | "maxHp" | "hp" | "initiativeBonus" | "concentration" | "notes">>;
+export type CombatantPatch = Partial<Pick<Combatant, "name" | "ac" | "maxHp" | "hp" | "initiativeBonus" | "concentration" | "notes" | "alias" | "revealed" | "hidden">>;
 
 export function patchCombatant(enc: Encounter, id: string, patch: CombatantPatch): Encounter {
   return mapOne(enc, id, (c) => {
@@ -204,6 +230,7 @@ export function patchCombatant(enc: Encounter, id: string, patch: CombatantPatch
       ...next,
       name: next.name.trim().slice(0, 80) || c.name,
       notes: next.notes.slice(0, 2000),
+      alias: next.alias ? next.alias.trim().slice(0, 40) || null : (next.alias ?? null),
       ac: clamp(next.ac, 0, 40),
       initiativeBonus: clamp(next.initiativeBonus, -20, 40),
       maxHp,

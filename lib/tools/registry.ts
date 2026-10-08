@@ -18,7 +18,11 @@ export type IconName =
   | "map"
   | "gem";
 
-export type ToolLink = { href: string; label: string; icon: IconName };
+import { can, type Access, type Permission } from "@/lib/access/permissions";
+
+// Each link names the permission its page requires. Hiding is cosmetic: pages
+// and routes enforce the same rule on the server.
+export type ToolLink = { href: string; label: string; icon: IconName; permission: Permission };
 
 export type Tool = {
   id: string;
@@ -28,9 +32,8 @@ export type Tool = {
   icon: IconName;
   links: ToolLink[];
   status: "live" | "planned";
-  // Only shown to users in DM_USER_IDS. Hiding is cosmetic: pages and routes
-  // enforce the same rule on the server.
-  dmOnly?: boolean;
+  // Needed to see the tool's own landing page (its first link opens it too).
+  permission?: Permission;
 };
 
 export const tools: Tool[] = [
@@ -41,30 +44,45 @@ export const tools: Tool[] = [
     href: "/bot",
     icon: "dice",
     status: "live",
+    permission: "bot.view",
     links: [
-      { href: "/bot", label: "Overview", icon: "gauge" },
-      { href: "/bot/music", label: "Music", icon: "music" },
-      { href: "/bot/sessions", label: "Sessions", icon: "history" },
-      { href: "/bot/search", label: "Search", icon: "search" },
-      { href: "/bot/campaigns", label: "Campaigns", icon: "book" },
+      { href: "/bot", label: "Overview", icon: "gauge", permission: "bot.view" },
+      { href: "/bot/music", label: "Music", icon: "music", permission: "bot.music" },
+      { href: "/bot/sessions", label: "Sessions", icon: "history", permission: "bot.sessions" },
+      { href: "/bot/search", label: "Search", icon: "search", permission: "bot.sessions" },
+      { href: "/bot/campaigns", label: "Campaigns", icon: "book", permission: "bot.view" },
     ],
   },
   {
     id: "dm",
     name: "DM Screen",
-    description: "Bestiary, NPCs, areas with battles and rewards, items, initiative tracker and dice. Only you can see it.",
+    description: "Bestiary, NPCs, areas with battles and rewards, items, spells, initiative tracker and dice.",
     href: "/dm",
     icon: "scroll",
     status: "live",
-    dmOnly: true,
+    permission: "dm",
     links: [
-      { href: "/dm/combat", label: "Combat", icon: "swords" },
-      { href: "/dm/bestiary", label: "Bestiary", icon: "book" },
-      { href: "/dm/areas", label: "Areas", icon: "map" },
-      { href: "/dm/items", label: "Items", icon: "gem" },
-      { href: "/dm/npcs", label: "NPCs", icon: "users" },
-      { href: "/dm/dice", label: "Dice", icon: "dice" },
-      { href: "/dm/soundboard", label: "Sound", icon: "audio" },
+      { href: "/dm/combat", label: "Combat", icon: "swords", permission: "dm" },
+      { href: "/dm/bestiary", label: "Bestiary", icon: "book", permission: "dm" },
+      { href: "/dm/areas", label: "Areas", icon: "map", permission: "dm" },
+      { href: "/dm/items", label: "Items", icon: "gem", permission: "dm" },
+      { href: "/dm/spells", label: "Spells", icon: "sparkles", permission: "dm" },
+      { href: "/dm/party", label: "Party", icon: "users", permission: "dm" },
+      { href: "/dm/npcs", label: "NPCs", icon: "users", permission: "dm" },
+      { href: "/dm/dice", label: "Dice", icon: "dice", permission: "dm" },
+      { href: "/dm/soundboard", label: "Sound", icon: "audio", permission: "dm" },
+    ],
+  },
+  {
+    id: "play",
+    name: "Party",
+    description: "Your characters, your spells and the battle the DM is running.",
+    href: "/play",
+    icon: "users",
+    status: "live",
+    links: [
+      { href: "/play", label: "My characters", icon: "users", permission: "play" },
+      { href: "/play", label: "Party sheets", icon: "users", permission: "sheets.manage" },
     ],
   },
   {
@@ -78,7 +96,14 @@ export const tools: Tool[] = [
   },
 ];
 
-/** The tools a user may see. */
-export function visibleTools(showDm: boolean): Tool[] {
-  return tools.filter((tool) => !tool.dmOnly || showDm);
+/** The tools a user may see, each with only the links they may open. */
+export function visibleTools(access: Access): Tool[] {
+  return tools.flatMap((tool) => {
+    if (tool.status === "planned") return access.owner ? [tool] : [];
+    const links = tool.links.filter((link) => can(access, link.permission));
+    if (links.length === 0) return [];
+    // Without its landing page, the tool's card opens the first page the user can reach.
+    const href = tool.permission === undefined || can(access, tool.permission) ? tool.href : links[0].href;
+    return [{ ...tool, href, links }];
+  });
 }

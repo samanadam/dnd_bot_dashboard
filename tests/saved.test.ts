@@ -3,6 +3,7 @@ import { openDatabase, SCHEMA_VERSION } from "@/lib/dm/db";
 import { MAX_SAVED, SavedRepo, savedSchema } from "@/lib/dm/saved";
 import { savedCollection, savedItem } from "@/lib/dm/savedRoutes";
 import { RateLimiter } from "@/lib/rateLimit";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 const PLAYER = "222222222222222222";
@@ -180,8 +181,7 @@ describe("saved link routes", () => {
     const logs: unknown[] = [];
     let touched = false;
     const deps = {
-      getUserId: async () => userId,
-      dmIds: [DM],
+      getAccess: ownerAccess(userId, [DM]),
       limiter: new RateLimiter(),
       saved: () => {
         touched = true;

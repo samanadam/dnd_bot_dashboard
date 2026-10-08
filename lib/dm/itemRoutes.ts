@@ -37,7 +37,9 @@ export function itemCollection(deps: ItemRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(deps.items().list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
+      return json(deps.items().list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -47,6 +49,7 @@ export function itemCollection(deps: ItemRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = customItemSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return missing();
       const created = deps.items().create(parsed.data);
       if (!created) return errorResponse(409, "conflict", `That is the most items you can keep (${MAX_CUSTOM_ITEMS}). Delete one first.`);
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/items", status: 201 });
@@ -61,7 +64,7 @@ export function itemItem(deps: ItemRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       const item = ITEM_ID.test(id) ? deps.items().get(id) : null;
-      return item ? json(item) : missing();
+      return item && guard.scope.allows(item.campaignId) ? json(item) : missing();
     },
 
     async PUT(request: Request, id: string): Promise<Response> {
@@ -72,6 +75,9 @@ export function itemItem(deps: ItemRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = customItemSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      const current = deps.items().get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
+      if (parsed.data.campaignId !== undefined && !guard.scope.allows(parsed.data.campaignId)) return missing();
       const updated = deps.items().update(id, parsed.data);
       if (!updated) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/items/:id", status: 200 });
@@ -81,7 +87,9 @@ export function itemItem(deps: ItemRouteDeps) {
     async DELETE(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      if (!ITEM_ID.test(id) || !deps.items().remove(id)) return missing();
+      if (!ITEM_ID.test(id)) return missing();
+      const current = deps.items().get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !deps.items().remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: "dm/items/:id", status: 204 });
       return noContent();
     },
@@ -104,9 +112,11 @@ export function itemSearch(deps: ItemRouteDeps) {
       const offset = Math.max(0, Math.min(100_000, Number.parseInt(params.get("offset") ?? "0", 10) || 0));
       const limit = Math.max(1, Math.min(MAX_PAGE, Number.parseInt(params.get("limit") ?? "40", 10) || 40));
 
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
       const all: ItemSearchResult[] = [];
       if (source === "all" || source === "custom") {
-        for (const item of deps.items().list(campaign.selection)) {
+        for (const item of deps.items().list(scoped)) {
           all.push({ ref: { source: "custom", id: item.id }, name: item.name, category: item.category, rarity: item.rarity, attunement: item.attunement !== "" });
         }
       }

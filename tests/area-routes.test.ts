@@ -10,6 +10,7 @@ import { itemCollection, itemItem, itemSearch, srdItem } from "@/lib/dm/itemRout
 import { ItemRepo } from "@/lib/dm/items";
 import { RateLimiter } from "@/lib/rateLimit";
 import { goblin } from "./fixtures/goblin";
+import { ownerAccess } from "./helpers/access";
 
 const DM = "111111111111111111";
 const PLAYER = "222222222222222222";
@@ -31,8 +32,7 @@ function setup(user: string | null = DM) {
   const db = openDatabase(":memory:");
   const logs: unknown[] = [];
   const deps = {
-    getUserId: async () => user,
-    dmIds: [DM],
+    getAccess: ownerAccess(user, [DM]),
     limiter: new RateLimiter(),
     areas: () => new AreaRepo(db),
     encounters: () => new EncounterRepo(db),

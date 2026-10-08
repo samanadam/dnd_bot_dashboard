@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Permission } from "@/lib/access/permissions";
 import { isSetLink, isTrackLink, isWebSource, WEB_SOURCES, WEB_SOURCE_LABEL, type WebSource } from "@/lib/webAudio";
 
 // The exhaustive list of bot API calls the portal may proxy. Anything not
@@ -23,8 +24,10 @@ export type Rule = {
   timeoutMs?: number;
   // Written to the audit log when true.
   audit?: boolean;
-  // Only users in DM_USER_IDS may call it; everyone else gets a plain 404.
-  dmOnly?: boolean;
+  // What the caller must hold (lib/access); everyone else gets a plain 404.
+  // "owner" is DM_USER_IDS alone and cannot be granted. Required, so a new rule
+  // cannot ship without a decision about who may call it.
+  permission: Permission | "owner";
   // Bodies are capped at 8 KB unless a rule says otherwise (glossary lists).
   maxBodyBytes?: number;
 };
@@ -65,12 +68,13 @@ const soundKind = z.enum(["ambience", "sfx"]);
 const channelBody = z.object({ channel_id: snowflake }).strict();
 
 const rules: Rule[] = [
-  { method: "GET", path: "health", bucket: "read" },
-  { method: "GET", path: "stats", bucket: "read" },
+  { method: "GET", path: "health", bucket: "read", permission: "bot.view" },
+  { method: "GET", path: "stats", bucket: "read", permission: "bot.view" },
   {
     method: "GET",
     path: "sessions",
     bucket: "read",
+    permission: "bot.sessions",
     query: z
       .object({
         limit: intString(1, 200).optional(),
@@ -78,13 +82,14 @@ const rules: Rule[] = [
       })
       .strict(),
   },
-  { method: "GET", path: "recording", bucket: "read" },
+  { method: "GET", path: "recording", bucket: "read", permission: "bot.view" },
   // Search reads every delivered transcript; the first call after a change may
   // have to index some, so it gets a longer timeout than a plain read.
   {
     method: "GET",
     path: "transcripts/search",
     bucket: "read",
+    permission: "bot.sessions",
     timeoutMs: 30_000,
     query: z
       .object({
@@ -94,20 +99,21 @@ const rules: Rule[] = [
       })
       .strict(),
   },
-  { method: "GET", path: "transcription", bucket: "read" },
+  { method: "GET", path: "transcription", bucket: "read", permission: "bot.view" },
   // Runs an upload pass and a download pass now; large sessions take a while.
   {
     method: "POST",
     path: "transcription/sync",
     bucket: "control",
+    permission: "bot.manage",
     timeoutMs: 120_000,
     audit: true,
-    dmOnly: true,
   },
   {
     method: "GET",
     path: "sessions/:session/transcript",
     bucket: "read",
+    permission: "bot.sessions",
     timeoutMs: 20_000,
     query: z
       .object({
@@ -124,6 +130,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "recording/start",
     bucket: "recording",
+    permission: "bot.recording",
     audit: true,
     body: z
       .object({
@@ -141,18 +148,20 @@ const rules: Rule[] = [
     method: "POST",
     path: "recording/stop",
     bucket: "recording",
+    permission: "bot.recording",
     timeoutMs: RECORDING_FINISH_TIMEOUT_MS,
     audit: true,
     body: channelBody,
   },
-  { method: "POST", path: "recording/cancel", bucket: "recording", audit: true, body: channelBody },
+  { method: "POST", path: "recording/cancel", bucket: "recording", permission: "bot.recording", audit: true, body: channelBody },
   // Closes this part and starts the next in the same channel. The old part is
   // encoded in the background, so the bot answers at once: default timeout.
-  { method: "POST", path: "recording/split", bucket: "recording", audit: true, body: channelBody },
+  { method: "POST", path: "recording/split", bucket: "recording", permission: "bot.recording", audit: true, body: channelBody },
   {
     method: "POST",
     path: "recording/recover",
     bucket: "recording",
+    permission: "bot.recording",
     timeoutMs: RECORDING_FINISH_TIMEOUT_MS,
     audit: true,
     body: z.object({ session_id: sessionId }).strict(),
@@ -164,15 +173,16 @@ const rules: Rule[] = [
     method: "GET",
     path: "campaigns",
     bucket: "read",
+    permission: "bot.view",
     query: z.object({ archived: z.literal("1").optional() }).strict(),
   },
-  { method: "GET", path: "campaigns/:campaign", bucket: "read" },
+  { method: "GET", path: "campaigns/:campaign", bucket: "read", permission: "bot.view" },
   {
     method: "POST",
     path: "campaigns",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z
       .object({
         name: z.string().trim().min(1).max(60),
@@ -185,8 +195,8 @@ const rules: Rule[] = [
     method: "POST",
     path: "campaigns/:campaign/update",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z
       .object({
         name: z.string().trim().min(1).max(60).optional(),
@@ -201,8 +211,8 @@ const rules: Rule[] = [
     method: "POST",
     path: "campaigns/:campaign/terms",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     maxBodyBytes: 16 * 1024,
     body: z.object({ terms: z.array(z.string().trim().min(1).max(60)).max(100) }).strict(),
   },
@@ -210,8 +220,8 @@ const rules: Rule[] = [
     method: "POST",
     path: "campaigns/:campaign/corrections",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     maxBodyBytes: 48 * 1024,
     body: z
       .object({
@@ -225,16 +235,16 @@ const rules: Rule[] = [
     method: "POST",
     path: "sessions/:session/campaign",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z.object({ campaign_id: campaignId.nullable() }).strict(),
   },
   {
     method: "POST",
     path: "sessions/:session/update",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z
       .object({
         name: z
@@ -250,37 +260,38 @@ const rules: Rule[] = [
   // removes it for good and only works on a session already in the trash. Each
   // body must repeat the id in the path, so a request that only aimed at the
   // right URL still does nothing.
-  { method: "GET", path: "sessions/trash", bucket: "read", dmOnly: true },
+  { method: "GET", path: "sessions/trash", bucket: "read", permission: "bot.manage" },
   {
     method: "POST",
     path: "sessions/:session/trash",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z.object({ confirm_id: sessionId }).strict(),
   },
   {
     method: "POST",
     path: "sessions/:session/restore",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z.object({ confirm_id: sessionId }).strict(),
   },
   {
     method: "POST",
     path: "sessions/:session/purge",
     bucket: "control",
+    permission: "owner",
     audit: true,
-    dmOnly: true,
     body: z.object({ confirm_id: sessionId }).strict(),
   },
 
-  { method: "GET", path: "music/state", bucket: "read" },
+  { method: "GET", path: "music/state", bucket: "read", permission: "bot.view" },
   {
     method: "GET",
     path: "music/library",
     bucket: "read",
+    permission: "bot.music",
     query: z
       .object({
         source: source.optional(),
@@ -293,6 +304,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "music/search",
     bucket: "control",
+    permission: "bot.music",
     timeoutMs: 30_000,
     body: z.object({ source, query: z.string().trim().min(1).max(200) }).strict(),
   },
@@ -300,6 +312,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "music/play",
     bucket: "control",
+    permission: "bot.music",
     timeoutMs: 30_000,
     audit: true,
     body: z
@@ -320,6 +333,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "music/set",
     bucket: "control",
+    permission: "bot.music",
     timeoutMs: 30_000,
     body: z.object({ source: z.literal("soundcloud"), id: setLink }).strict(),
   },
@@ -327,6 +341,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "music/play-set",
     bucket: "control",
+    permission: "bot.music",
     timeoutMs: 45_000,
     audit: true,
     body: z
@@ -340,32 +355,36 @@ const rules: Rule[] = [
       .strict(),
   },
   ...(["pause", "resume", "skip", "stop"] as const).map(
-    (action): Rule => ({ method: "POST", path: `music/${action}`, bucket: "control" }),
+    (action): Rule => ({ method: "POST", path: `music/${action}`, bucket: "control", permission: "bot.music" }),
   ),
   {
     method: "POST",
     path: "music/seek",
     bucket: "control",
+    permission: "bot.music",
     body: z.object({ position_seconds: z.number().min(0).max(86_400) }).strict(),
   },
   {
     method: "POST",
     path: "music/volume",
     bucket: "control",
+    permission: "bot.music",
     body: z.object({ volume: z.number().min(0).max(2) }).strict(),
   },
   {
     method: "POST",
     path: "music/loop",
     bucket: "control",
+    permission: "bot.music",
     body: z.object({ mode: z.enum(["off", "track", "queue"]) }).strict(),
   },
-  { method: "DELETE", path: "music/queue", bucket: "control" },
-  { method: "DELETE", path: "music/queue/:index", bucket: "control" },
+  { method: "DELETE", path: "music/queue", bucket: "control", permission: "bot.music" },
+  { method: "DELETE", path: "music/queue/:index", bucket: "control", permission: "bot.music" },
   {
     method: "POST",
     path: "music/queue/move",
     bucket: "control",
+    permission: "bot.music",
     body: z
       .object({
         from: z.number().int().min(0).max(10_000),
@@ -373,15 +392,15 @@ const rules: Rule[] = [
       })
       .strict(),
   },
-  { method: "POST", path: "music/join", bucket: "control", audit: true, body: channelBody },
+  { method: "POST", path: "music/join", bucket: "control", permission: "bot.music", audit: true, body: channelBody },
 
   // A roll made in the DM Screen, posted to Discord by the bot.
   {
     method: "POST",
     path: "dice/announce",
     bucket: "control",
+    permission: "dm",
     audit: true,
-    dmOnly: true,
     body: z
       .object({
         expression: z.string().regex(/^[0-9dDkKhHlL+\-% ]{1,100}$/, "must be dice notation"),
@@ -392,15 +411,15 @@ const rules: Rule[] = [
       })
       .strict(),
   },
-  { method: "POST", path: "music/leave", bucket: "control" },
+  { method: "POST", path: "music/leave", bucket: "control", permission: "bot.music" },
 
   // Initiative totals players reported with /init. The DM reads and clears them.
-  { method: "GET", path: "initiative", bucket: "read", dmOnly: true },
+  { method: "GET", path: "initiative", bucket: "read", permission: "dm" },
   {
     method: "POST",
     path: "initiative/clear",
     bucket: "control",
-    dmOnly: true,
+    permission: "dm",
     body: z.object({ id: z.number().int().min(1).max(2_147_483_647).optional() }).strict(),
   },
 
@@ -409,20 +428,20 @@ const rules: Rule[] = [
     method: "POST",
     path: "music/delete",
     bucket: "control",
+    permission: "bot.manage",
     audit: true,
-    dmOnly: true,
     body: z.object({ id: trackId }).strict(),
   },
-  { method: "GET", path: "soundboard", bucket: "read", dmOnly: true },
+  { method: "GET", path: "soundboard", bucket: "read", permission: "dm" },
   // A YouTube sound is downloaded once before it plays, so the first call can
   // take a while; a saved one is instant.
   {
     method: "POST",
     path: "soundboard/play",
     bucket: "control",
+    permission: "dm",
     timeoutMs: 120_000,
     audit: true,
-    dmOnly: true,
     body: z
       .object({
         kind: soundKind,
@@ -442,9 +461,9 @@ const rules: Rule[] = [
     method: "POST",
     path: "soundboard/prepare",
     bucket: "control",
+    permission: "dm",
     timeoutMs: 120_000,
     audit: true,
-    dmOnly: true,
     body: z
       .object({ kind: soundKind, id: trackId, source: webSource.optional() })
       .strict()
@@ -457,7 +476,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "soundboard/stop",
     bucket: "control",
-    dmOnly: true,
+    permission: "dm",
     body: z
       .object({ layer_id: layerId.optional(), kind: soundKind.optional() })
       .strict()
@@ -467,7 +486,7 @@ const rules: Rule[] = [
     method: "POST",
     path: "soundboard/volume",
     bucket: "control",
-    dmOnly: true,
+    permission: "dm",
     body: z.object({ layer_id: layerId, volume: z.number().min(0).max(2) }).strict(),
   },
 ];

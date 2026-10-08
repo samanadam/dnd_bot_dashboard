@@ -1,8 +1,10 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Minus, Plus, Search, UserPlus } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { useToast } from "@/components/Providers";
+import { sheets } from "@/lib/sheets/client";
 import { Button, inputClass } from "@/components/ui";
 import { rollDice } from "@/lib/dice/roll";
 import { dm, DmError } from "@/lib/dm/client";
@@ -39,7 +41,71 @@ function fromBlock(block: StatBlock, kind: "monster" | "npc", ref: CreatureRef, 
   };
 }
 
-export function AddCombatant({ creatures, onAdd, disabled }: { creatures: MonsterSummary[]; onAdd: (combatants: NewCombatant[]) => void; disabled?: boolean }) {
+/** The campaign's active character sheets, ready to join the fight as links to their sheets. */
+function PartyPicker({ campaignId, present, onAdd, disabled }: { campaignId: string; present: readonly string[]; onAdd: (combatants: NewCombatant[]) => void; disabled?: boolean }) {
+  const list = useQuery({ queryKey: ["sheets", campaignId], queryFn: () => sheets.list(campaignId), staleTime: 10_000 });
+  const ready = (list.data ?? []).filter((s) => s.active && s.status === "active" && !present.includes(s.id));
+  const toCombatant = (sheet: (typeof ready)[number]): NewCombatant => ({
+    name: sheet.name.slice(0, 80),
+    kind: "player",
+    ref: { source: "character", id: sheet.id },
+    initiative: null,
+    initiativeBonus: 0,
+    ac: Math.min(40, sheet.ac),
+    hp: Math.min(sheet.hp, sheet.maxHp),
+    maxHp: Math.max(1, sheet.maxHp),
+    tempHp: 0,
+    conditions: [],
+    concentration: sheet.concentration !== null,
+    friendly: false,
+    notes: "",
+  });
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Party</h3>
+        {ready.length > 1 ? (
+          <Button size="sm" icon={UserPlus} disabled={disabled} onClick={() => onAdd(ready.map(toCombatant))}>
+            Add whole party
+          </Button>
+        ) : null}
+      </div>
+      {list.isPending ? <p className="text-xs text-muted">Loading the party…</p> : null}
+      {list.data && ready.length === 0 ? <p className="text-xs text-muted">Every character in play is already here, or nobody has a sheet in this campaign yet.</p> : null}
+      <ul className="space-y-1">
+        {ready.map((sheet) => (
+          <li key={sheet.id} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">
+              {sheet.name}
+              <span className="ml-2 text-xs text-muted">
+                {sheet.classes}
+                {sheet.owner ? ` · ${sheet.owner.name}` : ""}
+              </span>
+            </span>
+            <Button size="sm" disabled={disabled} onClick={() => onAdd([toCombatant(sheet)])}>
+              Add
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-faint">Their hit points and conditions follow their sheets, both ways.</p>
+    </div>
+  );
+}
+
+export function AddCombatant({
+  creatures,
+  onAdd,
+  disabled,
+  campaignId = null,
+  present = [],
+}: {
+  creatures: MonsterSummary[];
+  onAdd: (combatants: NewCombatant[]) => void;
+  disabled?: boolean;
+  campaignId?: string | null;
+  present?: readonly string[];
+}) {
   const toast = useToast();
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query);
@@ -169,6 +235,8 @@ export function AddCombatant({ creatures, onAdd, disabled }: { creatures: Monste
           )
         ) : null}
       </div>
+
+      {campaignId ? <PartyPicker campaignId={campaignId} present={present} onAdd={onAdd} disabled={disabled} /> : null}
 
       <form
         className="space-y-3"

@@ -26,8 +26,19 @@ export function parseSelectionStrict(value: string | null): { ok: true; selectio
   return parsed === null ? { ok: false } : { ok: true, selection: parsed };
 }
 
+/**
+ * What a list may be narrowed to: a selection, or (for a user whose access
+ * covers only some campaigns) the list of those campaigns.
+ */
+export type ScopedSelection = Selection | readonly string[];
+
 /** A SQL fragment for `campaign_id`; bound parameters only, never interpolated input. */
-export function campaignClause(selection: Selection): { sql: string; args: string[] } {
+export function campaignClause(selection: ScopedSelection): { sql: string; args: string[] } {
+  if (selection !== null && typeof selection !== "string") {
+    const ids = selection.filter((id) => CAMPAIGN_ID.test(id));
+    if (ids.length === 0) return { sql: "0 = 1", args: [] };
+    return { sql: `campaign_id IN (${ids.map(() => "?").join(", ")})`, args: ids };
+  }
   if (selection === null) return { sql: "", args: [] };
   if (selection === "unassigned") return { sql: "campaign_id IS NULL", args: [] };
   return { sql: "campaign_id = ?", args: [selection] };

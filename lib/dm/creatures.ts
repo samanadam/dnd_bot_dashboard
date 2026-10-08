@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { statBlockSchema } from "./statblock";
 
 export const creatureKindSchema = z.enum(["monster", "npc"]);
@@ -62,7 +62,7 @@ export class CreatureRepo {
     };
   }
 
-  list(kind?: CreatureKind, campaign: Selection = null): Creature[] {
+  list(kind?: CreatureKind, campaign: ScopedSelection = null): Creature[] {
     const where: string[] = [];
     const args: string[] = [];
     if (kind) {

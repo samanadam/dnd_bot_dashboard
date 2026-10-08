@@ -30,8 +30,26 @@ export default function PrivacyPage() {
           [
             "Your roles in the campaign server",
             "Discord (scope guilds.members.read, read once per check)",
-            "Decide whether you may enter and whether you are the DM",
+            "Decide what you may use (the access the owner gives each role), and show the owner how many people hold a role",
             "Legitimate interest (access control and security)",
+          ],
+          [
+            "A record that you signed in: Discord id, display name, avatar link, roles as last seen, first and last sign-in",
+            "Kept by the Portal at sign-in and at each check",
+            "Let the DM give you a character sheet, and the owner see who a role change affects",
+            "Legitimate interest in running the service",
+          ],
+          [
+            "Your character sheets and portrait, homebrew spells and feats, battle notes and battle-page rolls",
+            "What you and the DM type or upload",
+            "Play your character; your portrait is re-encoded and stripped of its metadata (such as location) before it is stored",
+            "Contract",
+          ],
+          [
+            "Your Discord id sent to the recorder bot",
+            "The Portal, when your active sheet changes, when a battle is shown and when your turn starts",
+            "Name your character in transcripts, let /init roll from your sheet, mention you when your turn starts (if the campaign turns that on)",
+            "Legitimate interest of the group",
           ],
           [
             "Session cookie with an encrypted Discord access token",

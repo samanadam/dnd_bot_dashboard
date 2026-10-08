@@ -1,17 +1,20 @@
 import "server-only";
-import { auth } from "@/auth";
+import { getAccess } from "@/lib/access/server";
 import { audit } from "@/lib/audit";
-import { env } from "@/lib/env";
 import { AreaRepo } from "./areas";
 import type { RefLookup } from "./areaView";
 import { CreatureRepo } from "./creatures";
 import { getDatabase } from "./database";
-import { EncounterRepo } from "./encounters";
+import { EncounterRepo, type StoredEncounter } from "./encounters";
+import { combatEffects } from "@/lib/combat/routeDeps";
+import { FeatRepo } from "./feats";
 import { ItemRepo } from "./items";
 import { SavedRepo } from "./saved";
 import { SceneRepo } from "./scenes";
+import { SpellRepo } from "./spells";
 import { getSrd, listSrd } from "./srd";
 import { getSrdItem, listSrdItems } from "./srdItems";
+import { getSrdFeat, getSrdSpell, listSrdFeats, listSrdSpells } from "./srdSpells";
 import { TagRepo } from "./tags";
 
 /** Looks up the names behind the references a reward holds, in the database and the bundled SRD. */
@@ -32,8 +35,7 @@ export function refLookup(): RefLookup {
 /** Production dependencies for the DM route handlers. */
 export function dmDeps() {
   return {
-    getUserId: async () => (await auth())?.user?.id || null,
-    dmIds: env().DM_USER_IDS,
+    getAccess,
     repo: () => new CreatureRepo(getDatabase()),
     encounters: () => new EncounterRepo(getDatabase()),
     scenes: () => new SceneRepo(getDatabase()),
@@ -42,8 +44,14 @@ export function dmDeps() {
     items: () => new ItemRepo(getDatabase()),
     areas: () => new AreaRepo(getDatabase()),
     srdItems: () => ({ list: listSrdItems, get: getSrdItem }),
+    spells: () => new SpellRepo(getDatabase()),
+    feats: () => new FeatRepo(getDatabase()),
+    srdSpells: () => ({ list: listSrdSpells, get: getSrdSpell }),
+    srdFeats: () => ({ list: listSrdFeats, get: getSrdFeat }),
     srdMonsters: listSrd,
     lookup: refLookup,
+    afterSave: (before: StoredEncounter, after: StoredEncounter) => combatEffects().afterSave(before, after),
+    afterDelete: (stored: StoredEncounter) => combatEffects().afterDelete(stored),
     log: audit,
   };
 }

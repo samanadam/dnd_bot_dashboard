@@ -11,16 +11,17 @@ export const metadata: Metadata = { title: "DM Screen" };
 export const dynamic = "force-dynamic";
 
 export default async function DmHome() {
-  await requireDm();
+  const { scope } = await requireDm();
+  const mine = scope.narrow(null) ?? [];
   const db = getDatabase();
-  const creatures = new CreatureRepo(db).list();
+  const creatures = new CreatureRepo(db).list().filter((c) => c.kind === "monster" || scope.allows(c.campaignId));
   const npcs = creatures.filter((c) => c.kind === "npc").length;
   return (
     <DmHomeView
-      encounters={new EncounterRepo(db).list()}
+      encounters={new EncounterRepo(db).list(mine)}
       monsterCount={listSrd().length + creatures.length - npcs}
       npcCount={npcs}
-      areaCount={new AreaRepo(db).list().length}
+      areaCount={new AreaRepo(db).list(mine).length}
     />
   );
 }

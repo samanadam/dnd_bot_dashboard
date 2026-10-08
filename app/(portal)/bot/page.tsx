@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Overview } from "@/components/bot/Overview";
-import { requireUser } from "@/lib/session";
+import { requireAccess } from "@/lib/access/server";
 
 export const metadata: Metadata = { title: "D&D Recorder" };
 
 export default async function BotPage() {
-  await requireUser();
+  await requireAccess("bot.view");
   return <Overview />;
 }

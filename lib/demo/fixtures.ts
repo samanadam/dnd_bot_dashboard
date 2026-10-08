@@ -3,7 +3,11 @@ import type { Area } from "@/lib/dm/areas";
 import type { Creature } from "@/lib/dm/creatures";
 import type { Combatant, CreatureRef, Encounter } from "@/lib/dm/encounter";
 import type { StoredEncounter } from "@/lib/dm/encounters";
+import type { CustomFeat } from "@/lib/dm/feats";
 import type { CustomItem } from "@/lib/dm/items";
+import type { CustomSpell } from "@/lib/dm/spells";
+import type { BattleRoll, StoredNote } from "@/lib/combat/store";
+import { DEMO_SHEET_PALADIN, DEMO_SHEET_WIZARD, demoSheets } from "./sheetFixtures";
 import type { Reward } from "@/lib/dm/rewards";
 import type { SavedTrack } from "@/lib/dm/saved";
 import type { Scene } from "@/lib/dm/scenes";
@@ -39,6 +43,9 @@ export const IDS = {
   areaWoods: uuid(303),
   itemSignet: uuid(401),
   itemLantern: uuid(402),
+  spellEmberLance: uuid(451),
+  spellAshVeil: uuid(452),
+  featGuildSworn: uuid(461),
   sceneTavern: uuid(501),
   sceneStorm: uuid(502),
   sceneBoss: uuid(503),
@@ -280,10 +287,16 @@ export function demoFixtures(now: number) {
       ...party([17, 9, 12]),
       combatant("m-goblin-1", "Goblin", "monster", { ac: goblin.ac, hp: 3, maxHp: goblin.hp, init: 14, bonus: 2, ref: srd("2014", "goblin") }),
       combatant("m-goblin-2", "Goblin 2", "monster", { ac: goblin.ac, hp: goblin.hp, init: 11, bonus: 2, ref: srd("2014", "goblin") }),
-      combatant("m-boss", "Goblin Boss", "monster", { ac: 17, hp: 21, init: 15, bonus: 2, ref: srd("2024", "goblin-boss") }),
+      { ...combatant("m-boss", "Goblin Boss", "monster", { ac: 17, hp: 21, init: 15, bonus: 2, ref: srd("2024", "goblin-boss") }), alias: "Goblin in a red hood" },
       combatant("n-veyra", "Captain Veyra Thorn", "npc", { ac: captain.ac, hp: captain.hp, init: 13, bonus: 3, ref: { source: "custom", id: IDS.npcCaptain }, friendly: true }),
     ],
   };
+  // Two of the party are linked to their character sheets, and the fight is shown to players.
+  mill.combatants.push(
+    { ...combatant("pc-ilsa", "Ilsa Thornwick", "player", { ac: 12, hp: 21, maxHp: 27, init: 16, bonus: 2 }), ref: { source: "character", id: DEMO_SHEET_WIZARD } },
+    { ...combatant("pc-bram", "Bram Ashford", "player", { ac: 18, hp: 44, maxHp: 50, init: 8, bonus: 0 }), ref: { source: "character", id: DEMO_SHEET_PALADIN } },
+  );
+  mill.shownToPlayers = true;
   mill.combatants.sort((a, b) => (b.initiative ?? -99) - (a.initiative ?? -99));
   mill.combatants[0] = { ...mill.combatants[0], conditions: [{ name: "Blessed", rounds: 8 }], concentration: false };
   const cass = mill.combatants.find((c) => c.id === "p-cass");
@@ -384,6 +397,65 @@ export function demoFixtures(now: number) {
     item(IDS.itemLantern, { name: "Drowned Lantern", category: "Wondrous Item", rarity: "Rare", attunement: "Required", costGp: 0, weightLb: 2, detail: "Bright light 30 ft., even underwater", description: "Its flame burns blue under water. While you carry it, you can breathe under water for 1 hour a day." }, 60 * 24 * 4),
   ];
 
+  const meta = (id: string, minutes: number) => ({
+    id,
+    campaignId: CAMPAIGN_EMBER,
+    authorUserId: null,
+    shared: true,
+    createdAt: ago(minutes),
+    updatedAt: ago(minutes),
+  });
+  const spells: CustomSpell[] = [
+    {
+      ...meta(IDS.spellEmberLance, 60 * 24 * 6),
+      name: "Ember Lance",
+      level: 2,
+      school: "evocation",
+      castingTime: "1 action",
+      ritual: false,
+      range: "90 feet",
+      components: { verbal: true, somatic: true, material: true, materialText: "a coal from a guild forge", materialCostGp: null, materialConsumed: false },
+      duration: "Instantaneous",
+      concentration: false,
+      classes: ["Sorcerer", "Wizard"],
+      attack: "ranged",
+      save: null,
+      effect: { kind: "damage", roll: "3d8", types: ["fire"] },
+      scaling: { by: "slot", steps: [{ at: 3, roll: "4d8" }, { at: 4, roll: "5d8" }] },
+      description: "A spear of guild-fire streaks toward a creature you can see. Make a ranged spell attack. On a hit, the target takes 3d8 Fire damage and can't take Reactions until the start of your next turn.",
+      higherLevel: "The damage increases by 1d8 for each spell slot level above 2.",
+    },
+    {
+      ...meta(IDS.spellAshVeil, 60 * 24 * 3),
+      name: "Ash Veil",
+      level: 1,
+      school: "illusion",
+      castingTime: "1 bonus action",
+      ritual: false,
+      range: "Self",
+      components: { verbal: false, somatic: true, material: false, materialText: "", materialCostGp: null, materialConsumed: false },
+      duration: "Up to 1 minute",
+      concentration: true,
+      classes: ["Bard", "Warlock"],
+      attack: null,
+      save: null,
+      effect: null,
+      scaling: null,
+      description: "Drifting ash wraps you. Attack rolls against you have Disadvantage while you are in dim light or darkness.",
+      higherLevel: "",
+    },
+  ];
+  const feats: CustomFeat[] = [
+    {
+      ...meta(IDS.featGuildSworn, 60 * 24 * 5),
+      name: "Guild-Sworn",
+      category: "Origin",
+      prerequisite: "",
+      repeatable: false,
+      description: "You know the Ashen Guild's hand signs and can pass coded messages to its members unnoticed.",
+    },
+  ];
+
   const scene = (id: string, input: Omit<Scene, "id" | "createdAt" | "updatedAt" | "campaignId">): Scene => ({
     id,
     ...input,
@@ -444,6 +516,7 @@ export function demoFixtures(now: number) {
   };
 
   return {
+    play: { sheets: demoSheets(now, CAMPAIGN_EMBER), notes: [] as StoredNote[], rolls: [] as BattleRoll[], turnPing: { enabled: false, channelId: null as string | null } },
     bot: {
       startedAt: now - 3 * 24 * 3600_000,
       library,
@@ -457,7 +530,7 @@ export function demoFixtures(now: number) {
       layers,
       initiative,
     },
-    dm: { creatures, encounters, areas, areaBattles, areaRewards, items, scenes, saved: savedTracks, tags },
+    dm: { creatures, encounters, areas, areaBattles, areaRewards, items, spells, feats, scenes, saved: savedTracks, tags },
   };
 }
 

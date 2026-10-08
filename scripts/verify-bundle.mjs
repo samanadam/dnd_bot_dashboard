@@ -19,12 +19,17 @@ function* files(dir) {
   }
 }
 
+// SRD text is served only by the API, behind a login. A marker from the bundled
+// spells shows up here if a client component ever imports the data file.
+const spells = JSON.parse(readFileSync("data/srd/spells-2024.json", "utf8")).spells;
+const markers = [["SRD spell data", spells[0].spell.description.slice(0, 60)]];
+
 let leaks = 0;
 for (const root of [".next/static", "public"]) {
   if (!existsSync(root)) continue;
   for (const file of files(root)) {
     const content = readFileSync(file, "latin1");
-    for (const [key, value] of secrets) {
+    for (const [key, value] of [...secrets, ...markers]) {
       if (content.includes(value)) {
         console.error(`LEAK: ${key} found in ${file}`);
         leaks += 1;
@@ -34,4 +39,4 @@ for (const root of [".next/static", "public"]) {
 }
 
 if (leaks) process.exit(1);
-console.log(`verify-bundle: looked for ${secrets.map(([key]) => key).join(", ")}; no leaks.`);
+console.log(`verify-bundle: looked for ${[...secrets, ...markers].map(([key]) => key).join(", ")}; no leaks.`);

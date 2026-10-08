@@ -10,6 +10,7 @@ import { CookieSettingsButton } from "../consent/CookieSettingsButton";
 import { PresenceDot } from "../bot/LivePresence";
 import { useToast } from "../Providers";
 import { Button, Card, Field, inputClass, PageHeader } from "../ui";
+import { PortalLink } from "../PortalLink";
 import { ThemePicker } from "./ThemePicker";
 
 type Props = {
@@ -17,6 +18,9 @@ type Props = {
   user: { id: string; name: string | null; image: string | null };
   expires: string | null;
   signOut: ReactNode;
+  // Bot-related cards only for people who can use the bot; the access link for the owner.
+  canSeeBot: boolean;
+  owner: boolean;
 };
 
 const SNOWFLAKE = /^\d{17,20}$/;
@@ -40,10 +44,28 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function SettingsView({ theme, user, expires, signOut }: Props) {
-  const toast = useToast();
+function BotConnectionCard() {
   const health = useHealth();
   const stats = useStats();
+  return (
+      <Card title="Bot connection" subtitle="What the portal sees from the bot right now" icon={Server}>
+        <dl className="grid gap-x-8 divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
+          <Row label="Status">
+            <PresenceDot />
+          </Row>
+          <Row label="Version">{stats.data?.version ? `v${stats.data.version}` : "—"}</Row>
+          <Row label="Uptime">{health.data ? formatUptime(health.data.uptime_seconds) : "—"}</Row>
+          <Row label="Storage backend">{stats.data?.storage.backend ?? "—"}</Row>
+        </dl>
+        <p className="mt-3 text-xs text-muted">
+          The bot address and token are kept on the server and are never sent to this browser, so they are not shown here.
+        </p>
+      </Card>
+  );
+}
+
+export function SettingsView({ theme, user, expires, signOut, canSeeBot, owner }: Props) {
+  const toast = useToast();
   const [voice, setVoice] = useLocalValue("portal.bot.voiceChannelId");
   const [text, setText] = useLocalValue("portal.bot.textChannelId");
 
@@ -61,6 +83,7 @@ export function SettingsView({ theme, user, expires, signOut }: Props) {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
+        {canSeeBot ? (
         <Card title="This device" subtitle="Defaults remembered only in this browser" icon={MonitorSmartphone}>
           <div className="space-y-4">
             <Field label="Default voice channel id" hint="Used to start recordings and join voice when the bot is not already in a channel.">
@@ -98,6 +121,7 @@ export function SettingsView({ theme, user, expires, signOut }: Props) {
             </Button>
           </div>
         </Card>
+        ) : null}
 
         <Card title="Account" subtitle="Signed in with Discord" icon={UserRound}>
           <div className="flex items-center gap-4 rounded-2xl bg-surface-2 p-4">
@@ -140,19 +164,16 @@ export function SettingsView({ theme, user, expires, signOut }: Props) {
         </Card>
       </div>
 
-      <Card title="Bot connection" subtitle="What the portal sees from the bot right now" icon={Server}>
-        <dl className="grid gap-x-8 divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
-          <Row label="Status">
-            <PresenceDot />
-          </Row>
-          <Row label="Version">{stats.data?.version ? `v${stats.data.version}` : "—"}</Row>
-          <Row label="Uptime">{health.data ? formatUptime(health.data.uptime_seconds) : "—"}</Row>
-          <Row label="Storage backend">{stats.data?.storage.backend ?? "—"}</Row>
-        </dl>
-        <p className="mt-3 text-xs text-muted">
-          The bot address and token are kept on the server and are never sent to this browser, so they are not shown here.
-        </p>
-      </Card>
+      {canSeeBot ? <BotConnectionCard /> : null}
+
+      {owner ? (
+        <Card title="Access" subtitle="Which Discord roles may use what" icon={ShieldCheck}>
+          <p className="text-sm text-muted">Give roles the player area, bot controls or the DM tools, for every campaign or chosen ones.</p>
+          <PortalLink href="/settings/access" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
+            Manage access
+          </PortalLink>
+        </Card>
+      ) : null}
 
       <Card title="Privacy and cookies" subtitle="What is stored about you, and your choices" icon={Cookie}>
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

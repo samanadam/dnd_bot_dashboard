@@ -9,7 +9,7 @@ const DM = "111111111111111111";
 const state = vi.hoisted(() => ({ user: null as string | null, db: null as unknown, audit: [] as unknown[] }));
 
 vi.mock("@/auth", () => ({ auth: async () => (state.user ? { user: { id: state.user } } : null) }));
-vi.mock("@/lib/env", () => ({ env: () => ({ DM_USER_IDS: ["111111111111111111"] }) }));
+vi.mock("@/lib/env", () => ({ env: () => ({ DM_USER_IDS: ["111111111111111111"], ALLOWED_ROLE_IDS: [] }) }));
 vi.mock("@/lib/audit", () => ({ audit: (entry: unknown) => state.audit.push(entry) }));
 vi.mock("@/lib/dm/database", () => ({ getDatabase: () => state.db }));
 

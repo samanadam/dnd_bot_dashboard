@@ -3,7 +3,7 @@ import { errorResponse } from "@/lib/requestGuard";
 import { AREA_ID, areaEncountersSchema, areaOrderSchema, areaSchema, areaUpdateSchema, MAX_AREAS, type Area, type AreaRepo } from "./areas";
 import { areaDetail, type RefLookup } from "./areaView";
 import type { EncounterRepo } from "./encounters";
-import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
+import { guardDm, invalidBody, readDmJson, type CampaignScope, type DmGuardDeps } from "./guard";
 import { json, noContent, type AuditLog } from "./http";
 import { REWARD_ID, rewardListSchema, rewardStatusBodySchema } from "./rewards";
 
@@ -24,6 +24,12 @@ function detail(deps: AreaRouteDeps, area: Area, status = 200): Response {
   return json(areaDetail(area, { areas: deps.areas(), encounters: deps.encounters(), lookup: deps.lookup() }), status);
 }
 
+/** The area, when it exists and the caller's campaign scope reaches it. */
+function reachable(deps: AreaRouteDeps, scope: CampaignScope, id: string): Area | null {
+  const area = AREA_ID.test(id) ? deps.areas().get(id) : null;
+  return area && scope.allows(area.campaignId) ? area : null;
+}
+
 function audit(deps: AreaRouteDeps, userId: string, method: string, path: string, status: number) {
   deps.log?.({ event: "dm_write", userId, method, path, status });
 }
@@ -35,7 +41,9 @@ export function areaCollection(deps: AreaRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(deps.areas().list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
+      return json(deps.areas().list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -45,6 +53,7 @@ export function areaCollection(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = areaSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return missing();
       const created = deps.areas().create(parsed.data);
       if (!created) return errorResponse(409, "conflict", `That is the most areas one campaign can hold (${MAX_AREAS}). Delete one first.`);
       audit(deps, guard.userId, "POST", "dm/areas", 201);
@@ -63,6 +72,8 @@ export function areaOrder(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = areaOrderSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      // Only areas the caller can reach may be moved.
+      if (!guard.scope.everywhere && parsed.data.ids.some((id) => !reachable(deps, guard.scope, id))) return missing();
       deps.areas().reorder(parsed.data.ids);
       audit(deps, guard.userId, "PUT", "dm/areas/order", 204);
       return noContent();
@@ -75,7 +86,7 @@ export function areaItem(deps: AreaRouteDeps) {
     async GET(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      const area = AREA_ID.test(id) ? deps.areas().get(id) : null;
+      const area = reachable(deps, guard.scope, id);
       return area ? detail(deps, area) : missing();
     },
 
@@ -87,6 +98,8 @@ export function areaItem(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = areaUpdateSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!reachable(deps, guard.scope, id)) return missing();
+      if (parsed.data.campaignId !== undefined && !guard.scope.allows(parsed.data.campaignId)) return missing();
       const { version, ...input } = parsed.data;
       const updated = deps.areas().update(id, version, input);
       if (!updated) return missing();
@@ -98,7 +111,7 @@ export function areaItem(deps: AreaRouteDeps) {
     async DELETE(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      if (!AREA_ID.test(id) || !deps.areas().remove(id)) return missing();
+      if (!reachable(deps, guard.scope, id) || !deps.areas().remove(id)) return missing();
       audit(deps, guard.userId, "DELETE", "dm/areas/:id", 204);
       return noContent();
     },
@@ -116,6 +129,15 @@ export function areaEncounters(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = areaEncountersSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!reachable(deps, guard.scope, id)) return missing();
+      // A battle from a campaign outside the caller's scope cannot be linked in.
+      const repo = deps.encounters();
+      const linked = new Set(deps.areas().encounterIds(id));
+      for (const encounterId of parsed.data.encounterIds) {
+        if (linked.has(encounterId)) continue;
+        const encounter = repo.get(encounterId);
+        if (encounter && !guard.scope.allows(encounter.campaignId)) return errorResponse(400, "bad_request", "Only prepared encounters can be linked to an area.");
+      }
       const result = deps.areas().setEncounters(id, parsed.data.version, parsed.data.encounterIds);
       if (!result) return missing();
       if (result === "conflict") return conflict();
@@ -137,6 +159,7 @@ export function areaRewards(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = rewardListSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!reachable(deps, guard.scope, id)) return missing();
       const result = deps.areas().setRewards(id, parsed.data.version, parsed.data.rewards);
       if (!result) return missing();
       if (result === "conflict") return conflict();
@@ -158,6 +181,7 @@ export function areaReward(deps: AreaRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = rewardStatusBodySchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!reachable(deps, guard.scope, id)) return errorResponse(404, "not_found", "No such reward.");
       const result = deps.areas().setRewardStatus(id, rewardId, parsed.data.status);
       if (!result) return errorResponse(404, "not_found", "No such reward.");
       if (result === "wrong_kind") return errorResponse(400, "bad_request", "That status does not fit this kind of reward.");

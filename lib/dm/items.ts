@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { campaignClause, campaignIdSchema, type Selection } from "@/lib/campaign/selection";
+import { campaignClause, campaignIdSchema, type ScopedSelection } from "@/lib/campaign/selection";
 import { creatureRefSchema } from "./encounter";
 
 // An item is plain data. SRD items are bundled (data/srd/items-*.json, read-only);
@@ -71,7 +71,7 @@ export class ItemRepo {
     }
   }
 
-  list(campaign: Selection = null): CustomItem[] {
+  list(campaign: ScopedSelection = null): CustomItem[] {
     const scope = campaignClause(campaign);
     const rows = this.db
       .prepare(`SELECT * FROM items${scope.sql ? ` WHERE ${scope.sql}` : ""} ORDER BY name COLLATE NOCASE, id`)

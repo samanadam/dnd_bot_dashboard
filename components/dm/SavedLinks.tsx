@@ -9,7 +9,7 @@ import { Badge, Button, EmptyState, Field, inputClass, Notice, Skeleton } from "
 import { bot, BotError } from "@/lib/bot/client";
 import type { QueuePosition, SoundKind, Track } from "@/lib/bot/types";
 import { keys, useMusicState, useSoundboard } from "@/lib/bot/useBotState";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useCampaignSelection, useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { SAVED_KINDS, type SavedKind, type SavedTrack } from "@/lib/dm/saved";
 import { savedRef, hasAllTags, tagCounts, tagsSchema } from "@/lib/dm/tags";
@@ -102,7 +102,7 @@ export function SavedLinks() {
   const toast = useToast();
   const client = useQueryClient();
   const [selection] = useCampaignSelection();
-  const campaignForNew = selection && selection !== "unassigned" ? selection : null;
+  const campaignForNew = useDmDefaultCampaign();
   const voice = useVoiceTarget();
   const music = useMusicState();
   const board = useSoundboard();

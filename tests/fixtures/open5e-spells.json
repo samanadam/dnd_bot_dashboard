@@ -1,0 +1,1152 @@
+{
+ "spells": [
+  {
+   "key": "srd-2024_fire-bolt",
+   "document": {
+    "name": "System Reference Document 5.2",
+    "key": "srd-2024",
+    "type": "SOURCE",
+    "display_name": "5e 2024 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2024",
+     "key": "5e-2024"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "player_level_5",
+     "damage_roll": "2d10",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "player_level_11",
+     "damage_roll": "3d10",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "player_level_17",
+     "damage_roll": "4d10",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Evocation",
+    "key": "evocation"
+   },
+   "classes": [
+    {
+     "name": "Sorcerer",
+     "key": "srd-2024_sorcerer"
+    },
+    {
+     "name": "Wizard",
+     "key": "srd-2024_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Fire Bolt",
+   "desc": "You hurl a mote of fire at a creature or an object within range. Make a ranged spell attack against the target. On a hit, the target takes 1d10 Fire damage. A flammable object hit by this spell starts burning if it isn't being worn or carried.",
+   "level": 0,
+   "higher_level": "The damage increases by 1d10 when you reach levels 5 (2d10), 11 (3d10), and 17 (4d10).",
+   "target_type": "creature",
+   "range_text": "120 feet",
+   "range": 120,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": true,
+   "damage_roll": "1d10",
+   "damage_types": [
+    "fire"
+   ],
+   "duration": "instantaneous",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": false
+  },
+  {
+   "key": "srd-2024_acid-arrow",
+   "document": {
+    "name": "System Reference Document 5.2",
+    "key": "srd-2024",
+    "type": "SOURCE",
+    "display_name": "5e 2024 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2024",
+     "key": "5e-2024"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "slot_level_3",
+     "damage_roll": "5d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_4",
+     "damage_roll": "6d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_5",
+     "damage_roll": "7d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_6",
+     "damage_roll": "8d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_7",
+     "damage_roll": "9d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_8",
+     "damage_roll": "10d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_9",
+     "damage_roll": "11d4",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Evocation",
+    "key": "evocation"
+   },
+   "classes": [
+    {
+     "name": "Wizard",
+     "key": "srd-2024_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Acid Arrow",
+   "desc": "A shimmering green arrow streaks toward a target within range and bursts in a spray of acid. Make a ranged spell attack against the target. On a hit, the target takes 4d4 Acid damage and 2d4 Acid damage at the end of its next turn. On a miss, the arrow splashes the target with acid for half as much of the initial damage only.",
+   "level": 2,
+   "higher_level": "The damage (both initial and later) increases by 1d4 for each spell slot level above 2.",
+   "target_type": "creature",
+   "range_text": "90 feet",
+   "range": 90,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": true,
+   "material_specified": "powdered rhubarb leaf",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": true,
+   "damage_roll": "4d4",
+   "damage_types": [
+    "acid"
+   ],
+   "duration": "instantaneous",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": false
+  },
+  {
+   "key": "srd-2024_cure-wounds",
+   "document": {
+    "name": "System Reference Document 5.2",
+    "key": "srd-2024",
+    "type": "SOURCE",
+    "display_name": "5e 2024 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2024",
+     "key": "5e-2024"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "slot_level_2",
+     "damage_roll": "4d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_3",
+     "damage_roll": "6d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_4",
+     "damage_roll": "8d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_5",
+     "damage_roll": "10d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_6",
+     "damage_roll": "12d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_7",
+     "damage_roll": "14d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_8",
+     "damage_roll": "16d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_9",
+     "damage_roll": "18d8",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Abjuration",
+    "key": "abjuration"
+   },
+   "classes": [
+    {
+     "name": "Bard",
+     "key": "srd-2024_bard"
+    },
+    {
+     "name": "Cleric",
+     "key": "srd-2024_cleric"
+    },
+    {
+     "name": "Druid",
+     "key": "srd-2024_druid"
+    },
+    {
+     "name": "Paladin",
+     "key": "srd-2024_paladin"
+    },
+    {
+     "name": "Ranger",
+     "key": "srd-2024_ranger"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Cure Wounds",
+   "desc": "A creature you touch regains a number of Hit Points equal to 2d8 plus your spellcasting ability modifier.",
+   "level": 1,
+   "higher_level": "The healing increases by 2d8 for each spell slot level above 1.",
+   "target_type": "creature",
+   "range_text": "Touch",
+   "range": 0,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": false,
+   "damage_roll": "2d8",
+   "damage_types": [],
+   "duration": "instantaneous",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": false
+  },
+  {
+   "key": "srd_counterspell",
+   "document": {
+    "name": "System Reference Document 5.1",
+    "key": "srd-2014",
+    "type": "SOURCE",
+    "display_name": "5e 2014 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2014",
+     "key": "5e-2014"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "default",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Abjuration",
+    "key": "abjuration"
+   },
+   "classes": [
+    {
+     "name": "Sorcerer",
+     "key": "srd_sorcerer"
+    },
+    {
+     "name": "Warlock",
+     "key": "srd_warlock"
+    },
+    {
+     "name": "Wizard",
+     "key": "srd_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Counterspell",
+   "desc": "You attempt to interrupt a creature in the process of casting a spell. If the creature is casting a spell of 3rd level or lower, its spell fails and has no effect. If it is casting a spell of 4th level or higher, make an ability check using your spellcasting ability. The DC equals 10 + the spell's level. On a success, the creature's spell fails and has no effect.",
+   "level": 3,
+   "higher_level": "When you cast this spell using a spell slot of 4th level or higher, the interrupted spell has no effect if its level is less than or equal to the level of the spell slot you used.",
+   "target_type": "creature",
+   "range_text": "60 feet",
+   "range": 60,
+   "ritual": false,
+   "casting_time": "reaction",
+   "reaction_condition": "which you take when you see a creature within 60 feet of you casting a spell",
+   "verbal": false,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": false,
+   "damage_roll": "",
+   "damage_types": [],
+   "duration": "instantaneous",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": false
+  },
+  {
+   "key": "srd_detect-magic",
+   "document": {
+    "name": "System Reference Document 5.1",
+    "key": "srd-2014",
+    "type": "SOURCE",
+    "display_name": "5e 2014 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2014",
+     "key": "5e-2014"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "default",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "ritual",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Divination",
+    "key": "divination"
+   },
+   "classes": [
+    {
+     "name": "Bard",
+     "key": "srd_bard"
+    },
+    {
+     "name": "Cleric",
+     "key": "srd_cleric"
+    },
+    {
+     "name": "Druid",
+     "key": "srd_druid"
+    },
+    {
+     "name": "Ranger",
+     "key": "srd_ranger"
+    },
+    {
+     "name": "Sorcerer",
+     "key": "srd_sorcerer"
+    },
+    {
+     "name": "Wizard",
+     "key": "srd_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Detect Magic",
+   "desc": "For the duration, you sense the presence of magic within 30 feet of you. If you sense magic in this way, you can use your action to see a faint aura around any visible creature or object in the area that bears magic, and you learn its school of magic, if any. The spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
+   "level": 1,
+   "higher_level": "",
+   "target_type": "creature",
+   "range_text": "Self",
+   "range": 0,
+   "ritual": true,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": false,
+   "damage_roll": "",
+   "damage_types": [],
+   "duration": "10 minutes",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": true
+  },
+  {
+   "key": "srd_raise-dead",
+   "document": {
+    "name": "System Reference Document 5.1",
+    "key": "srd-2014",
+    "type": "SOURCE",
+    "display_name": "5e 2014 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2014",
+     "key": "5e-2014"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "default",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Necromancy",
+    "key": "necromancy"
+   },
+   "classes": [
+    {
+     "name": "Bard",
+     "key": "srd_bard"
+    },
+    {
+     "name": "Cleric",
+     "key": "srd_cleric"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Raise Dead",
+   "desc": "You return a dead creature you touch to life, provided that it has been dead no longer than 10 days. If the creature's soul is both willing and at liberty to rejoin the body, the creature returns to life with 1 hit point. This spell also neutralizes any poisons and cures nonmagical diseases that affected the creature at the time it died. This spell doesn't, however, remove magical diseases, curses, or similar effects; if these aren't first removed prior to casting the spell, they take effect when the creature returns to life. The spell can't return an undead creature to life. This spell closes all mortal wounds, but it doesn't restore missing body parts. If the creature is lacking body parts or organs integral for its survival-its head, for instance-the spell automatically fails. Coming back from the dead is an ordeal. The target takes a -4 penalty to all attack rolls, saving throws, and ability checks. Every time the target finishes a long rest, the penalty is reduced by 1 until it disappears.",
+   "level": 5,
+   "higher_level": "",
+   "target_type": "creature",
+   "range_text": "Touch",
+   "range": 0,
+   "ritual": false,
+   "casting_time": "1hour",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": true,
+   "material_specified": "A diamond worth at least 500gp, which the spell consumes.",
+   "material_cost": "500.00",
+   "material_consumed": true,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": false,
+   "damage_roll": "",
+   "damage_types": [],
+   "duration": "instantaneous",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": false
+  },
+  {
+   "key": "srd_burning-hands",
+   "document": {
+    "name": "System Reference Document 5.1",
+    "key": "srd-2014",
+    "type": "SOURCE",
+    "display_name": "5e 2014 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2014",
+     "key": "5e-2014"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "default",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_2",
+     "damage_roll": "4d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_3",
+     "damage_roll": "5d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_4",
+     "damage_roll": "6d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_5",
+     "damage_roll": "7d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_6",
+     "damage_roll": "8d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_7",
+     "damage_roll": "9d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_8",
+     "damage_roll": "10d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_9",
+     "damage_roll": "11d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Evocation",
+    "key": "evocation"
+   },
+   "classes": [
+    {
+     "name": "Cleric",
+     "key": "srd_cleric"
+    },
+    {
+     "name": "Sorcerer",
+     "key": "srd_sorcerer"
+    },
+    {
+     "name": "Warlock",
+     "key": "srd_warlock"
+    },
+    {
+     "name": "Wizard",
+     "key": "srd_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Burning Hands",
+   "desc": "As you hold your hands with thumbs touching and fingers spread, a thin sheet of flames shoots forth from your outstretched fingertips. Each creature in a 15-foot cone must make a dexterity saving throw. A creature takes 3d6 fire damage on a failed save, or half as much damage on a successful one. The fire ignites any flammable objects in the area that aren't being worn or carried.",
+   "level": 1,
+   "higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d6 for each slot level above 1st.",
+   "target_type": "creature",
+   "range_text": "Self",
+   "range": 0,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "dexterity",
+   "attack_roll": false,
+   "damage_roll": "3d6",
+   "damage_types": [
+    "fire"
+   ],
+   "duration": "instantaneous",
+   "shape_type": "cone",
+   "shape_size": 15,
+   "concentration": false
+  },
+  {
+   "key": "srd-2024_bless",
+   "document": {
+    "name": "System Reference Document 5.2",
+    "key": "srd-2024",
+    "type": "SOURCE",
+    "display_name": "5e 2024 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2024",
+     "key": "5e-2024"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "casting_options": [
+    {
+     "type": "slot_level_2",
+     "damage_roll": null,
+     "target_count": 2,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_3",
+     "damage_roll": null,
+     "target_count": 3,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_4",
+     "damage_roll": null,
+     "target_count": 4,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_5",
+     "damage_roll": null,
+     "target_count": 5,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_6",
+     "damage_roll": null,
+     "target_count": 6,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_7",
+     "damage_roll": null,
+     "target_count": 7,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_8",
+     "damage_roll": null,
+     "target_count": 8,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_9",
+     "damage_roll": null,
+     "target_count": 9,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Enchantment",
+    "key": "enchantment"
+   },
+   "classes": [
+    {
+     "name": "Cleric",
+     "key": "srd-2024_cleric"
+    },
+    {
+     "name": "Paladin",
+     "key": "srd-2024_paladin"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Bless",
+   "desc": "You bless up to three creatures within range. Whenever a target makes an attack roll or a saving throw before the spell ends, the target adds 1d4 to the attack roll or save.",
+   "level": 1,
+   "higher_level": "You can target one additional creature for each spell slot level above 1.",
+   "target_type": "creature",
+   "range_text": "30 feet",
+   "range": 30,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": true,
+   "material_specified": "a Holy Symbol worth 5+ GP",
+   "material_cost": null,
+   "material_consumed": true,
+   "target_count": 1,
+   "saving_throw_ability": "",
+   "attack_roll": true,
+   "damage_roll": "1d4",
+   "damage_types": [],
+   "duration": "1 minute",
+   "shape_type": null,
+   "shape_size": null,
+   "concentration": true
+  },
+  {
+   "key": "tob_burning-hands",
+   "document": {
+    "key": "tob"
+   },
+   "casting_options": [
+    {
+     "type": "default",
+     "damage_roll": null,
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_2",
+     "damage_roll": "4d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_3",
+     "damage_roll": "5d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_4",
+     "damage_roll": "6d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_5",
+     "damage_roll": "7d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_6",
+     "damage_roll": "8d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_7",
+     "damage_roll": "9d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_8",
+     "damage_roll": "10d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    },
+    {
+     "type": "slot_level_9",
+     "damage_roll": "11d6",
+     "target_count": null,
+     "duration": null,
+     "range": null,
+     "concentration": null,
+     "shape_size": null,
+     "desc": null
+    }
+   ],
+   "school": {
+    "name": "Evocation",
+    "key": "evocation"
+   },
+   "classes": [
+    {
+     "name": "Cleric",
+     "key": "srd_cleric"
+    },
+    {
+     "name": "Sorcerer",
+     "key": "srd_sorcerer"
+    },
+    {
+     "name": "Warlock",
+     "key": "srd_warlock"
+    },
+    {
+     "name": "Wizard",
+     "key": "srd_wizard"
+    }
+   ],
+   "range_unit": "feet",
+   "shape_size_unit": "feet",
+   "name": "Burning Hands",
+   "desc": "As you hold your hands with thumbs touching and fingers spread, a thin sheet of flames shoots forth from your outstretched fingertips. Each creature in a 15-foot cone must make a dexterity saving throw. A creature takes 3d6 fire damage on a failed save, or half as much damage on a successful one. The fire ignites any flammable objects in the area that aren't being worn or carried.",
+   "level": 1,
+   "higher_level": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d6 for each slot level above 1st.",
+   "target_type": "creature",
+   "range_text": "Self",
+   "range": 0,
+   "ritual": false,
+   "casting_time": "action",
+   "reaction_condition": null,
+   "verbal": true,
+   "somatic": true,
+   "material": false,
+   "material_specified": "",
+   "material_cost": null,
+   "material_consumed": false,
+   "target_count": 1,
+   "saving_throw_ability": "dexterity",
+   "attack_roll": false,
+   "damage_roll": "3d6",
+   "damage_types": [
+    "fire"
+   ],
+   "duration": "instantaneous",
+   "shape_type": "cone",
+   "shape_size": 15,
+   "concentration": false
+  }
+ ],
+ "feats": [
+  {
+   "key": "srd-2024_ability-score-improvement",
+   "has_prerequisite": true,
+   "benefits": [
+    {
+     "desc": "Increase one ability score of your choice by 2, or increase two ability scores of your choice by 1. This feat can't increase an ability score above 20."
+    },
+    {
+     "desc": "You can take this feat more than once."
+    }
+   ],
+   "document": {
+    "name": "System Reference Document 5.2",
+    "key": "srd-2024",
+    "type": "SOURCE",
+    "display_name": "5e 2024 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2024",
+     "key": "5e-2024"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "name": "Ability Score Improvement",
+   "desc": "",
+   "prerequisite": "Level 4+",
+   "type": "General",
+   "crossreferences": {
+    "to": []
+   }
+  },
+  {
+   "key": "srd_grappler",
+   "has_prerequisite": true,
+   "benefits": [
+    {
+     "desc": "You have advantage on attack rolls against a creature you are grappling."
+    },
+    {
+     "desc": "You can use your action to try to pin a creature grappled by you. The creature makes a Strength or Dexterity saving throw against your maneuver DC. On a failure, you and the creature are both restrained until the grapple ends."
+    }
+   ],
+   "document": {
+    "name": "System Reference Document 5.1",
+    "key": "srd-2014",
+    "type": "SOURCE",
+    "display_name": "5e 2014 Rules",
+    "publisher": {
+     "name": "Wizards of the Coast",
+     "key": "wizards-of-the-coast"
+    },
+    "gamesystem": {
+     "name": "5th Edition 2014",
+     "key": "5e-2014"
+    },
+    "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+   },
+   "name": "Grappler",
+   "desc": "You've developed the skills necessary to hold your own in close-quarters grappling. You gain the following benefits:",
+   "prerequisite": "Strength 13 or higher",
+   "type": "GENERAL",
+   "crossreferences": {
+    "to": [
+     {
+      "anchor": "Grappling",
+      "url": "https://api.open5e.com/v2/rules/srd_attacking_grappling/"
+     },
+     {
+      "anchor": "Skills",
+      "url": "https://api.open5e.com/v2/rules/srd_abilities_skills/"
+     }
+    ]
+   }
+  }
+ ]
+}

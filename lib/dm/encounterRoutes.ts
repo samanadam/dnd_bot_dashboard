@@ -2,11 +2,18 @@ import { z } from "zod";
 import { campaignIdSchema, parseSelectionStrict } from "@/lib/campaign/selection";
 import { errorResponse } from "@/lib/requestGuard";
 import { encounterSchema } from "./encounter";
-import { ENCOUNTER_ID, type EncounterRepo } from "./encounters";
+import { ENCOUNTER_ID, type EncounterRepo, type StoredEncounter } from "./encounters";
 import { guardDm, invalidBody, readDmJson, type DmGuardDeps } from "./guard";
 import { json, noContent, type AuditLog } from "./http";
 
-export type EncounterRouteDeps = DmGuardDeps & { encounters: () => EncounterRepo; log?: AuditLog };
+export type EncounterRouteDeps = DmGuardDeps & {
+  encounters: () => EncounterRepo;
+  // What a save or a delete sets off for players and the bot (lib/combat/sideEffects.ts).
+  // Best effort: a failure there never fails the save.
+  afterSave?: (before: StoredEncounter, after: StoredEncounter, userId: string) => Promise<void>;
+  afterDelete?: (stored: StoredEncounter, userId: string) => Promise<void>;
+  log?: AuditLog;
+};
 
 const createSchema = z
   .object({
@@ -26,7 +33,9 @@ export function encounterCollection(deps: EncounterRouteDeps) {
       if (!guard.ok) return guard.response;
       const campaign = parseSelectionStrict(new URL(request.url).searchParams.get("campaign"));
       if (!campaign.ok) return errorResponse(400, "bad_request", "Invalid campaign.");
-      return json(deps.encounters().list(campaign.selection));
+      const scoped = guard.scope.narrow(campaign.selection);
+      if (scoped === undefined) return missing();
+      return json(deps.encounters().list(scoped));
     },
 
     async POST(request: Request): Promise<Response> {
@@ -36,6 +45,7 @@ export function encounterCollection(deps: EncounterRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = createSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      if (!guard.scope.allows(parsed.data.campaignId ?? null)) return missing();
       const created = deps.encounters().create(parsed.data.name, parsed.data.campaignId ?? null, parsed.data.kind ?? "live");
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "POST", path: "dm/encounters", status: 201 });
       return json(created, 201);
@@ -50,6 +60,8 @@ export function encounterLaunch(deps: EncounterRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       if (!ENCOUNTER_ID.test(id)) return missing();
+      const template = deps.encounters().get(id);
+      if (!template || !guard.scope.allows(template.campaignId)) return missing();
       const launched = deps.encounters().launch(id);
       if (launched === null) return missing();
       if (launched === "not_prepared") return errorResponse(409, "conflict", "Only a prepared encounter can be launched.");
@@ -70,6 +82,8 @@ export function encounterCampaign(deps: EncounterRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = campaignSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      const current = deps.encounters().get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !guard.scope.allows(parsed.data.campaignId)) return missing();
       if (!deps.encounters().setCampaign(id, parsed.data.campaignId)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/encounters/:id/campaign", status: 204 });
       return noContent();
@@ -83,7 +97,7 @@ export function encounterItem(deps: EncounterRouteDeps) {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
       const found = ENCOUNTER_ID.test(id) ? deps.encounters().get(id) : null;
-      return found ? json(found) : missing();
+      return found && guard.scope.allows(found.campaignId) ? json(found) : missing();
     },
 
     async PUT(request: Request, id: string): Promise<Response> {
@@ -95,6 +109,8 @@ export function encounterItem(deps: EncounterRouteDeps) {
       const parsed = saveSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
       const repo = deps.encounters();
+      const current = repo.get(id);
+      if (!current || !guard.scope.allows(current.campaignId)) return missing();
       const result = repo.save(id, parsed.data.version, parsed.data.encounter);
       if (result === null) return missing();
       if (result === "conflict") {
@@ -105,14 +121,18 @@ export function encounterItem(deps: EncounterRouteDeps) {
       }
       // Autosave is frequent; the audit line records that a save happened, never what changed.
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "PUT", path: "dm/encounters/:id", status: 200 });
+      await deps.afterSave?.(current, result, guard.userId).catch(() => undefined);
       return json(result);
     },
 
     async DELETE(request: Request, id: string): Promise<Response> {
       const guard = await guardDm(request, deps);
       if (!guard.ok) return guard.response;
-      if (!ENCOUNTER_ID.test(id) || !deps.encounters().remove(id)) return missing();
+      if (!ENCOUNTER_ID.test(id)) return missing();
+      const current = deps.encounters().get(id);
+      if (!current || !guard.scope.allows(current.campaignId) || !deps.encounters().remove(id)) return missing();
       deps.log?.({ event: "dm_write", userId: guard.userId, method: "DELETE", path: "dm/encounters/:id", status: 204 });
+      await deps.afterDelete?.(current, guard.userId).catch(() => undefined);
       return noContent();
     },
   };

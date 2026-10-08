@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleBotRequest, ReadCache, type ProxyDeps } from "@/lib/bot/proxy";
 import { RateLimiter } from "@/lib/rateLimit";
+import { legacyAllows } from "./helpers/access";
 
 const DM = "111111111111111111";
 
@@ -15,7 +16,7 @@ function deps(isDm?: (id: string) => boolean) {
     limiter: new RateLimiter(),
     cache: new ReadCache(),
     log,
-    isDm,
+    allows: legacyAllows(isDm),
   };
   return { value, fetchImpl, log };
 }
@@ -45,7 +46,7 @@ describe("dice/announce proxy rule", () => {
       const response = await handleBotRequest(req(body), ["dice", "announce"], d.value);
       expect(response.status).toBe(404);
       expect(d.fetchImpl).not.toHaveBeenCalled();
-      expect(d.log).toHaveBeenCalledWith(expect.objectContaining({ event: "bot_refused", detail: "dm_only" }));
+      expect(d.log).toHaveBeenCalledWith(expect.objectContaining({ event: "bot_refused", detail: "needs_dm" }));
     }
   });
 

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Providers";
 import { Badge, Button, EmptyState, inputClass } from "@/components/ui";
-import { useCampaignSelection } from "@/lib/campaign/useSelection";
+import { useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import type { AreaSummary } from "@/lib/dm/areas";
 import { dm, DmError } from "@/lib/dm/client";
 
@@ -18,14 +18,14 @@ export function AreaList({ areas }: { areas: AreaSummary[] }) {
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<AreaSummary | null>(null);
   // New areas start in the campaign being looked at.
-  const [picked] = useCampaignSelection();
+  const defaultCampaign = useDmDefaultCampaign();
 
   async function create() {
     const clean = name.trim();
     if (!clean) return;
     setBusy(true);
     try {
-      const created = await dm.createArea({ name: clean, summary: "", notes: "", campaignId: picked && picked !== "unassigned" ? picked : null });
+      const created = await dm.createArea({ name: clean, summary: "", notes: "", campaignId: defaultCampaign });
       router.push(`/dm/areas/${created.area.id}`);
     } catch (error) {
       toast("danger", error instanceof DmError ? error.message : "Could not create the area.");

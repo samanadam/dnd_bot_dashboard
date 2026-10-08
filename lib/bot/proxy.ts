@@ -1,3 +1,4 @@
+import type { Permission } from "../access/permissions";
 import { matchRule, type RateBucket } from "./allowlist";
 import type { Limit } from "../rateLimit";
 import { RateLimiter } from "../rateLimit";
@@ -18,8 +19,9 @@ export type ProxyDeps = {
   limiter?: RateLimiter;
   log?: (entry: { event: "bot_call" | "bot_refused"; userId?: string; method: string; path: string; status: number; detail?: string }) => void;
   cache?: ReadCache;
-  // Required for dmOnly rules; without it they are refused.
-  isDm?: (userId: string) => boolean;
+  // Whether the user holds a rule's permission (lib/access). Required: with no
+  // answer there is no access, so a wiring mistake fails closed.
+  allows: (userId: string, permission: Permission | "owner") => boolean;
   now?: () => number;
 };
 
@@ -117,8 +119,8 @@ export async function handleBotRequest(
     return errorResponse(404, "not_found", "Unknown endpoint.");
   }
   const { rule, path } = match;
-  if (rule.dmOnly && !deps.isDm?.(userId)) {
-    log({ event: "bot_refused", userId, method, path: displayPath, status: 404, detail: "dm_only" });
+  if (!deps.allows(userId, rule.permission)) {
+    log({ event: "bot_refused", userId, method, path: displayPath, status: 404, detail: `needs_${rule.permission}` });
     return errorResponse(404, "not_found", "Unknown endpoint.");
   }
 

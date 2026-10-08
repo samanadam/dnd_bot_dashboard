@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { SettingsView } from "@/components/settings/SettingsView";
+import { can } from "@/lib/access/permissions";
+import { getAccess } from "@/lib/access/server";
 import { requireUser } from "@/lib/session";
 import { parseTheme, THEME_COOKIE } from "@/lib/theme";
 
@@ -11,6 +13,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const user = await requireUser();
   const session = await auth();
+  const access = await getAccess();
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
@@ -18,6 +21,8 @@ export default async function SettingsPage() {
       theme={theme}
       user={{ id: user.id, name: user.name ?? null, image: user.image ?? null }}
       expires={session?.expires ?? null}
+      canSeeBot={access !== null && can(access, "bot.view")}
+      owner={access?.owner ?? false}
       signOut={
         <form
           action={async () => {

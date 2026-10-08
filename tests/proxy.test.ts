@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { matchRule } from "@/lib/bot/allowlist";
 import { handleBotRequest, MAX_BODY_BYTES, READ_CACHE_MS, ReadCache, type ProxyDeps } from "@/lib/bot/proxy";
 import { RateLimiter } from "@/lib/rateLimit";
+import { legacyAllows } from "./helpers/access";
 
 const TOKEN = "test-token-abcdefghijklmnop";
 const CHANNEL = "123456789012345678";
@@ -10,6 +11,7 @@ function deps(overrides: Partial<ProxyDeps> = {}): ProxyDeps & { fetchImpl: Retu
   const fetchImpl = vi.fn(async () => Response.json({ ok: true }));
   return {
     getUserId: async () => "42",
+    allows: legacyAllows(),
     botUrl: "https://bot.example/api/v1",
     botToken: TOKEN,
     fetchImpl,
@@ -173,7 +175,7 @@ describe("handleBotRequest", () => {
       const stop = matchRule("POST", ["recording", "stop"])!.rule;
       expect(split.audit).toBe(true);
       expect(split.bucket).toBe("recording");
-      expect(split.dmOnly).toBeUndefined();
+      expect(split.permission).toBe("bot.recording");
       expect(split.timeoutMs).toBeUndefined();
       expect(stop.timeoutMs).toBeGreaterThan(60_000);
       expect(matchRule("GET", ["recording", "split"])).toBeNull();
