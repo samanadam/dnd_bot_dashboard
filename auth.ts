@@ -63,6 +63,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       Discord({
         clientId: config.AUTH_DISCORD_ID,
         clientSecret: config.AUTH_DISCORD_SECRET,
+        // Discord now returns iss on the callback (RFC 9207) and Auth.js checks it
+        // against the provider's issuer, which otherwise is a placeholder.
+        // Value from https://discord.com/.well-known/oauth-authorization-server.
+        issuer: "https://discord.com",
         // No email: the portal has no use for it. guilds.members.read lets us
         // read the user's own roles in the one allowed guild.
         authorization: { params: { scope: "identify guilds.members.read", prompt: "none" } },
