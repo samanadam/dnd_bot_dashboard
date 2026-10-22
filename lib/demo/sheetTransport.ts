@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { secureRng } from "@/lib/dice/random";
 import { DiceError, naturalD20, rollDice, withAdvantage } from "@/lib/dice/roll";
+import { shownDice } from "@/lib/dice/shown";
 import { DmError } from "@/lib/dm/client";
 import { customSpellSchema, type CustomSpell } from "@/lib/dm/spells";
 import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, spellRow, srdFeatRow, srdSpellRow } from "@/lib/dm/spellSearch";
@@ -157,7 +158,7 @@ const routes: Array<[string, RegExp, Handler]> = [
       find(id);
       try {
         const roll = rollDice(input.mode === "normal" ? input.expression : withAdvantage(input.expression, input.mode === "advantage" ? "adv" : "dis"));
-        return { expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: input.mode === "normal" ? input.label : `${input.label} (${input.mode})`, announced: false, natural: naturalD20(roll) };
+        return { expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: input.mode === "normal" ? input.label : `${input.label} (${input.mode})`, announced: false, natural: naturalD20(roll), dice: shownDice(roll.terms) };
       } catch (error) {
         if (error instanceof DiceError) fail(400, "bad_request", error.message);
         throw error;

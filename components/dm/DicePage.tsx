@@ -1,6 +1,7 @@
 "use client";
 
 import { Dices, Trash2 } from "lucide-react";
+import { useDice3d } from "@/components/dice/DiceOverlay";
 import { Button } from "@/components/ui";
 import { DiceRoller, ResultCard, SendButton, useDice } from "./DiceProvider";
 
@@ -19,6 +20,7 @@ function time(at: number): string {
 
 export function DicePage() {
   const { history, send, autoSend, setAutoSend, clear, roll } = useDice();
+  const [dice3d, setDice3d] = useDice3d();
   const latest = history[0];
 
   return (
@@ -56,6 +58,13 @@ export function DicePage() {
             <span className="block text-xs text-muted">Posted by the bot in its dice channel, with mentions disabled.</span>
           </span>
           <input id="dice-page-autosend" type="checkbox" className="size-5 accent-[var(--accent)]" checked={autoSend} onChange={(e) => setAutoSend(e.target.checked)} />
+        </label>
+        <label htmlFor="dice-page-3d" className="flex cursor-pointer items-center justify-between gap-3 rounded-3xl border border-border bg-surface p-5 shadow-card">
+          <span>
+            <span className="block text-sm font-medium">3D dice</span>
+            <span className="block text-xs text-muted">Throw the dice across the screen on every roll. Stays off when your device asks for less motion.</span>
+          </span>
+          <input id="dice-page-3d" type="checkbox" className="size-5 accent-[var(--accent)]" checked={dice3d} onChange={(e) => setDice3d(e.target.checked)} />
         </label>
       </div>
 

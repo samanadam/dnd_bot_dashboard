@@ -2,6 +2,7 @@
 
 import { Dices, Send } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { Dice3dToggle, DiceOverlay, type Toss } from "@/components/dice/DiceOverlay";
 import { useToast } from "@/components/Providers";
 import { DmError } from "@/lib/dm/client";
 import { sheets, type RollAnswer } from "@/lib/sheets/client";
@@ -21,6 +22,7 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
   const toast = useToast();
   const [log, setLog] = useState<RollAnswer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
+  const [toss, setToss] = useState<Toss | null>(null);
   const [post, setPost] = useLocalValue("portal.sheet.postRolls");
   const announce = post !== "off";
 
@@ -31,6 +33,7 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
         const d20 = /^1?d20\b/i.test(expression.replace(/\s/g, ""));
         const answer = await sheets.roll(sheetId, { expression, label, mode: d20 ? mode : "normal", announce });
         setLog((current) => [answer, ...current].slice(0, 30));
+        setToss({ id: `${Date.now()}-${Math.random()}`, dice: answer.dice ?? [] });
         if (d20) setMode("normal");
         return answer;
       } catch (error) {
@@ -63,7 +66,8 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
               </button>
             ))}
           </div>
-          <label className="ml-auto flex items-center gap-1.5 text-xs text-muted">
+          <Dice3dToggle id="sheet-dice-3d" className="ml-auto" />
+          <label className="flex items-center gap-1.5 text-xs text-muted">
             <input type="checkbox" className="accent-[var(--accent)]" checked={announce} onChange={(event) => setPost(event.target.checked ? "on" : "off")} />
             <Send className="size-3" aria-hidden /> Post to Discord
           </label>
@@ -83,6 +87,7 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
           <p className="text-xs text-faint">Tap any bonus on the sheet to roll it.</p>
         )}
       </div>
+      <DiceOverlay toss={toss} />
     </RollContext.Provider>
   );
 }
