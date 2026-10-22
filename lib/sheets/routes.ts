@@ -4,6 +4,7 @@ import { can } from "@/lib/access/permissions";
 import { CAMPAIGN_ID, campaignIdSchema } from "@/lib/campaign/selection";
 import { secureRng, type Rng } from "@/lib/dice/random";
 import { DiceError, naturalD20, rollDice, withAdvantage } from "@/lib/dice/roll";
+import { shownDice } from "@/lib/dice/shown";
 import type { CreatureRef } from "@/lib/dm/encounter";
 import type { FeatRepo } from "@/lib/dm/feats";
 import { guardApi, invalidBody, readDmJson, type DmGuardDeps, type Guarded } from "@/lib/dm/guard";
@@ -313,7 +314,7 @@ export function sheetRoll(deps: SheetRouteDeps) {
           .announce({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown.slice(0, 300), label: `${found.sheet.name} · ${shownLabel}`.slice(0, 80) }, found.guard.userId)
           .catch(() => false);
       }
-      return json({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: shownLabel, announced, natural: naturalD20(roll) });
+      return json({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: shownLabel, announced, natural: naturalD20(roll), dice: shownDice(roll.terms) });
     },
   };
 }

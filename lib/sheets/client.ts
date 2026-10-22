@@ -10,6 +10,7 @@ import type { SheetSummary, SheetView } from "./access";
 import type { SheetBody } from "./body";
 import type { Op, OpResult } from "./ops";
 import type { LinkedVitals } from "./routes";
+import type { ShownDie } from "@/lib/dice/shown";
 import type { Vitals } from "./vitals";
 
 // Browser client for /api/sheets and /api/play. Portal header, same-origin
@@ -60,7 +61,7 @@ const q = (params: Record<string, string | number | undefined>) => {
   return query.toString();
 };
 
-export type RollAnswer = { expression: string; total: number; breakdown: string; label: string; announced: boolean; natural: 20 | 1 | null };
+export type RollAnswer = { expression: string; total: number; breakdown: string; label: string; announced: boolean; natural: 20 | 1 | null; dice: ShownDie[] };
 export type Player = { userId: string; name: string };
 
 export const sheets = {

@@ -10,6 +10,8 @@ import { Button, inputClass } from "@/components/ui";
 import { BotError, bot } from "@/lib/bot/client";
 import { emptyTray, toExpression, type Tray } from "@/lib/dice/pick";
 import { DiceError, naturalD20, rollDice, withAdvantage, type RollResult } from "@/lib/dice/roll";
+import { shownDice } from "@/lib/dice/shown";
+import { Dice3dToggle, DiceOverlay, type Toss } from "@/components/dice/DiceOverlay";
 import type { StatBlock } from "@/lib/dm/statblock";
 import { DicePicker } from "./DicePicker";
 import { StatBlockView } from "./StatBlockView";
@@ -58,6 +60,7 @@ export function DiceProvider({ children }: { children: ReactNode }) {
   const [autoSend, setAutoSendState] = useState(false);
   const [open, setOpen] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [toss, setToss] = useState<Toss | null>(null);
 
   useEffect(() => {
     // Restored after mount so server and client render the same markup.
@@ -119,6 +122,7 @@ export function DiceProvider({ children }: { children: ReactNode }) {
         const result = rollDice(expression);
         const entry: RollEntry = { ...result, id: `r${Date.now().toString(36)}${++counter}`, label: label.slice(0, 80), at: Date.now(), sent: "no", natural: naturalD20(result) };
         setHistory((entries) => [entry, ...entries].slice(0, MAX_HISTORY));
+        setToss({ id: entry.id, dice: shownDice(result.terms) });
         setOpen(true);
         if (autoSend) void sendEntry(entry);
         return entry;
@@ -150,6 +154,7 @@ export function DiceProvider({ children }: { children: ReactNode }) {
     <DiceContext.Provider value={api}>
       {children}
       <DiceTray open={open} onOpenChange={setOpen} />
+      <DiceOverlay toss={toss} />
     </DiceContext.Provider>
   );
 }
@@ -359,13 +364,14 @@ function DiceTray({ open, onOpenChange }: { open: boolean; onOpenChange: (value:
               ))}
             </ul>
           ) : null}
-          <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3">
             <label htmlFor="dice-autosend" className="flex cursor-pointer items-center gap-2 text-xs text-muted">
               <input id="dice-autosend" type="checkbox" className="size-4 accent-[var(--accent)]" checked={autoSend} onChange={(event) => setAutoSend(event.target.checked)} />
               Send every roll to Discord
             </label>
+            <Dice3dToggle id="dice-3d-tray" />
             {history.length ? (
-              <Button size="sm" variant="ghost" icon={Trash2} onClick={clear}>
+              <Button size="sm" variant="ghost" icon={Trash2} className="ml-auto" onClick={clear}>
                 Clear
               </Button>
             ) : null}

@@ -234,7 +234,7 @@ describe("saving and live play", () => {
     const { body } = await create(deps, EMBER, "Aria");
     const response = await sheetRoll(deps).POST(req("POST", { expression: "1d20+5", label: "Stealth", mode: "advantage", announce: true }), body.id);
     const result = (await response.json()) as { total: number; announced: boolean; label: string };
-    expect(result).toMatchObject({ total: 15, announced: true, label: "Stealth (advantage)" });
+    expect(result).toMatchObject({ total: 15, announced: true, label: "Stealth (advantage)", dice: [{ kind: 20, face: 10, kept: false }, { kind: 20, face: 10, kept: true }] });
     expect(announced[0]).toMatchObject({ label: "Aria · Stealth (advantage)", total: 15 });
     expect((await sheetRoll(deps).POST(req("POST", { expression: "1d20+5", label: "x", total: 20 }), body.id)).status).toBe(400);
     expect((await sheetRoll(deps).POST(req("POST", { expression: "rm -rf", label: "x" }), body.id)).status).toBe(400);
