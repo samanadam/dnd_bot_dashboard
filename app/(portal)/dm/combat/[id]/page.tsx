@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { EncounterView } from "@/components/views/dm/EncounterView";
+import { AreaRepo } from "@/lib/dm/areas";
+import { areaDetail } from "@/lib/dm/areaView";
 import { requireDm } from "@/lib/dm/access";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
 import { ENCOUNTER_ID, EncounterRepo } from "@/lib/dm/encounters";
+import { refLookup } from "@/lib/dm/routeDeps";
 import { listSrd, summarise } from "@/lib/dm/srd";
 
 export const metadata: Metadata = { title: "Encounter" };
@@ -21,5 +24,10 @@ export default async function EncounterPage(props: PageProps<"/dm/combat/[id]">)
     .list()
     .filter((c) => c.kind === "monster" || scope.allows(c.campaignId))
     .map((c) => summarise(c.id, c.id, "custom", c.kind, c.statBlock, c.tags));
-  return <EncounterView stored={stored} creatures={[...custom, ...listSrd()]} />;
+  // The area this prepared battle belongs to, so its loot shows beside it.
+  const areas = new AreaRepo(db);
+  const areaId = stored.kind === "prepared" ? areas.areaIdForEncounter(id) : null;
+  const found = areaId ? areas.get(areaId) : null;
+  const area = found && scope.allows(found.campaignId) ? areaDetail(found, { areas, encounters: new EncounterRepo(db), lookup: refLookup() }) : null;
+  return <EncounterView stored={stored} creatures={[...custom, ...listSrd()]} area={area} />;
 }

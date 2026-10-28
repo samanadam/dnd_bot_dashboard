@@ -43,7 +43,7 @@ export function toInputs(rewards: RewardView[]): RewardInput[] {
   );
 }
 
-function StatusButtons({ reward, onPick }: { reward: RewardView; onPick: (status: string) => void }) {
+export function StatusButtons({ reward, onPick }: { reward: RewardView; onPick: (status: string) => void }) {
   const options = reward.kind === "item" ? ITEM_STATUSES : POINTER_STATUSES;
   const tone = (status: string) =>
     reward.status !== status

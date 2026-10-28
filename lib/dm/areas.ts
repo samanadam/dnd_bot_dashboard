@@ -180,6 +180,12 @@ export class AreaRepo {
 
   // --- battles -------------------------------------------------------------
 
+  /** The area a prepared battle is linked to, if any. */
+  areaIdForEncounter(encounterId: string): string | null {
+    const row = this.db.prepare("SELECT area_id FROM area_encounters WHERE encounter_id = ?").get(encounterId) as { area_id: string } | undefined;
+    return row?.area_id ?? null;
+  }
+
   encounterIds(areaId: string): string[] {
     return (
       this.db.prepare("SELECT encounter_id FROM area_encounters WHERE area_id = ? ORDER BY position").all(areaId) as { encounter_id: string }[]
