@@ -249,6 +249,8 @@ const MIGRATIONS: readonly string[] = [
      turn_ping_enabled INTEGER NOT NULL DEFAULT 0 CHECK (turn_ping_enabled IN (0, 1)),
      turn_ping_channel_id TEXT
    );`,
+  // The prepared encounter a live one was launched from, so its area's loot can be shown beside it.
+  `ALTER TABLE encounters ADD COLUMN source_id TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

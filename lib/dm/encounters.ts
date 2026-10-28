@@ -105,8 +105,16 @@ export class EncounterRepo {
     if (!template) return null;
     if (template.kind !== "prepared") return "not_prepared";
     const copy = this.create(template.encounter.name, template.campaignId, "live");
+    this.db.prepare("UPDATE encounters SET source_id = ? WHERE id = ?").run(id, copy.id);
     const filled = this.save(copy.id, copy.version, launchCopy(template.encounter));
     return filled === "conflict" || filled === null ? null : filled;
+  }
+
+  /** The prepared encounter a live one was launched from; null for one that was not launched or launched before this was kept. */
+  sourceId(id: string): string | null {
+    if (!ENCOUNTER_ID.test(id)) return null;
+    const row = this.db.prepare("SELECT source_id FROM encounters WHERE id = ?").get(id) as { source_id: string | null } | undefined;
+    return row?.source_id ?? null;
   }
 
   /** File an encounter under a campaign (null: none). Does not touch its version. */

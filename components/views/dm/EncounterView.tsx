@@ -11,7 +11,7 @@ import type { MonsterSummary } from "@/lib/dm/monsterSummary";
 // database on the server and pass the result in; the demo's pages pass in what
 // the browser-side demo store holds. Either way the same UI renders.
 
-export function EncounterView({ stored, creatures, area }: { stored: StoredEncounter; creatures: MonsterSummary[]; area?: AreaDetail | null }) {
+export function EncounterView({ stored, creatures, area, battleId }: { stored: StoredEncounter; creatures: MonsterSummary[]; area?: AreaDetail | null; battleId?: string | null }) {
   return (
     <div className="space-y-4">
       <PortalLink href="/dm/combat" className="inline-flex items-center gap-1 text-sm text-muted transition hover:text-text">
@@ -19,7 +19,7 @@ export function EncounterView({ stored, creatures, area }: { stored: StoredEncou
       </PortalLink>
       {/* Keyed by id so opening another encounter never reuses this one's local state. */}
       <CombatTracker key={stored.id} initial={stored} creatures={creatures} />
-      {area ? <BattleRewards key={area.area.id} initial={area} battleId={stored.id} campaign={stored.campaignId} /> : null}
+      {area && battleId ? <BattleRewards key={area.area.id} initial={area} battleId={battleId} campaign={stored.campaignId} /> : null}
       <SoundboardDrawer />
     </div>
   );
