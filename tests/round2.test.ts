@@ -84,6 +84,10 @@ describe("prepared encounters", () => {
     expect(started).not.toBe("not_prepared");
     if (started === null || started === "not_prepared") return;
     expect(started.id).not.toBe(template.id);
+    // The copy remembers its template, so the area's loot can show beside it.
+    expect(repo.sourceId(started.id)).toBe(template.id);
+    expect(repo.sourceId(live.id)).toBeNull();
+    expect(repo.sourceId(template.id)).toBeNull();
     expect(started).toMatchObject({ kind: "live", campaignId: CAMPAIGN });
     expect(started.encounter.combatants[0]).toMatchObject({ hp: 7, initiative: null });
     // Launching again gives another fresh copy; the template is unchanged.

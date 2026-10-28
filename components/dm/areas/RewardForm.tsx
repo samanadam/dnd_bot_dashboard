@@ -14,6 +14,7 @@ export function RewardForm({
   kind,
   initial,
   battles,
+  defaultBattle = null,
   campaign,
   onSubmit,
   onCancel,
@@ -21,6 +22,8 @@ export function RewardForm({
   kind: "item" | "pointer";
   initial?: RewardView;
   battles: BattleView[];
+  /** The battle a new reward starts under; the picker is hidden when `battles` is empty. */
+  defaultBattle?: string | null;
   campaign: string | null;
   onSubmit: (reward: RewardInput) => void;
   onCancel: () => void;
@@ -28,7 +31,7 @@ export function RewardForm({
   const existingItem = initial?.kind === "item" ? initial : null;
   const existingPointer = initial?.kind === "pointer" ? initial : null;
 
-  const [encounterId, setEncounterId] = useState<string | null>(initial?.encounterId ?? null);
+  const [encounterId, setEncounterId] = useState<string | null>(initial?.encounterId ?? defaultBattle);
   const [item, setItem] = useState<{ ref: ItemRef; label: string } | null>(
     existingItem ? { ref: existingItem.itemRef, label: existingItem.resolved?.name ?? "Missing item" } : null,
   );

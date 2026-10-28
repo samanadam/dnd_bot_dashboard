@@ -197,6 +197,8 @@ describe("upgrading a database that only holds YouTube links", () => {
       const insert = old.prepare("INSERT INTO saved_tracks VALUES (?, ?, ?, ?, ?, ?, ?, 'a', 'b')");
       insert.run("11111111-1111-4111-8111-111111111111", "music", "dQw4w9WgXcQ", "Never", 213, "Classics", null);
       insert.run("22222222-2222-4222-8222-222222222222", "sfx", "abcdefghijk", "Door", 4, "", "0123456789ab");
+      // A real version-6 database also has the tables later migrations alter.
+      old.exec("CREATE TABLE encounters (id TEXT PRIMARY KEY)");
       old.exec("PRAGMA user_version = 6");
       old.close();
 
