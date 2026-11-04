@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ClipboardList, Play, Plus, Swords, Unlink } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardList, GripVertical, Play, Plus, Swords, Unlink } from "lucide-react";
 import { PortalLink } from "@/components/PortalLink";
 import { usePortalRouter } from "@/components/PortalLink";
 import { useState } from "react";
@@ -17,6 +17,8 @@ export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; 
   const toast = useToast();
   const [pick, setPick] = useState("");
   const [launching, setLaunching] = useState<string | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
   const { battles } = detail;
   const ids = battles.map((battle) => battle.id);
 
@@ -34,12 +36,16 @@ export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; 
     }
   }
 
-  const move = (index: number, by: -1 | 1) => {
+  const reorder = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= ids.length) return;
     const next = [...ids];
-    const target = index + by;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
+    next.splice(to, 0, ...next.splice(from, 1));
     void onReplace(next);
+  };
+  const move = (index: number, by: -1 | 1) => reorder(index, index + by);
+  const endDrag = () => {
+    setDragFrom(null);
+    setDragOver(null);
   };
 
   return (
@@ -55,7 +61,27 @@ export function BattlesPanel({ detail, busy, onReplace }: { detail: AreaDetail; 
       ) : (
         <ul className="space-y-2">
           {battles.map((battle, index) => (
-            <li key={battle.id} className="flex items-center gap-3 rounded-3xl border border-dashed border-accent/40 bg-surface p-3 pl-4 shadow-card">
+            <li
+              key={battle.id}
+              draggable={!busy}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                setDragFrom(index);
+              }}
+              onDragOver={(event) => {
+                if (dragFrom === null) return;
+                event.preventDefault();
+                setDragOver(index);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragFrom !== null) reorder(dragFrom, index);
+                endDrag();
+              }}
+              onDragEnd={endDrag}
+              className={`flex items-center gap-3 rounded-3xl border border-dashed bg-surface p-3 pl-2 shadow-card ${dragOver === index && dragFrom !== index ? "border-accent" : "border-accent/40"} ${dragFrom === index ? "opacity-50" : ""}`}
+            >
+              <GripVertical className="size-5 shrink-0 cursor-grab text-faint" aria-hidden />
               <ClipboardList className="size-5 shrink-0 text-accent" aria-hidden />
               <div className="min-w-0 flex-1">
                 {battle.name === null ? (
