@@ -203,15 +203,7 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
               >
                 Launch a fresh copy
               </Button>
-            ) : started ? (
-              <>
-                <Button size="icon" icon={ChevronLeft} aria-label="Previous turn (P)" disabled={locked} onClick={() => apply(previousTurn)} />
-                <Button variant="primary" size="lg" icon={ChevronRight} disabled={locked} onClick={advance}>
-                  Next turn
-                </Button>
-                <Button size="icon" variant="ghost" icon={Flag} aria-label="End combat" title="End combat: players stop seeing it and fight-only notes are cleared" disabled={locked} onClick={() => apply(endCombat)} />
-              </>
-            ) : (
+            ) : started ? null : (
               <Button variant="primary" size="lg" icon={Play} disabled={locked || encounter.combatants.length === 0} onClick={() => apply(startCombat)}>
                 Start combat
               </Button>
@@ -317,6 +309,16 @@ export function CombatTracker({ initial, creatures }: { initial: StoredEncounter
       )}
 
       {encounter.shownToPlayers ? <BattleNotesPanel encounterId={initial.id} combatants={encounter.combatants} /> : null}
+
+      {started && !prepared ? (
+        <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+var(--tabbar-h,4.5rem)+0.5rem)] z-30 flex items-center justify-center gap-2 rounded-3xl border border-border bg-surface/95 p-3 shadow-card backdrop-blur lg:bottom-4">
+          <Button size="icon" icon={ChevronLeft} aria-label="Previous turn (P)" disabled={locked} onClick={() => apply(previousTurn)} />
+          <Button variant="primary" size="lg" icon={ChevronRight} disabled={locked} onClick={advance}>
+            Next turn
+          </Button>
+          <Button size="icon" variant="ghost" icon={Flag} aria-label="End combat" title="End combat: players stop seeing it and fight-only notes are cleared" disabled={locked} onClick={() => apply(endCombat)} />
+        </div>
+      ) : null}
 
       <p className="hidden text-xs text-faint lg:block">
         Shortcuts: <kbd className="rounded border border-border px-1 font-mono">N</kbd> next turn, <kbd className="rounded border border-border px-1 font-mono">P</kbd> previous turn.
