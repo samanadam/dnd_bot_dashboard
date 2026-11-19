@@ -6,7 +6,7 @@ import { bot } from "./client";
 
 const MIME = "audio/webm;codecs=opus";
 const CHUNK_MS = 100;
-const BITS_PER_SECOND = 128_000;
+const BITS_PER_SECOND = 192_000;
 // The socket is not keeping up: ending beats sending a stream with holes in it.
 const MAX_BUFFERED_BYTES = 1_000_000;
 
@@ -40,7 +40,15 @@ export async function startCast(opts: {
   try {
     media = await navigator.mediaDevices.getDisplayMedia({
       video: true,
-      audio: { suppressLocalAudioPlayback: opts.muteHere } as MediaTrackConstraints,
+      // Chrome runs voice-call filters on shared audio unless told not to; on music
+      // they pump the level and smear the sound.
+      audio: {
+        suppressLocalAudioPlayback: opts.muteHere,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: 2,
+      } as MediaTrackConstraints,
       selfBrowserSurface: "exclude",
       systemAudio: "exclude",
     } as DisplayMediaStreamOptions);
