@@ -5,6 +5,7 @@ import { useBotOnline, useMusicState } from "@/lib/bot/useBotState";
 import { BotError } from "@/lib/bot/client";
 import { WEB_SOURCES } from "@/lib/webAudio";
 import { EmptyState, PageHeader, Skeleton } from "../../ui";
+import { CastPanel } from "./CastPanel";
 import { QueueList } from "./QueueList";
 import { TrackLibrary } from "./TrackLibrary";
 import { TransportBar } from "./TransportBar";
@@ -51,6 +52,7 @@ export function MusicPanel({ canManage = false }: { canManage?: boolean }) {
     <div className="space-y-6">
       {header}
       <TransportBar state={state} enabled={enabled} />
+      {state.cast !== undefined && <CastPanel state={state} enabled={enabled} />}
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="space-y-6">
           <TrackLibrary state={state} enabled={enabled} canManage={canManage} />

@@ -24,7 +24,7 @@ export const WEB_SOURCE_LABEL: Record<WebSource, string> = { youtube: "YouTube",
 
 /** A label for any source the bot reports, the bucket included. */
 export function sourceLabel(source: string): string {
-  return source === "r2" ? "Library" : (WEB_SOURCE_LABEL[source as WebSource] ?? source);
+  return source === "r2" ? "Library" : source === "cast" ? "Live" : (WEB_SOURCE_LABEL[source as WebSource] ?? source);
 }
 
 export function isWebSource(value: unknown): value is WebSource {

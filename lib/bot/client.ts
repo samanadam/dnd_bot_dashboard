@@ -5,6 +5,7 @@ import type {
   ApiErrorBody,
   Campaign,
   CampaignDetail,
+  CastTicket,
   InitiativeReport,
   SearchResponse,
   TranscriptionQueue,
@@ -126,6 +127,9 @@ export const bot = {
   resume: () => call<PlayerState>("POST", "music/resume"),
   skip: () => call<PlayerState>("POST", "music/skip"),
   stop: () => call<PlayerState>("POST", "music/stop"),
+  castStart: (name: string, channel_id?: string) =>
+    call<CastTicket>("POST", "cast/start", { name, ...(channel_id ? { channel_id } : {}) }),
+  castStop: () => call<{ stopped: boolean }>("POST", "cast/stop"),
   volume: (volume: number) => call<PlayerState>("POST", "music/volume", { volume }),
   loop: (mode: LoopMode) => call<PlayerState>("POST", "music/loop", { mode }),
   clearQueue: () => call<PlayerState>("DELETE", "music/queue"),

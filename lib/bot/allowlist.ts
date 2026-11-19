@@ -364,6 +364,19 @@ const rules: Rule[] = [
     permission: "bot.music",
     body: z.object({ position_seconds: z.number().min(0).max(86_400) }).strict(),
   },
+  // A live cast of a browser tab. "start" answers a single-use ticket for the
+  // audio socket; the browser never holds the bot token.
+  {
+    method: "POST",
+    path: "cast/start",
+    bucket: "recording",
+    permission: "bot.music",
+    audit: true,
+    body: z
+      .object({ name: z.string().trim().min(1).max(40), channel_id: snowflake.optional() })
+      .strict(),
+  },
+  { method: "POST", path: "cast/stop", bucket: "control", permission: "bot.music", audit: true },
   {
     method: "POST",
     path: "music/volume",

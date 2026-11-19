@@ -31,7 +31,18 @@
 	@health path /api/health
 	respond @health 404
 
-	reverse_proxy 127.0.0.1:3000
+	# The live-cast audio socket goes straight to the bot, the one bot path the
+	# outside world can reach. The bot checks the Origin and a single-use ticket
+	# itself (MUSIC_CAST_ENABLED must be true there, API_CORS_ORIGINS must name
+	# this site).
+	handle /cast/ws {
+		rewrite * /api/v1/cast/ws
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
 
 	log {
 		output stdout
