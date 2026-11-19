@@ -105,7 +105,11 @@ export type PlayerState = {
   current: Track | null;
   queue: Track[];
   sources: Record<string, boolean>;
+  // Present only when the bot has casting turned on; null when nobody is casting.
+  cast?: { by_name: string; started_at: number } | null;
 };
+
+export type CastTicket = { cast_id: string; ticket: string; expires_in: number };
 
 export type Stats = {
   version: string;

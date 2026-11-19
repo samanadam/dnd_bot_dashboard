@@ -32,6 +32,8 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
   const current = state.current;
   const borrowed = state.owner === "recording";
   const isPlaying = state.playing && !state.paused;
+  // A live cast has no length to move through and cannot be paused.
+  const live = (current?.source as string | undefined) === "cast";
   const LoopIcon = state.loop === "track" ? Repeat1 : Repeat;
 
   return (
@@ -64,7 +66,7 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
               {current?.title ?? "Nothing playing"}
             </div>
             <div className="text-sm text-muted">{state.queue.length ? `${state.queue.length} up next` : "Queue is empty"}</div>
-            {current && (
+            {current && !live && (
               <Progress
                 key={`${current.source}:${current.id}`}
                 position={state.position_seconds}
@@ -105,7 +107,7 @@ export function TransportBar({ state, enabled }: { state: PlayerState; enabled: 
               size="icon"
               variant="primary"
               className="size-16 rounded-full"
-              disabled={!enabled || !current}
+              disabled={!enabled || !current || live}
               onClick={() => (isPlaying ? pause.mutate(undefined) : resume.mutate(undefined))}
               aria-label={isPlaying ? "Pause" : "Resume"}
             >
