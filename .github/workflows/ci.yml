@@ -56,7 +56,9 @@ jobs:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A cold layer cache (any lockfile change) makes the emulated arm64 build
+    # take over 20 minutes; a warm one takes about 12.
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
