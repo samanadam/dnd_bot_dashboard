@@ -55,6 +55,9 @@ const schema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(snowflake)),
+  // Optional: the availability calendar's "everyone is free" message to the owner.
+  TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+  TELEGRAM_CHAT_ID: z.string().regex(/^-?\d+$/).optional(),
   // Where the DM database lives. A Docker volume in production.
   PORTAL_DATA_DIR: z.string().min(1).default("/app/data"),
 });

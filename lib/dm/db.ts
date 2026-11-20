@@ -251,6 +251,40 @@ const MIGRATIONS: readonly string[] = [
    );`,
   // The prepared encounter a live one was launched from, so its area's loot can be shown beside it.
   `ALTER TABLE encounters ADD COLUMN source_id TEXT;`,
+  // Session-day calendar: a row in availability means that player is free that
+  // day; announced_days is the once-per-date lock for the Telegram nudge.
+  `CREATE TABLE availability (
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, user_id, day)
+   );
+   CREATE TABLE campaign_players (
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, user_id)
+   );
+   CREATE TABLE announced_days (
+     campaign_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     announced_at TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, day)
+   );`,
+  // Code sign-in: a player's authenticator secret (encrypted, see lib/totp) and
+  // the failed-attempt counter behind the 15-minute lockout. A row stays
+  // 'pending' until the player proves they scanned it.
+  `CREATE TABLE totp_credentials (
+     user_id TEXT PRIMARY KEY,
+     secret_enc TEXT NOT NULL,
+     status TEXT NOT NULL CHECK (status IN ('pending', 'active')),
+     last_counter INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL
+   );
+   CREATE TABLE totp_attempts (
+     user_id TEXT PRIMARY KEY,
+     fails INTEGER NOT NULL DEFAULT 0,
+     locked_until INTEGER NOT NULL DEFAULT 0
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

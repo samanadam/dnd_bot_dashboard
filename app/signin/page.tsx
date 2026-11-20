@@ -99,6 +99,14 @@ export default async function SignInPage({ searchParams }: PageProps<"/signin">)
           </form>
 
           <Link
+            href="/signin/code"
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-2 font-medium transition hover:bg-surface-3"
+          >
+            Sign in with a code
+          </Link>
+          <p className="mt-2 text-center text-xs text-muted">For players who set up an authenticator app. No Discord needed.</p>
+
+          <Link
             href="/demo"
             className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-2 font-medium transition hover:bg-surface-3"
           >
