@@ -16,7 +16,8 @@ export type IconName =
   | "audio"
   | "search"
   | "map"
-  | "gem";
+  | "gem"
+  | "calendar";
 
 import { can, type Access, type Permission } from "@/lib/access/permissions";
 
@@ -83,6 +84,7 @@ export const tools: Tool[] = [
     links: [
       { href: "/play", label: "My characters", icon: "users", permission: "play" },
       { href: "/play", label: "Party sheets", icon: "users", permission: "sheets.manage" },
+      { href: "/play/availability", label: "Availability", icon: "calendar", permission: "play" },
     ],
   },
   {

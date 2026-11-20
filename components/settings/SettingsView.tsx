@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Cookie, Fingerprint, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Clock, Cookie, Fingerprint, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useHealth, useStats } from "@/lib/bot/useBotState";
 import type { ThemeId } from "@/lib/theme";
@@ -171,6 +171,15 @@ export function SettingsView({ theme, user, expires, signOut, canSeeBot, owner }
           <p className="text-sm text-muted">Give roles the player area, bot controls or the DM tools, for every campaign or chosen ones.</p>
           <PortalLink href="/settings/access" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
             Manage access
+          </PortalLink>
+        </Card>
+      ) : null}
+
+      {owner ? (
+        <Card title="Availability" subtitle="Who counts as everyone, and the Telegram message" icon={CalendarDays}>
+          <p className="text-sm text-muted">Pick the players the session calendar waits for and test the message you get when everyone is free.</p>
+          <PortalLink href="/settings/availability" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
+            Manage availability
           </PortalLink>
         </Card>
       ) : null}

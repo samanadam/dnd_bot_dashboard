@@ -251,6 +251,25 @@ const MIGRATIONS: readonly string[] = [
    );`,
   // The prepared encounter a live one was launched from, so its area's loot can be shown beside it.
   `ALTER TABLE encounters ADD COLUMN source_id TEXT;`,
+  // Session-day calendar: a row in availability means that player is free that
+  // day; announced_days is the once-per-date lock for the Telegram nudge.
+  `CREATE TABLE availability (
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, user_id, day)
+   );
+   CREATE TABLE campaign_players (
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, user_id)
+   );
+   CREATE TABLE announced_days (
+     campaign_id TEXT NOT NULL,
+     day TEXT NOT NULL,
+     announced_at TEXT NOT NULL,
+     PRIMARY KEY (campaign_id, day)
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

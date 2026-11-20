@@ -31,7 +31,7 @@ describe("API routes", () => {
     const text = readFileSync(route, "utf8");
     const guarded =
       // Handler factories, each of which starts with a guard (checked below).
-      /from "@\/lib\/(dm|access|play|sheets|combat)\/[A-Za-z]*([Rr]outes|[Ss]earch)"/.test(text) ||
+      /from "@\/lib\/(dm|access|play|sheets|combat|availability)\/[A-Za-z]*([Rr]outes|[Ss]earch)"/.test(text) ||
       // The bot proxy and upload pipelines, which check the session and the rule's permission.
       (text.includes("handleBotRequest") && text.includes("allowsFor(access)")) ||
       // A route that calls a guard itself.
