@@ -1,6 +1,11 @@
 import NextAuth, { type DefaultSession } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import Discord from "next-auth/providers/discord";
 import { env } from "@/lib/env";
+import { UserRepo } from "@/lib/access/grants";
+import { getDatabase } from "@/lib/dm/database";
+import { readToken } from "@/lib/totp/secret";
+import { totpSessionRoles } from "@/lib/totp/session";
 import { checkDiscordAccess, reverify, type AccessResult } from "@/lib/discordAccess";
 import { audit } from "@/lib/audit";
 import { hasAnyAccess } from "@/lib/access/permissions";
@@ -19,6 +24,8 @@ declare module "@auth/core/jwt" {
     // never copied into the session object that reaches the client.
     discordAccessToken?: string;
     verifiedAt?: number;
+    // Set for sessions started with a code (no Discord token inside); see lib/totp.
+    method?: "totp";
     // The member's Discord roles at the last check. Server-side only: never
     // copied into the session object (see the session callback).
     roleIds?: string[];
@@ -72,6 +79,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         authorization: { params: { scope: "identify guilds.members.read", prompt: "none" } },
         checks: ["pkce", "state"],
       }),
+      // Sign in with an authenticator code instead of Discord (which some players
+      // cannot reach). The code is checked, with lockout and replay protection, by
+      // the /signin/code server action; this provider takes only the one-minute
+      // ticket that action hands out, so it cannot be used to skip those checks.
+      Credentials({
+        id: "totp",
+        credentials: { ticket: {} },
+        authorize: async (credentials) => {
+          const userId = readToken("ticket", String(credentials?.ticket ?? ""), config.AUTH_SECRET, Date.now());
+          const stored = userId ? new UserRepo(getDatabase()).get(userId) : null;
+          return userId && stored ? { id: userId, name: stored.displayName, image: stored.avatarUrl } : null;
+        },
+      }),
     ],
     session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_S, updateAge: 60 * 60 },
     pages: { signIn: "/signin", error: "/signin" },
@@ -99,7 +119,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       },
     },
     callbacks: {
-      async signIn({ account, profile }) {
+      async signIn({ account, profile, user }) {
+        if (account?.provider === "totp") {
+          // authorize() already checked the ticket; the jwt callback checks access.
+          audit({ event: "sign_in", userId: user?.id, outcome: "allowed_code" });
+          return true;
+        }
         const userId = typeof profile?.id === "string" ? profile.id : undefined;
         if (account?.provider !== "discord" || !account.access_token || !userId) {
           return false;
@@ -121,7 +146,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         return allowed;
       },
 
-      async jwt({ token, account, profile }) {
+      async jwt({ token, account, profile, user }) {
+        if (account?.provider === "totp" && user?.id) {
+          const roleIds = totpSessionRoles(user.id);
+          if (!roleIds) return null;
+          return { sub: token.sub, name: token.name, picture: token.picture, discordId: user.id, method: "totp", verifiedAt: Date.now(), roleIds };
+        }
+        if (token.method === "totp") {
+          // No Discord token to re-check: the card and the grants are re-read instead.
+          const roleIds = token.discordId ? totpSessionRoles(token.discordId) : null;
+          if (!token.discordId || !roleIds) {
+            audit({ event: "session_revoked", userId: token.discordId, outcome: "code_signin_off" });
+            return null;
+          }
+          return { ...token, roleIds };
+        }
         if (account && profile) {
           // First call after a successful sign-in.
           return {

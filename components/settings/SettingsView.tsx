@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock, Cookie, Fingerprint, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Clock, Cookie, Fingerprint, KeyRound, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useHealth, useStats } from "@/lib/bot/useBotState";
 import type { ThemeId } from "@/lib/theme";
@@ -174,6 +174,13 @@ export function SettingsView({ theme, user, expires, signOut, canSeeBot, owner }
           </PortalLink>
         </Card>
       ) : null}
+
+      <Card title="Sign-in code" subtitle="Sign in without Discord on any device" icon={KeyRound}>
+        <p className="text-sm text-muted">Link an authenticator app once, then sign in with a 6-digit code instead of Discord.</p>
+        <PortalLink href="/settings/security" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
+          Set up sign-in code
+        </PortalLink>
+      </Card>
 
       {owner ? (
         <Card title="Availability" subtitle="Who counts as everyone, and the Telegram message" icon={CalendarDays}>
