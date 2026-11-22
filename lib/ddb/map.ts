@@ -529,6 +529,18 @@ function mapSpells(data: Obj, classes: ClassEntry[], edition: Edition, warnings:
   return { entries: entries.slice(0, MAX_SPELLS), unlinked: [...unlinked].map(([name, level]) => `${name} (${level === 0 ? "cantrip" : `level ${level}`})`) };
 }
 
+const MAX_SHEET_BYTES = 1_000_000;
+
+/** A sheet is loaded whole by every page that shows it: past 1 MB, long feature and feat descriptions are cut short. */
+function shrinkToFit(body: SheetBody, warnings: string[]): void {
+  if (JSON.stringify(body).length <= MAX_SHEET_BYTES) return;
+  for (const limit of [4000, 1500, 500, 0]) {
+    for (const item of [...body.features, ...body.feats]) item.description = item.description.slice(0, limit);
+    if (JSON.stringify(body).length <= MAX_SHEET_BYTES) break;
+  }
+  warnings.push("The character was very large, so long feature and feat descriptions were shortened.");
+}
+
 export function mapCharacter(raw: unknown): MapResult {
   try {
     const data = obj(obj(raw).data);
@@ -618,6 +630,7 @@ export function mapCharacter(raw: unknown): MapResult {
       resourcesUsed: Object.fromEntries(Object.entries(limited.used).filter(([id]) => limited.resources.some((r) => r.id === id))),
     };
 
+    shrinkToFit(body, warnings);
     const parsedBody = sheetBodySchema.safeParse(body);
     if (!parsedBody.success) return { ok: false, reason: `sheet did not validate: ${parsedBody.error.issues[0]?.message ?? "invalid"}` };
     const checked = vitalsSchema.pick({ hp: true, tempHp: true, deathSaves: true, stable: true, slotsSpent: true, pactSpent: true, conditions: true, exhaustion: true, inspiration: true, resourcesUsed: true, hitDiceSpent: true }).safeParse(vitals);

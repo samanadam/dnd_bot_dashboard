@@ -471,3 +471,14 @@ describe("mapCharacter hit dice and concentration", () => {
     expect("concentration" in m.vitals).toBe(false);
   });
 });
+
+describe("mapCharacter size", () => {
+  it("shortens long descriptions when the whole sheet would pass 1 MB, and says so", () => {
+    const r = structuredClone(caster) as { data: { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = Array.from({ length: 100 }, (_, i) => ({ definition: { id: i + 1, name: "F" + i, requiredLevel: 1, description: "<p>" + "x".repeat(19_000) + "</p>" } }));
+    const m = mapped(r);
+    expect(JSON.stringify(m.body).length).toBeLessThan(1_000_000);
+    expect(m.body.features).toHaveLength(100);
+    expect(m.warnings.some((w) => /shortened/.test(w))).toBe(true);
+  });
+});
