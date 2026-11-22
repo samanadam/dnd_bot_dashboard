@@ -2,6 +2,7 @@ import "server-only";
 import { getAccess } from "@/lib/access/server";
 import { audit } from "@/lib/audit";
 import { AreaRepo } from "./areas";
+import { StoryRepo } from "./story";
 import type { RefLookup } from "./areaView";
 import { CreatureRepo } from "./creatures";
 import { getDatabase } from "./database";
@@ -43,6 +44,7 @@ export function dmDeps() {
     tags: () => new TagRepo(getDatabase()),
     items: () => new ItemRepo(getDatabase()),
     areas: () => new AreaRepo(getDatabase()),
+    story: () => new StoryRepo(getDatabase()),
     srdItems: () => ({ list: listSrdItems, get: getSrdItem }),
     spells: () => new SpellRepo(getDatabase()),
     feats: () => new FeatRepo(getDatabase()),
