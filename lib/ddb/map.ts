@@ -439,7 +439,7 @@ function mapAttacks(data: Obj, mods: Obj[]): SheetBody["combat"]["attacks"] {
         damage: roll.success ? [{ roll: roll.data, type: text(def.damageType, 30), addAbility: true }] : [],
         range: far > near ? `${near}/${far} ft.` : `${near} ft.`,
         properties: props.join(", ").slice(0, 200),
-        notes: "",
+        notes: magic !== 0 ? `Magic ${magic > 0 ? "+" : ""}${magic}: add ${magic} to the damage too.` : "",
         itemId: id === null ? null : `d${id}`.slice(0, 24),
       });
     });
@@ -450,14 +450,17 @@ const RESETS: Record<number, SheetBody["resources"][number]["reset"]> = { 1: "sh
 const MAX_RESOURCES = 30;
 
 /** Features with a limited number of uses (Arcane Recovery, Ki...): the resource, and how many are spent. */
-function mapResources(data: Obj, features: SheetBody["features"], warnings: string[]): { resources: SheetBody["resources"]; used: Record<string, number> } {
+function mapResources(data: Obj, features: SheetBody["features"], warnings: string[], abilityMod: (statId: number) => number, proficiency: number): { resources: SheetBody["resources"]; used: Record<string, number> } {
   const resources: SheetBody["resources"] = [];
   const used: Record<string, number> = {};
   const actions = obj(data.actions);
   for (const group of Object.keys(actions)) {
     for (const action of list(actions[group]).map(obj)) {
       const limited = obj(action.limitedUse);
-      const max = whole(limited.maxUses, 0, 99, 0);
+      const statId = typeof limited.statModifierUsesId === "number" ? limited.statModifierUsesId : 0;
+      // D&D Beyond adds the ability modifier and/or the proficiency bonus to the listed uses.
+      const extra = (statId >= 1 && statId <= 6 ? abilityMod(statId) : 0) + (limited.useProficiencyBonus === true ? proficiency : 0);
+      const max = whole(whole(limited.maxUses, 0, 99, 0) + (extra > 0 ? extra : 0), 0, 99, 0);
       const name = text(action.name, 120);
       if (!name || max < 1 || typeof action.componentId !== "number") continue;
       const id = `x${Math.trunc(action.componentId)}`.slice(0, 24);
@@ -499,14 +502,14 @@ function mapSpells(data: Obj, classes: ClassEntry[], edition: Edition, warnings:
   const classIdOf = new Map<unknown, string>(list(data.classes).slice(0, 6).map((c, i) => [obj(c).id, classes[i]?.id ?? ""] as [unknown, string]));
 
   const found = new Map<string, SheetBody["spellcasting"]["entries"][number]>();
-  const unlinked = new Map<string, number>();
+  const unlinked = new Map<string, { level: number; prepared: boolean }>();
   const take = (raw: unknown, classId: string | null, always: boolean) => {
     const spell = obj(raw);
     const def = obj(spell.definition);
     const name = text(def.name, 120);
     if (!name) return;
     const hit = bySlug.get(norm(name));
-    if (!hit) return void unlinked.set(name, whole(def.level, 0, 9, 0));
+    if (!hit) return void unlinked.set(name, { level: whole(def.level, 0, 9, 0), prepared: spell.prepared === true || spell.alwaysPrepared === true || always });
     const status: SheetBody["spellcasting"]["entries"][number]["status"] = always || spell.alwaysPrepared === true ? "always" : spell.prepared === true ? "prepared" : "known";
     const key = `${hit.edition}/${hit.slug}/${classId ?? ""}`;
     const old = found.get(key);
@@ -526,7 +529,7 @@ function mapSpells(data: Obj, classes: ClassEntry[], edition: Edition, warnings:
 
   const entries = [...found.values()];
   if (entries.length > MAX_SPELLS) warnings.push(`Only the first ${MAX_SPELLS} spells were copied from D&D Beyond.`);
-  return { entries: entries.slice(0, MAX_SPELLS), unlinked: [...unlinked].map(([name, level]) => `${name} (${level === 0 ? "cantrip" : `level ${level}`})`) };
+  return { entries: entries.slice(0, MAX_SPELLS), unlinked: [...unlinked].map(([name, { level, prepared }]) => `${name} (${level === 0 ? "cantrip" : `level ${level}`}${prepared && level > 0 ? ", prepared" : ""})`) };
 }
 
 const MAX_SHEET_BYTES = 1_000_000;
@@ -560,8 +563,6 @@ export function mapCharacter(raw: unknown): MapResult {
     body.classes = classes;
     body.inventory = { ...body.inventory, ...mapInventory(data, warnings) };
     Object.assign(body, mapFeatures(data, warnings));
-    const limited = mapResources(data, body.features, warnings);
-    body.resources = limited.resources;
     ABILITIES.forEach((ability, index) => {
       const id = index + 1;
       body.abilities[ability] = {
@@ -571,6 +572,10 @@ export function mapCharacter(raw: unknown): MapResult {
       };
     });
     const score = (a: Ability) => body.abilities[a].override ?? Math.min(30, Math.max(1, body.abilities[a].base + body.abilities[a].bonus));
+
+    const proficiency = 2 + Math.floor((totalLevel - 1) / 4);
+    const limited = mapResources(data, body.features, warnings, (statId) => modifier(score(ABILITIES[statId - 1])), proficiency);
+    body.resources = limited.resources;
 
     const race = obj(data.race);
     const background = obj(obj(data.background).definition);

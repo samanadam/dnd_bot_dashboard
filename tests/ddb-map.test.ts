@@ -369,7 +369,7 @@ describe("mapCharacter the rest of the sheet", () => {
     expect(named("shield")[0].status).toBe("always");
     expect(named("message")[0]).toMatchObject({ status: "always", classId: null });
     expect(entries.some((e) => e.ref.source === "srd" && e.ref.slug.includes("spellfire"))).toBe(false);
-    expect(m.body.notes).toBe("My note\n\nSpells not in the SRD (not linked): Spellfire Flare (level 1)");
+    expect(m.body.notes).toBe("My note\n\nSpells not in the SRD (not linked): Spellfire Flare (level 1, prepared)");
   });
 
   it("copes with spell data that is not lists", () => {
@@ -480,5 +480,31 @@ describe("mapCharacter size", () => {
     expect(JSON.stringify(m.body).length).toBeLessThan(1_000_000);
     expect(m.body.features).toHaveLength(100);
     expect(m.warnings.some((w) => /shortened/.test(w))).toBe(true);
+  });
+});
+
+describe("mapCharacter uses that depend on a stat, and magic weapons", () => {
+  it("adds the ability modifier (and proficiency bonus) to the uses of a limited feature", () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = [];
+    const wisdom = (r.data.stats as Array<{ id: number; value: number }>).find((x) => x.id === 5)!;
+    wisdom.value = 16;
+    r.data.actions = {
+      class: [
+        { componentId: 1, name: "By stat", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0, statModifierUsesId: 5, operator: 1, useProficiencyBonus: false } },
+        { componentId: 2, name: "By prof", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0, useProficiencyBonus: true, proficiencyBonusOperator: 1 } },
+        { componentId: 3, name: "Neither", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0 } },
+      ],
+    };
+    const got = Object.fromEntries(mapped(r).body.resources.map((x) => [x.name, x.max]));
+    expect(got["By stat"]).toBeGreaterThanOrEqual(3);
+    expect(got["By prof"]).toBeGreaterThanOrEqual(2);
+    expect(got["Neither"]).toBeUndefined();
+  });
+
+  it("notes the magic damage bonus of a weapon", () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> };
+    r.data.inventory = [{ id: 1, equipped: true, definition: { id: 9, name: "Sword +2", filterType: "Weapon", attackType: 1, range: 5, damage: { diceString: "1d8" }, damageType: "Slashing", properties: [], grantedModifiers: [{ type: "bonus", subType: "magic", value: 2 }] } }];
+    expect(mapped(r).body.combat.attacks[0]).toMatchObject({ toHitBonus: 2, notes: "Magic +2: add 2 to the damage too." });
   });
 });
