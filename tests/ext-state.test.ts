@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { characterIdFromPath, needsCheck, nextBackoff, portalOrigin, shouldPush, signature } from "@/extension/src/state";
+import { characterIdFromPath, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
+
+describe("rollFromFrame", () => {
+  const socket = "wss://game-log-api-live.dndbeyond.com/v1";
+  const frame = (extra: Record<string, unknown> = {}) => JSON.stringify({ id: "m1", entityId: "173706203", eventType: "dice/roll/fulfilled", data: { action: "Dagger: to hit" }, ...extra });
+
+  it("returns the message of a finished roll that the page sends to the game log", () => {
+    expect(rollFromFrame(socket, frame())).toMatchObject({ id: "m1", eventType: "dice/roll/fulfilled" });
+  });
+
+  it("ignores other sockets, other events, bad json and binary frames", () => {
+    expect(rollFromFrame("wss://example.com/v1", frame())).toBeNull();
+    expect(rollFromFrame(socket, frame({ eventType: "dice/roll/pending" }))).toBeNull();
+    expect(rollFromFrame(socket, "not json")).toBeNull();
+    expect(rollFromFrame(socket, "null")).toBeNull();
+    expect(rollFromFrame(socket, new ArrayBuffer(4))).toBeNull();
+  });
+});
 
 describe("extension state helpers", () => {
   it("pushes only when the character changed", () => {

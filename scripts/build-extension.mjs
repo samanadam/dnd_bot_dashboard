@@ -21,6 +21,10 @@ await build({
   tsconfig: "tsconfig.json",
   legalComments: "none",
   logLevel: "info",
+  // DIAG=1 turns on the console logging in extension/src/page.ts (never for a store build).
+  // minifySyntax drops the `if (false)` branches, so a normal build holds none of that code.
+  define: { DIAG: process.env.DIAG ? "true" : "false" },
+  minifySyntax: true,
 });
 
 const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));

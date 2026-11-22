@@ -21,6 +21,10 @@ Shows your D&D Beyond character in the portal, live, and replays your D&D Beyond
 
 Write-back to D&D Beyond, Firefox/Safari, inventory, spell and feature detail, AboveVTT-specific features.
 
+## Finding out what D&D Beyond does
+
+`DIAG=1 npm run build:extension` builds a version that logs, with the prefix `[portal-diag]` in the page console, every WebSocket it opens or sends on, the XHR and beacon calls that look like game-log or dice traffic, and any Web Worker it starts (names and shapes only, never character data). Reload the extension, reload the character page, act, read the console. Never ship that build: a normal build compiles all of it out.
+
 ## When D&D Beyond changes something
 
 The data format is unofficial. If a sheet stops updating, the popup and the portal's pairing page show the error and the last good sheet stays. The fix is in `lib/ddb/map.ts` (data) or `extension/src/page.ts` and `extension/src/rolls.ts` (rolls). Fixtures are in `tests/fixtures/ddb/`; notes on what was observed are in `docs/superpowers/specs/ddb-capture-notes.md`.
