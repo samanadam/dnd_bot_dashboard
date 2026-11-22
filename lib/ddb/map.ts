@@ -1,4 +1,5 @@
 import { listSrdSpells } from "@/lib/dm/srdSpells";
+import { diceSchema } from "@/lib/dm/spells";
 import { newBody, sheetBodySchema, type ClassEntry, type SheetBody } from "@/lib/sheets/body";
 import { ABILITIES, modifier, SKILL_IDS, srdClass, type Ability, type Edition } from "@/lib/sheets/rules";
 import { vitalsSchema, type Condition, type Vitals } from "@/lib/sheets/vitals";
@@ -408,6 +409,43 @@ function mapDefenses(data: Obj, mods: Obj[]): Pick<SheetBody["combat"], "senses"
   };
 }
 
+/** Equipped weapons as attacks: dice, damage type, range, properties and a plus from the weapon itself. */
+function mapAttacks(data: Obj, mods: Obj[]): SheetBody["combat"]["attacks"] {
+  const proficient = new Set(mods.filter((m) => m.type === "proficiency" && typeof m.subType === "string").map((m) => compact(m.subType as string)));
+  const attacks: SheetBody["combat"]["attacks"] = [];
+  list(data.inventory)
+    .map(obj)
+    .forEach((entry, index) => {
+      const def = obj(entry.definition);
+      const name = text(def.name, 120);
+      if (entry.equipped !== true || !name || def.filterType !== "Weapon" || (def.attackType !== 1 && def.attackType !== 2)) return;
+      const props = list(def.properties).map((p) => text(obj(p).name, 40)).filter(Boolean);
+      const finesse = props.includes("Finesse");
+      const near = whole(def.range, 0, 1000, 5);
+      const far = whole(def.longRange, 0, 10_000, near);
+      const roll = diceSchema.safeParse(obj(def.damage).diceString);
+      const magic = list(def.grantedModifiers)
+        .map(obj)
+        .filter((m) => m.type === "bonus" && m.subType === "magic" && typeof m.value === "number")
+        .reduce((n, m) => n + whole(m.value, -10, 10, 0), 0);
+      const known = proficient.has(compact(text(def.type, 60))) || (def.categoryId === 1 && proficient.has("simpleweapons")) || (def.categoryId === 2 && proficient.has("martialweapons"));
+      const id = typeof entry.id === "number" && entry.id >= 0 ? Math.trunc(entry.id) : null;
+      attacks.push({
+        id: id === null ? `w${index + 1}` : `w${id}`.slice(0, 24),
+        name,
+        ability: finesse ? "best-str-dex" : def.attackType === 2 ? "dex" : "str",
+        proficient: known,
+        toHitBonus: whole(magic, -20, 30, 0),
+        damage: roll.success ? [{ roll: roll.data, type: text(def.damageType, 30), addAbility: true }] : [],
+        range: far > near ? `${near}/${far} ft.` : `${near} ft.`,
+        properties: props.join(", ").slice(0, 200),
+        notes: "",
+        itemId: id === null ? null : `d${id}`.slice(0, 24),
+      });
+    });
+  return attacks.slice(0, 40);
+}
+
 const MAX_SPELLS = 400;
 const SPELL_RANK = { known: 0, prepared: 1, always: 2 } as const;
 
@@ -500,6 +538,7 @@ export function mapCharacter(raw: unknown): MapResult {
     const mods = modifiersOf(data);
     Object.assign(body.proficiencies, mapProficiencies(mods));
     Object.assign(body.combat, mapDefenses(data, mods));
+    body.combat.attacks = mapAttacks(data, mods);
     const spells = mapSpells(data, classes, edition, warnings);
     body.spellcasting = { ...body.spellcasting, entries: spells.entries };
     const unlinkedText = spells.unlinked.length > 0 ? `Spells not in the SRD (not linked): ${spells.unlinked.join(", ")}` : "";

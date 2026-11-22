@@ -381,3 +381,43 @@ describe("mapCharacter the rest of the sheet", () => {
     }
   });
 });
+
+describe("mapCharacter weapon attacks", () => {
+  const weapon = (id: number, name: string, extra: Record<string, unknown> = {}, equipped = true) => ({
+    id,
+    equipped,
+    definition: { id: id + 1000, name, filterType: "Weapon", categoryId: 2, attackType: 1, range: 5, longRange: 5, damage: { diceString: "1d8" }, damageType: "Slashing", properties: [{ name: "Versatile" }], type: "Longsword", grantedModifiers: [], ...extra },
+  });
+  const run = (inventory: unknown[], modifiers: unknown = {}) => {
+    const raw = structuredClone(caster) as { data: Record<string, unknown> };
+    raw.data.inventory = inventory;
+    raw.data.modifiers = modifiers;
+    return mapped(raw).body.combat.attacks;
+  };
+
+  it("lists equipped weapons with dice, damage type, range, properties and the linked item", () => {
+    const attacks = run([weapon(7, "Longsword"), weapon(8, "Dagger", { attackType: 1, range: 20, longRange: 60, damage: { diceString: "1d4" }, damageType: "Piercing", properties: [{ name: "Finesse" }, { name: "Thrown" }], type: "Dagger" }, false)], { class: [{ type: "proficiency", subType: "martial-weapons" }] });
+    expect(attacks).toHaveLength(1);
+    expect(attacks[0]).toMatchObject({ id: "w7", name: "Longsword", ability: "str", proficient: true, toHitBonus: 0, range: "5 ft.", properties: "Versatile", itemId: "d7" });
+    expect(attacks[0].damage).toEqual([{ roll: "1d8", type: "Slashing", addAbility: true }]);
+  });
+
+  it("uses the better of strength and dexterity for finesse, dexterity for ranged, and the magic bonus", () => {
+    const attacks = run([
+      weapon(1, "Rapier", { properties: [{ name: "Finesse" }], type: "Rapier" }),
+      weapon(2, "Longbow", { attackType: 2, range: 150, longRange: 600, type: "Longbow", damage: { diceString: "1d8" }, damageType: "Piercing", properties: [{ name: "Heavy" }] }),
+      weapon(3, "Sword +2", { grantedModifiers: [{ type: "bonus", subType: "magic", value: 2 }] }),
+    ]);
+    expect(attacks.map((a) => [a.ability, a.range, a.toHitBonus, a.proficient])).toEqual([
+      ["best-str-dex", "5 ft.", 0, false],
+      ["dex", "150/600 ft.", 0, false],
+      ["str", "5 ft.", 2, false],
+    ]);
+  });
+
+  it("skips weapons it cannot read and never throws", () => {
+    const attacks = run([weapon(1, "Odd", { damage: { diceString: "banana" } }), { id: 2, equipped: true, definition: "junk" }, weapon(3, "", {}), weapon(4, "Fine")]);
+    expect(attacks.map((a) => a.name)).toEqual(["Odd", "Fine"]);
+    expect(attacks[0].damage).toEqual([]);
+  });
+});
