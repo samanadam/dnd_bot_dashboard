@@ -5,7 +5,7 @@ import { UserRepo } from "@/lib/access/grants";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { openDatabase } from "@/lib/dm/db";
 import { ExtTokenRepo } from "@/lib/ext/tokens";
-import { extPing, extSync, type ExtDeps } from "@/lib/ext/routes";
+import { extPing, extRolls, extSync, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
 
@@ -20,6 +20,7 @@ function setup() {
   users.upsert(ARIA, "Aria", null, []);
   const tokens = new ExtTokenRepo(db);
   const state = { plays: true };
+  const announced: Array<[unknown, string]> = [];
   const deps: ExtDeps = {
     tokens: () => tokens,
     links: () => new DdbLinkRepo(db),
@@ -27,9 +28,14 @@ function setup() {
     users: () => users,
     playsIn: async () => state.plays,
     limiter: new RateLimiter(),
+    rollLimiter: new RateLimiter(),
+    announce: async (roll, userId) => {
+      announced.push([roll, userId]);
+      return true;
+    },
   };
   const { token } = tokens.issue(ARIA, EMBER, "laptop");
-  return { db, deps, tokens, token, state };
+  return { db, deps, tokens, token, state, announced };
 }
 
 function post(token: string | null, body: unknown, path = "sheets/sync") {
@@ -125,5 +131,37 @@ describe("sheet sync", () => {
     expect((await extSync(deps).POST(post(token, { ddbCharacterId: "abc", capturedAt: T0, readOnly: false, character: {} }))).status).toBe(400);
     expect((await extSync(deps).POST(post(token, { ddbCharacterId: "1", capturedAt: "yesterday", readOnly: false, character: {} }))).status).toBe(400);
     expect((await extSync(deps).POST(post(token, "x".repeat(1_100_000)))).status).toBe(413);
+  });
+});
+
+describe("rolls", () => {
+  const roll = (extra: Record<string, unknown> = {}) => ({ ddbCharacterId: "100000002", label: "Dagger: to hit", expression: "1d20+4", total: 18, breakdown: "14 + 4", ...extra });
+
+  it("announces a roll of a linked character", async () => {
+    const { deps, token, announced } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    const response = await extRolls(deps).POST(post(token, roll(), "rolls"));
+    expect(response.status).toBe(204);
+    expect(announced).toEqual([[{ expression: "1d20+4", total: 18, breakdown: "14 + 4", label: "Dagger: to hit" }, ARIA]]);
+  });
+
+  it("answers 404 for a character that was never synced and announces nothing", async () => {
+    const { deps, token, announced } = setup();
+    expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(404);
+    expect(announced).toEqual([]);
+  });
+
+  it("limits a flood of rolls", async () => {
+    const { deps, token } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    for (let i = 0; i < 30; i++) expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(204);
+    expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(429);
+  });
+
+  it("validates the roll", async () => {
+    const { deps, token } = setup();
+    expect((await extRolls(deps).POST(post(token, roll({ total: "many" }), "rolls"))).status).toBe(400);
+    expect((await extRolls(deps).POST(post(token, roll({ label: "x".repeat(81) }), "rolls"))).status).toBe(400);
+    expect((await extRolls(deps).POST(post(null, roll(), "rolls"))).status).toBe(401);
   });
 });

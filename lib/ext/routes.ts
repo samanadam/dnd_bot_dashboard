@@ -3,7 +3,7 @@ import type { UserRepo } from "@/lib/access/grants";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
 import { mapCharacter } from "@/lib/ddb/map";
 import { invalidBody, readDmJson } from "@/lib/dm/guard";
-import { json } from "@/lib/dm/http";
+import { json, noContent } from "@/lib/dm/http";
 import type { AuditLog } from "@/lib/dm/http";
 import { RateLimiter, type Limit } from "@/lib/rateLimit";
 import { errorResponse } from "@/lib/requestGuard";
@@ -118,6 +118,39 @@ export function extSync(deps: ExtDeps) {
       }
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
       return json({ sheetId: created.id, created: true, warnings: mapped.warnings });
+    },
+  };
+}
+
+const ROLLS: Limit = { max: 30, windowMs: 60_000 };
+const sharedRollLimiter = new RateLimiter();
+
+const rollSchema = z
+  .object({
+    ddbCharacterId: z.string().regex(/^\d{1,20}$/, "expected digits"),
+    label: z.string().trim().min(1).max(80),
+    expression: z.string().trim().min(1).max(100),
+    total: z.number().int().min(-10_000).max(100_000),
+    breakdown: z.string().max(200),
+  })
+  .strict();
+
+export function extRolls(deps: ExtDeps) {
+  return {
+    /** A finished D&D Beyond roll of a synced character, relayed to the bot's roll feed. */
+    async POST(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const wait = (deps.rollLimiter ?? sharedRollLimiter).take(`ext-roll:${who.tokenId}`, ROLLS);
+      if (wait > 0) return errorResponse(429, "rate_limited", "Too many rolls. Slow down.", { "Retry-After": String(wait) });
+      const body = await readDmJson(request, 4 * 1024);
+      if (!body.ok) return body.response;
+      const parsed = rollSchema.safeParse(body.json);
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      const { ddbCharacterId, label, expression, total, breakdown } = parsed.data;
+      if (!deps.links().find(who.userId, ddbCharacterId)) return errorResponse(404, "not_found", "That character is not synced.");
+      await deps.announce?.({ expression, total, breakdown, label }, who.userId);
+      return noContent();
     },
   };
 }
