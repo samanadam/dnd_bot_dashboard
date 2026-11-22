@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: { default: "Portal", template: "%s · Portal" },
   description: "Control panel for the D&D recorder bot and related tools.",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "Portal", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

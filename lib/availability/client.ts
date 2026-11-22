@@ -9,8 +9,8 @@ export type AvailabilityView = {
   counts: Record<string, number>;
   total: number;
   players: string[];
-  /** Names per day; sent to the owner only. */
-  who?: Record<string, string[]>;
+  /** Names of the listed players who are free, per day. */
+  who: Record<string, string[]>;
 };
 
 export type PlayersView = {
