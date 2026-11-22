@@ -118,6 +118,77 @@ function armorBonuses(data: Obj): number {
   return total;
 }
 
+const ENTITIES: Record<string, string> = { "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&rsquo;": "'", "&lsquo;": "'" };
+
+/** D&D Beyond descriptions are HTML; the sheet wants plain text, cut to `max` characters. */
+function plain(html: unknown, max: number): string {
+  if (typeof html !== "string") return "";
+  const withBreaks = html.replace(/<\/(p|li|div|h[1-6]|tr)>|<br\s*\/?>/gi, " ");
+  const stripped = withBreaks.replace(/<[^>]*>/g, "").replace(/&(?:nbsp|amp|lt|gt|quot|#39|rsquo|lsquo);/g, (e) => ENTITIES[e] ?? e);
+  return stripped.replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+const MAX_ITEMS = 300;
+const COINS = ["cp", "sp", "ep", "gp", "pp"] as const;
+
+/**
+ * Items (D&D Beyond's and the player's custom ones) and coins. Item weight is per item, as on the
+ * sheet. An item inside a container is "where" that container's name. The sheet's own carrying
+ * rules (attunement slots, encumbrance) are the portal's, so they are left alone.
+ */
+function mapInventory(data: Obj, warnings: string[]): { items: SheetBody["inventory"]["items"]; currency: SheetBody["inventory"]["currency"] } {
+  const entries = list(data.inventory).map(obj);
+  const names = new Map<number, string>();
+  for (const entry of entries) {
+    const name = text(obj(entry.definition).name, 60);
+    if (typeof entry.id === "number" && name) names.set(entry.id, name);
+  }
+
+  const items: SheetBody["inventory"]["items"] = [];
+  entries.forEach((entry, index) => {
+    const def = obj(entry.definition);
+    const name = text(def.name, 120);
+    if (!name) return;
+    const container = typeof entry.containerEntityId === "number" ? (names.get(entry.containerEntityId) ?? "") : "";
+    items.push({
+      id: typeof entry.id === "number" && entry.id >= 0 ? `d${Math.trunc(entry.id)}`.slice(0, 24) : `i${index + 1}`,
+      name,
+      ref: null,
+      qty: whole(entry.quantity, 0, 9999, 1),
+      weightLb: weightOf(def.weight),
+      equipped: entry.equipped === true,
+      attuned: entry.isAttuned === true,
+      container,
+      notes: plain(def.snippet, 1000) || plain(def.description, 1000),
+    });
+  });
+  list(data.customItems)
+    .map(obj)
+    .forEach((custom, index) => {
+      const name = text(custom.name, 120);
+      if (!name) return;
+      items.push({
+        id: typeof custom.id === "number" && custom.id >= 0 ? `c${Math.trunc(custom.id)}`.slice(0, 24) : `x${index + 1}`,
+        name,
+        ref: null,
+        qty: whole(custom.quantity, 0, 9999, 1),
+        weightLb: weightOf(custom.weight),
+        equipped: false,
+        attuned: false,
+        container: "",
+        notes: plain(custom.description, 1000) || plain(custom.notes, 1000),
+      });
+    });
+  if (items.length > MAX_ITEMS) warnings.push(`Only the first ${MAX_ITEMS} items were copied from D&D Beyond.`);
+
+  const coins = obj(data.currencies);
+  const currency = Object.fromEntries(COINS.map((coin) => [coin, whole(coins[coin], 0, 10_000_000, 0)])) as SheetBody["inventory"]["currency"];
+  return { items: items.slice(0, MAX_ITEMS), currency };
+}
+
+/** A weight in pounds, 0 to 10 000, to two places. */
+const weightOf = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(10_000, Math.max(0, v)) * 100) / 100 : 0);
+
 export function mapCharacter(raw: unknown): MapResult {
   try {
     const data = obj(obj(raw).data);
@@ -132,6 +203,7 @@ export function mapCharacter(raw: unknown): MapResult {
 
     const body = newBody(name);
     body.classes = classes;
+    body.inventory = { ...body.inventory, ...mapInventory(data, warnings) };
     ABILITIES.forEach((ability, index) => {
       const id = index + 1;
       body.abilities[ability] = {
