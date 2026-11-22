@@ -14,6 +14,8 @@ import { customItemSchema, type CustomItem, type ItemRef } from "@/lib/dm/items"
 import { DONE_STATUSES, rewardListSchema, rewardStatusBodySchema, type Reward } from "@/lib/dm/rewards";
 import { savedSchema, type SavedTrack } from "@/lib/dm/saved";
 import { sceneSchema, type Scene } from "@/lib/dm/scenes";
+import { backlinksOf, MAX_STORY_NOTES, renameLinks, STARTER_NOTES, storyNoteSchema, storyNoteUpdateSchema, summarizeNotes, type StoryNote, type StorySummary } from "@/lib/dm/story";
+import type { StoryDetail } from "@/lib/dm/storyRoutes";
 import { setTagsSchema } from "@/lib/dm/tags";
 import type { DemoState } from "./fixtures";
 import { customFeatSchema, type CustomFeat } from "@/lib/dm/feats";
@@ -119,6 +121,24 @@ export function encounterSummaries(state: DemoState, scope: Selection): Encounte
       kind: e.kind,
       updatedAt: e.updatedAt,
     }));
+}
+
+export function storySummaries(state: DemoState, scope: Selection): StorySummary[] {
+  return summarizeNotes(state.dm.story)
+    .filter((note) => inScope(note.campaignId, scope))
+    .sort((a, b) => a.title.localeCompare(b.title, "en", { sensitivity: "base" }));
+}
+
+export function storyDetailOf(state: DemoState, note: StoryNote): StoryDetail {
+  const peers = state.dm.story.filter((other) => other.campaignId === note.campaignId);
+  return { note, backlinks: backlinksOf(peers, note), missing: summarizeNotes(peers).find((summary) => summary.id === note.id)?.missing ?? [] };
+}
+
+const sameTitle = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const starterSchema = z.object({ campaignId: campaignIdSchema.nullable() }).strict();
+
+function findNote(state: DemoState, id: string): StoryNote {
+  return state.dm.story.find((n) => n.id === id) ?? fail(404, "not_found", "No such note.");
 }
 
 function findArea(state: DemoState, id: string): Area {
@@ -367,6 +387,71 @@ const routes: Route[] = [
         if (tags.length) state.dm.tags[ref] = tags;
         else delete state.dm.tags[ref];
         return { ref, tags };
+      }),
+  },
+
+  // story
+  { method: "GET", pattern: /^story\/notes$/, run: (_p, _b, query) => storySummaries(readDemo(), selection(query)) },
+  {
+    method: "POST",
+    pattern: /^story\/notes$/,
+    run: (_p, body) =>
+      updateDemo((state) => {
+        const input = parse(storyNoteSchema, body);
+        const campaignId = input.campaignId ?? null;
+        const peers = state.dm.story.filter((n) => n.campaignId === campaignId);
+        if (peers.some((n) => sameTitle(n.title, input.title))) fail(409, "conflict", "Another note in this campaign already has that title.");
+        if (peers.length >= MAX_STORY_NOTES) fail(409, "conflict", `That is the most notes one campaign can hold (${MAX_STORY_NOTES}). Delete some first.`);
+        const at = now();
+        const note: StoryNote = { id: crypto.randomUUID(), title: input.title, type: input.type, tags: input.tags, body: input.body, campaignId, version: 1, createdAt: at, updatedAt: at };
+        state.dm.story.push(note);
+        return storyDetailOf(state, note);
+      }),
+  },
+  { method: "GET", pattern: new RegExp(`^story/notes/${ID}$`), run: ([id]) => storyDetailOf(readDemo(), findNote(readDemo(), id)) },
+  {
+    method: "PUT",
+    pattern: new RegExp(`^story/notes/${ID}$`),
+    run: ([id], body) =>
+      updateDemo((state) => {
+        const { version, ...input } = parse(storyNoteUpdateSchema, body);
+        const note = findNote(state, id);
+        if (note.version !== version) fail(409, "conflict", "This note was changed somewhere else. Reload it and try again.");
+        const campaignId = input.campaignId === undefined ? note.campaignId : input.campaignId;
+        const peers = state.dm.story.filter((n) => n.id !== id && n.campaignId === campaignId);
+        if (peers.some((n) => sameTitle(n.title, input.title))) fail(409, "conflict", "Another note in this campaign already has that title.");
+        const at = now();
+        if (input.title !== note.title) {
+          for (const other of state.dm.story.filter((n) => n.id !== id && n.campaignId === campaignId)) {
+            const rewritten = renameLinks(other.body, note.title, input.title);
+            if (rewritten !== other.body) Object.assign(other, { body: rewritten, version: other.version + 1, updatedAt: at });
+          }
+        }
+        Object.assign(note, { title: input.title, type: input.type, tags: input.tags, body: input.body, campaignId, version: note.version + 1, updatedAt: at });
+        return storyDetailOf(state, note);
+      }),
+  },
+  {
+    method: "DELETE",
+    pattern: new RegExp(`^story/notes/${ID}$`),
+    run: ([id]) =>
+      updateDemo((state) => {
+        findNote(state, id);
+        state.dm.story = state.dm.story.filter((n) => n.id !== id);
+      }),
+  },
+  {
+    method: "POST",
+    pattern: /^story\/starter$/,
+    run: (_p, body) =>
+      updateDemo((state) => {
+        const { campaignId } = parse(starterSchema, body);
+        if (state.dm.story.some((n) => n.campaignId === campaignId)) return { seeded: 0 };
+        const at = now();
+        for (const starter of STARTER_NOTES) {
+          state.dm.story.push({ id: crypto.randomUUID(), title: starter.title, type: starter.type, tags: [], body: starter.body, campaignId, version: 1, createdAt: at, updatedAt: at });
+        }
+        return { seeded: STARTER_NOTES.length };
       }),
   },
 

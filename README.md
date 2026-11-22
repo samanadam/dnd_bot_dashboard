@@ -42,6 +42,10 @@ from a laptop or a phone at the table.
     and your own (players can add homebrew you then share).
   - **Party**: every character sheet in a campaign, owner and in-play
     controls, DM-only notes, and Discord turn pings.
+  - **Story**: the DM's linked notes (places, NPCs, factions, secrets,
+    sessions, plot) written in Markdown, with `[[Title]]` links, backlinks, a
+    brain map of the whole campaign and a starter template. DM-only and kept
+    per campaign in `portal.db`; the public demo has its own copy.
   - **Areas**: the places of your campaign. Each links prepared encounters
     (launch them straight into Combat) and holds rewards: items, and
     "pointers" (if the party does this, that follows in the story, optionally

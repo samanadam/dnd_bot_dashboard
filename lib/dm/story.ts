@@ -85,9 +85,32 @@ export function extractLinks(body: string): string[] {
 }
 
 /** Rewrites [[from]] (any case, any inner spaces) to [[to]]. */
-function renameLinks(body: string, from: string, to: string): string {
+export function renameLinks(body: string, from: string, to: string): string {
   const wanted = from.trim().toLowerCase();
   return body.replace(WIKILINK, (whole, inner: string) => (inner.trim().toLowerCase() === wanted ? `[[${to}]]` : whole));
+}
+
+/** What each note links to (ids) and what it links to that no note has. Titles resolve within a note's own campaign. */
+export function summarizeNotes(notes: readonly StoryNote[]): StorySummary[] {
+  const byTitle = new Map(notes.map((note) => [key(note.campaignId, note.title), note.id]));
+  return notes.map((note) => {
+    const links: string[] = [];
+    const missing: string[] = [];
+    for (const title of extractLinks(note.body)) {
+      const target = byTitle.get(key(note.campaignId, title));
+      if (target === undefined) missing.push(title);
+      else if (target !== note.id) links.push(target);
+    }
+    return { id: note.id, title: note.title, type: note.type, tags: note.tags, campaignId: note.campaignId, updatedAt: note.updatedAt, links, missing };
+  });
+}
+
+/** The notes in the same campaign whose body links to `note`. */
+export function backlinksOf(notes: readonly StoryNote[], note: StoryNote): { id: string; title: string }[] {
+  const wanted = note.title.toLowerCase();
+  return notes
+    .filter((other) => other.id !== note.id && other.campaignId === note.campaignId && extractLinks(other.body).some((title) => title.toLowerCase() === wanted))
+    .map((other) => ({ id: other.id, title: other.title }));
 }
 
 export const STARTER_NOTES: readonly { title: string; type: NoteType; body: string }[] = [
@@ -144,18 +167,7 @@ export class StoryRepo {
   }
 
   list(campaign: ScopedSelection = null): StorySummary[] {
-    const rows = this.campaignRows(campaign);
-    const byTitle = new Map(rows.map((row) => [key(row.campaign_id, row.title), row.id]));
-    return rows.map((row) => {
-      const links: string[] = [];
-      const missing: string[] = [];
-      for (const title of extractLinks(row.body)) {
-        const target = byTitle.get(key(row.campaign_id, title));
-        if (target === undefined) missing.push(title);
-        else if (target !== row.id) links.push(target);
-      }
-      return { id: row.id, title: row.title, type: row.type as NoteType, tags: JSON.parse(row.tags) as string[], campaignId: row.campaign_id, updatedAt: row.updated_at, links, missing };
-    });
+    return summarizeNotes(this.campaignRows(campaign).map(toNote));
   }
 
   get(id: string): StoryNote | null {
@@ -167,11 +179,7 @@ export class StoryRepo {
   /** The notes (same campaign) whose body links to this one. */
   backlinks(id: string): { id: string; title: string }[] {
     const note = this.get(id);
-    if (!note) return [];
-    const wanted = note.title.toLowerCase();
-    return this.campaignRows(note.campaignId)
-      .filter((row) => row.id !== id && (row.campaign_id ?? null) === note.campaignId && extractLinks(row.body).some((title) => title.toLowerCase() === wanted))
-      .map((row) => ({ id: row.id, title: row.title }));
+    return note ? backlinksOf(this.campaignRows(note.campaignId ?? "unassigned").map(toNote), note) : [];
   }
 
   create(input: StoryInput): StoryNote | Duplicate | Limit {
