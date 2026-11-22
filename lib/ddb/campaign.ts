@@ -11,8 +11,11 @@ export const NO_DDB_CAMPAIGN = "none";
 export function campaignOf(raw: unknown): DdbCampaign | null {
   const campaign = (raw as { data?: { campaign?: unknown } } | null)?.data?.campaign as { id?: unknown; name?: unknown } | null | undefined;
   if (!campaign || (typeof campaign.id !== "number" && typeof campaign.id !== "string") || typeof campaign.name !== "string") return null;
-  const name = campaign.name.trim();
-  return name ? { id: String(campaign.id), name } : null;
+  const id = String(campaign.id);
+  // The page's data is not trusted: ids are digits, and what gets stored is short.
+  if (!/^[0-9]{1,20}$/.test(id)) return null;
+  const name = campaign.name.trim().slice(0, 120);
+  return name ? { id, name } : null;
 }
 
 const norm = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");

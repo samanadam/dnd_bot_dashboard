@@ -9,6 +9,10 @@ describe("campaignOf", () => {
   it("reads the D&D Beyond campaign off a character, and nothing when there is none", () => {
     expect(campaignOf({ data: { campaign: { id: 8266155, name: " Tyranny of Dragons " } } })).toEqual({ id: "8266155", name: "Tyranny of Dragons" });
     expect(campaignOf({ data: { campaign: null } })).toBeNull();
+    // Ids are digits; anything else, or a huge value, is not a campaign we will store.
+    expect(campaignOf({ data: { campaign: { id: "x".repeat(5000), name: "Evil" } } })).toBeNull();
+    expect(campaignOf({ data: { campaign: { id: 1.5, name: "Evil" } } })).toBeNull();
+    expect(campaignOf({ data: { campaign: { id: 7, name: "N".repeat(5000) } } })?.name).toHaveLength(120);
     expect(campaignOf({ data: {} })).toBeNull();
     expect(campaignOf({ data: { campaign: { id: "x", name: 5 } } })).toBeNull();
     expect(campaignOf(null)).toBeNull();

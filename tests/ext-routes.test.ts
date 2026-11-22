@@ -163,6 +163,12 @@ describe("rolls", () => {
     expect(announced).toEqual([]);
   });
 
+  it("limits a flood of syncs", async () => {
+    const { deps, token } = setup();
+    for (let i = 0; i < 20; i++) expect((await extSync(deps).POST(post(token, payload(caster)))).status).toBe(200);
+    expect((await extSync(deps).POST(post(token, payload(caster)))).status).toBe(429);
+  });
+
   it("limits a flood of rolls", async () => {
     const { deps, token } = setup();
     await extSync(deps).POST(post(token, payload(caster)));

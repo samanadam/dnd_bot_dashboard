@@ -30,12 +30,16 @@ export type ExtDeps = {
   now?: () => number;
   limiter?: RateLimiter;
   rollLimiter?: RateLimiter;
+  syncLimiter?: RateLimiter;
   log?: AuditLog;
 };
 
 // A whole D&D Beyond character is already ~600 KB at level 1; deploy/Caddyfile allows the same on this path.
 export const MAX_SYNC_BYTES = 4 * 1024 * 1024;
 const REQUESTS: Limit = { max: 120, windowMs: 60_000 };
+// Reading and mapping a whole character is the costly call: the extension syncs about 4 times a minute.
+const SYNCS: Limit = { max: 20, windowMs: 60_000 };
+const sharedSyncLimiter = new RateLimiter();
 const sharedLimiter = new RateLimiter();
 
 /** Keeps the bot's character name for this player in step with their active sheet, as the sheet routes do. */
@@ -83,6 +87,8 @@ export function extSync(deps: ExtDeps) {
     async POST(request: Request): Promise<Response> {
       const who = bearer(request, deps);
       if (!who.ok) return who.response;
+      const wait = (deps.syncLimiter ?? sharedSyncLimiter).take(`ext-sync:${who.tokenId}`, SYNCS);
+      if (wait > 0) return errorResponse(429, "rate_limited", "Syncing too often. Slow down.", { "Retry-After": String(wait) });
       const body = await readDmJson(request, MAX_SYNC_BYTES);
       if (!body.ok) return body.response;
       const parsed = syncSchema.safeParse(body.json);
