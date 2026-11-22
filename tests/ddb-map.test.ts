@@ -421,3 +421,40 @@ describe("mapCharacter weapon attacks", () => {
     expect(attacks[0].damage).toEqual([]);
   });
 });
+
+describe("mapCharacter limited-use resources", () => {
+  const action = (componentId: number, name: string, limitedUse: Record<string, unknown> | null) => ({ componentId, name, limitedUse });
+  const raw = () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = [{ definition: { id: 10, name: "Arcane Recovery", requiredLevel: 1, description: "" } }];
+    return r;
+  };
+
+  it("turns limited-use actions into resources, links the feature, and copies the uses spent", () => {
+    const r = raw();
+    r.data.actions = {
+      class: [action(10, "Arcane Recovery", { resetType: 2, numberUsed: 1, maxUses: 3 }), action(11, "Ki", { resetType: 1, numberUsed: 0, maxUses: 2 }), action(12, "Dawn thing", { resetType: 3, numberUsed: 0, maxUses: 1 })],
+      race: [action(13, "No limit", null), action(14, "Zero", { resetType: 2, numberUsed: 0, maxUses: 0 })],
+    };
+    const m = mapped(r);
+    expect(m.body.resources.map((x) => [x.name, x.max, x.reset, x.resetAmount])).toEqual([
+      ["Arcane Recovery", 3, "long", "all"],
+      ["Ki", 2, "short", "all"],
+      ["Dawn thing", 1, "dawn", "all"],
+    ]);
+    const id = m.body.resources[0].id;
+    expect(m.body.features.find((f) => f.name === "Arcane Recovery")?.resourceId).toBe(id);
+    expect(m.vitals.resourcesUsed).toEqual({ [id]: 1 });
+  });
+
+  it("never throws on junk and caps at 30", () => {
+    for (const bad of ["x", 5, null, { class: "x" }]) {
+      const r = raw();
+      r.data.actions = bad;
+      expect(mapped(r).body.resources).toEqual([]);
+    }
+    const r = raw();
+    r.data.actions = { class: Array.from({ length: 40 }, (_, i) => action(100 + i, "R" + i, { resetType: 2, numberUsed: 0, maxUses: 1 })) };
+    expect(mapped(r).body.resources).toHaveLength(30);
+  });
+});
