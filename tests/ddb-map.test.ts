@@ -27,8 +27,8 @@ describe("mapCharacter", () => {
     expect(m.body.proficiencies.skills.stealth).toBe("none");
     // 28 base + CON mod 2 x 3 levels
     expect(m.body.combat.hp).toEqual({ mode: "manual", max: 34 });
-    // chain mail 16 + shield 2
-    expect(m.body.combat.ac).toEqual({ mode: "manual", value: 18 });
+    // chain mail 16 + its +1, shield 2; the unattuned ring and the unworn cloak add nothing
+    expect(m.body.combat.ac).toEqual({ mode: "manual", value: 19 });
     expect(m.vitals.hp).toBe(25);
     expect(m.vitals.tempHp).toBe(3);
     expect(m.vitals.deathSaves).toEqual({ successes: 2, failures: 1 });

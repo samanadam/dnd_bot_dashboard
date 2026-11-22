@@ -226,18 +226,73 @@
      "fixedValue": null
     }
    ],
-   "item": [],
+   "item": [
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 101,
+     "isGranted": true,
+     "requiresAttunement": false,
+     "restriction": ""
+    },
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 102,
+     "isGranted": true,
+     "requiresAttunement": true,
+     "restriction": ""
+    },
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 103,
+     "isGranted": true,
+     "requiresAttunement": false,
+     "restriction": ""
+    }
+   ],
    "feat": [],
    "condition": []
   },
   "inventory": [
    {
     "equipped": true,
+    "isAttuned": false,
     "definition": {
-     "name": "Chain Mail",
+     "id": 101,
+     "name": "Chain Mail, +1",
      "armorClass": 16,
      "armorTypeId": 3,
      "filterType": "Armor"
+    }
+   },
+   {
+    "equipped": true,
+    "isAttuned": false,
+    "definition": {
+     "id": 102,
+     "name": "Ring of Protection",
+     "armorClass": null,
+     "armorTypeId": null,
+     "filterType": "Ring"
+    }
+   },
+   {
+    "equipped": false,
+    "isAttuned": false,
+    "definition": {
+     "id": 103,
+     "name": "Cloak of Protection",
+     "armorClass": null,
+     "armorTypeId": null,
+     "filterType": "Wondrous item"
     }
    },
    {

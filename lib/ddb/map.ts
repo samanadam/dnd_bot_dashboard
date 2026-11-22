@@ -78,7 +78,33 @@ function armorClass(data: Obj, dexMod: number): number {
   else if (body.armorTypeId === 1) ac = base + dexMod;
   else if (body.armorTypeId === 2) ac = base + Math.min(dexMod, 2);
   else ac = base;
-  return whole(ac + (shield ? whole(shield.armorClass, 0, 10, 2) : 0), 0, 40, 10);
+  return whole(ac + (shield ? whole(shield.armorClass, 0, 10, 2) : 0) + armorBonuses(data), 0, 40, 10);
+}
+
+/**
+ * Flat "+N armor class" modifiers: those of worn items (attuned when the item needs
+ * it, like Plate +3 or a Ring of Protection) and unconditional ones from the class
+ * or feats (a Defense fighting style). Conditional ones are left out.
+ */
+function armorBonuses(data: Obj): number {
+  const modifiers = obj(data.modifiers);
+  const worn = new Map<number, boolean>();
+  for (const entry of list(data.inventory).map(obj)) {
+    const id = obj(entry.definition).id;
+    if (entry.equipped === true && typeof id === "number") worn.set(id, entry.isAttuned === true);
+  }
+  let total = 0;
+  for (const [group, entries] of Object.entries(modifiers)) {
+    for (const m of list(entries).map(obj)) {
+      if (m.type !== "bonus" || m.subType !== "armor-class" || typeof m.value !== "number" || m.isGranted === false || text(m.restriction, 200)) continue;
+      if (group === "item") {
+        const attuned = typeof m.componentId === "number" ? worn.get(m.componentId) : undefined;
+        if (attuned === undefined || (m.requiresAttunement === true && !attuned)) continue;
+      }
+      total += whole(m.value, -10, 10, 0);
+    }
+  }
+  return total;
 }
 
 export function mapCharacter(raw: unknown): MapResult {
@@ -86,7 +112,7 @@ export function mapCharacter(raw: unknown): MapResult {
     const data = obj(obj(raw).data);
     const name = text(data.name, 120);
     if (!name) return { ok: false, reason: "no character name" };
-    const warnings: string[] = ["Armor class is worked out from worn armor only: magic items and class features are not counted."];
+    const warnings: string[] = ["Armor class is worked out from worn armor and flat bonuses; conditional bonuses and spells are not counted."];
 
     const classes = mapClasses(data, warnings);
     if (classes.length === 0) return { ok: false, reason: "no classes" };
