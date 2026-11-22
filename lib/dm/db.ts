@@ -324,6 +324,27 @@ const MIGRATIONS: readonly string[] = [
      last_error TEXT,
      UNIQUE (user_id, ddb_character_id)
    );`,
+  // Several campaigns per token: which portal campaign a player's D&D Beyond campaign
+  // means (ddb_campaign_map), the D&D Beyond campaign a synced character is in, and
+  // the characters still waiting for the player to pick a campaign (ddb_pending).
+  // A token made from now on carries no campaign (campaign_id '').
+  `ALTER TABLE ddb_links ADD COLUMN ddb_campaign_id TEXT;
+   ALTER TABLE ddb_links ADD COLUMN ddb_campaign_name TEXT;
+   CREATE TABLE ddb_campaign_map (
+     user_id TEXT NOT NULL,
+     ddb_campaign_id TEXT NOT NULL,
+     campaign_id TEXT NOT NULL,
+     PRIMARY KEY (user_id, ddb_campaign_id)
+   );
+   CREATE TABLE ddb_pending (
+     user_id TEXT NOT NULL,
+     ddb_character_id TEXT NOT NULL,
+     name TEXT NOT NULL,
+     ddb_campaign_id TEXT NOT NULL,
+     ddb_campaign_name TEXT NOT NULL,
+     seen_at TEXT NOT NULL,
+     PRIMARY KEY (user_id, ddb_character_id)
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

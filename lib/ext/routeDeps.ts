@@ -13,19 +13,25 @@ import { ExtTokenRepo } from "./tokens";
 import type { ExtDeps } from "./routes";
 import type { ExtTokenRouteDeps } from "./tokenRoutes";
 
+async function nameOnBot(campaignId: string, userId: string, name: string | null): Promise<boolean> {
+  const result = name
+    ? await botServer("POST", `campaigns/${campaignId}/characters`, { body: { user_id: userId, character_name: name.slice(0, 40) }, userId })
+    : await botServer("POST", `campaigns/${campaignId}/characters/clear`, { body: { user_id: userId }, userId });
+  return result.ok;
+}
+
 export function extDeps(): ExtDeps {
   return {
     tokens: () => new ExtTokenRepo(getDatabase()),
     links: () => new DdbLinkRepo(getDatabase()),
     sheets: () => new SheetRepo(getDatabase()),
     users: () => new UserRepo(getDatabase()),
-    playsIn: async (userId, campaignId) => can(accessFor(userId, rolesOf(userId)), "play", campaignId),
-    syncName: async (campaignId, userId, name) => {
-      const result = name
-        ? await botServer("POST", `campaigns/${campaignId}/characters`, { body: { user_id: userId, character_name: name.slice(0, 40) }, userId })
-        : await botServer("POST", `campaigns/${campaignId}/characters/clear`, { body: { user_id: userId }, userId });
-      return result.ok;
+    campaignsOf: async (userId) => {
+      const access = accessFor(userId, rolesOf(userId));
+      const known = await botCampaigns();
+      return known ? known.filter((c) => can(access, "play", c.id)).map(({ id, name }) => ({ id, name })) : null;
     },
+    syncName: nameOnBot,
     announce: async (roll, userId) => (await botServer("POST", "dice/announce", { body: { ...roll, origin: "sheet" }, userId })).ok,
     log: audit,
   };
@@ -36,6 +42,8 @@ export function extTokenDeps(): ExtTokenRouteDeps {
     getAccess,
     tokens: () => new ExtTokenRepo(getDatabase()),
     links: () => new DdbLinkRepo(getDatabase()),
+    sheets: () => new SheetRepo(getDatabase()),
+    syncName: nameOnBot,
     campaigns: async () => (await botCampaigns())?.map(({ id, name }) => ({ id, name })) ?? null,
     log: audit,
   };

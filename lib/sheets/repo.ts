@@ -206,6 +206,27 @@ export class SheetRepo {
     });
   }
 
+  /**
+   * Puts a sheet in another campaign (a synced character whose campaign choice changed).
+   * Its vitals and link stay. It keeps its active flag only where the player has no other
+   * active sheet, since a player has one active sheet per campaign.
+   */
+  moveToCampaign(id: string, campaignId: string): StoredSheet | null {
+    if (!SHEET_ID.test(id)) return null;
+    return this.transaction(() => {
+      const sheet = this.get(id);
+      if (!sheet) return null;
+      if (sheet.campaignId === campaignId) return sheet;
+      let active = sheet.active ? 1 : 0;
+      if (active && sheet.ownerUserId) {
+        const theirs = this.db.prepare("SELECT COUNT(*) AS n FROM characters WHERE campaign_id = ? AND owner_user_id = ? AND is_active = 1").get(campaignId, sheet.ownerUserId) as { n: number };
+        if (Number(theirs.n) > 0) active = 0;
+      }
+      this.db.prepare("UPDATE characters SET campaign_id = ?, is_active = ?, updated_at = ? WHERE id = ?").run(campaignId, active, this.now().toISOString(), id);
+      return this.get(id);
+    });
+  }
+
   /** Applies operations to the vitals in one transaction: all or none. */
   applyOps(id: string, ops: readonly Op[], context: (sheet: StoredSheet) => OpContext): OpsOutcome {
     if (!SHEET_ID.test(id)) return null;

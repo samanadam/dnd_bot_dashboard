@@ -19,7 +19,7 @@ function setup() {
   const users = new UserRepo(db);
   users.upsert(ARIA, "Aria", null, []);
   const tokens = new ExtTokenRepo(db);
-  const state = { plays: true };
+  const state = { campaigns: [{ id: EMBER, name: "Ember Isles" }] as Array<{ id: string; name: string }> | null };
   const clock = { now: Date.parse(T1) + 1000 };
   const announced: Array<[unknown, string]> = [];
   const names: Array<[string, string, string | null]> = [];
@@ -28,7 +28,7 @@ function setup() {
     links: () => new DdbLinkRepo(db),
     sheets: () => new SheetRepo(db),
     users: () => users,
-    playsIn: async () => state.plays,
+    campaignsOf: async () => state.campaigns,
     limiter: new RateLimiter(),
     rollLimiter: new RateLimiter(),
     now: () => clock.now,
@@ -41,8 +41,10 @@ function setup() {
       return true;
     },
   };
+  // A token made before several campaigns were supported is tied to one; a new one is not.
   const { token } = tokens.issue(ARIA, EMBER, "laptop");
-  return { db, deps, tokens, token, state, announced, names, clock };
+  const anyToken = tokens.issue(ARIA, "", "any campaign").token;
+  return { db, deps, tokens, token, anyToken, state, announced, names, clock };
 }
 
 function post(token: string | null, body: unknown, path = "sheets/sync") {
@@ -127,7 +129,7 @@ describe("sheet sync", () => {
 
   it("refuses a user who no longer plays in the campaign", async () => {
     const { deps, token, state } = setup();
-    state.plays = false;
+    state.campaigns = [];
     const response = await extSync(deps).POST(post(token, payload(fighter)));
     expect(response.status).toBe(403);
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe("not_in_campaign");
@@ -204,5 +206,101 @@ describe("trust", () => {
     renamed.data.name = "Aria Moonwhisper";
     await extSync(deps).POST(post(token, payload(renamed, { capturedAt: T1 })));
     expect(names.at(-1)).toEqual([EMBER, ARIA, "Aria Moonwhisper"]);
+  });
+});
+
+describe("which campaign a synced character lands in", () => {
+  const TYR = "bbbbbbbbbbbb";
+  const campaigns = [
+    { id: EMBER, name: "Ember Isles" },
+    { id: TYR, name: "Tyranny of Dragons" },
+  ];
+  const inCampaign = (name: string, id = "8266155") => {
+    const raw = structuredClone(caster) as { data: Record<string, unknown> };
+    raw.data.campaign = { id: Number(id), name };
+    return raw;
+  };
+  const codeOf = async (response: Response) => ((await response.json()) as { error: { code: string } }).error.code;
+
+  it("puts a character in the one campaign a token-less-of-campaign player plays in", async () => {
+    const { deps, anyToken } = setup();
+    const { sheetId } = (await (await extSync(deps).POST(post(anyToken, payload(caster)))).json()) as { sheetId: string };
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
+    expect(deps.links().mappedCampaign(ARIA, "none")).toBe(EMBER);
+  });
+
+  it("matches the D&D Beyond campaign name to a portal campaign and remembers it", async () => {
+    const { deps, anyToken, state } = setup();
+    state.campaigns = campaigns;
+    const response = await extSync(deps).POST(post(anyToken, payload(inCampaign("tyranny of dragons"))));
+    const { sheetId } = (await response.json()) as { sheetId: string };
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(TYR);
+    expect(deps.links().mappedCampaign(ARIA, "8266155")).toBe(TYR);
+    expect(deps.links().status(ARIA)[0]).toMatchObject({ ddbCampaignId: "8266155", ddbCampaignName: "tyranny of dragons", campaignId: TYR });
+  });
+
+  it("asks when it cannot tell, creates nothing, and lists the character as waiting", async () => {
+    const { deps, anyToken, state, db } = setup();
+    state.campaigns = campaigns;
+    const response = await extSync(deps).POST(post(anyToken, payload(inCampaign("Some other table", "99"))));
+    expect(response.status).toBe(409);
+    expect(await codeOf(response)).toBe("needs_campaign");
+    expect(Number((db.prepare("SELECT COUNT(*) AS n FROM characters").get() as { n: number }).n)).toBe(0);
+    expect(deps.links().pending(ARIA)).toMatchObject([{ ddbCharacterId: "100000002", name: "Aria Test", ddbCampaignId: "99", ddbCampaignName: "Some other table" }]);
+  });
+
+  it("creates the sheet once the player has chosen, and stops listing it as waiting", async () => {
+    const { deps, anyToken, state } = setup();
+    state.campaigns = campaigns;
+    await extSync(deps).POST(post(anyToken, payload(inCampaign("Some other table", "99"))));
+    deps.links().mapCampaign(ARIA, "99", TYR);
+    const { sheetId } = (await (await extSync(deps).POST(post(anyToken, payload(inCampaign("Some other table", "99"), { capturedAt: T1 })))).json()) as { sheetId: string };
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(TYR);
+    expect(deps.links().pending(ARIA)).toEqual([]);
+  });
+
+  it("moves the sheet when the player changes the campaign, and tells the bot about both", async () => {
+    const { deps, anyToken, state, names } = setup();
+    state.campaigns = campaigns;
+    const { sheetId } = (await (await extSync(deps).POST(post(anyToken, payload(inCampaign("Ember Isles"))))).json()) as { sheetId: string };
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
+    names.length = 0;
+    deps.links().mapCampaign(ARIA, "8266155", TYR);
+    const answer = await extSync(deps).POST(post(anyToken, payload(inCampaign("Ember Isles"), { capturedAt: T1 })));
+    expect(answer.status).toBe(200);
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(TYR);
+    expect(deps.sheets().isSynced(sheetId)).toBe(true);
+    expect(names.map(([campaign]) => campaign).sort()).toEqual([EMBER, TYR].sort());
+  });
+
+  it("does not ask again, or move anything, for a character that already has a sheet", async () => {
+    const { deps, anyToken, state } = setup();
+    const { sheetId } = (await (await extSync(deps).POST(post(anyToken, payload(inCampaign("Ember Isles"))))).json()) as { sheetId: string };
+    state.campaigns = campaigns;
+    deps.links().mapCampaign(ARIA, "8266155", "gone");
+    const answer = await extSync(deps).POST(post(anyToken, payload(inCampaign("Unmatched", "8266155"), { capturedAt: T1 })));
+    expect(answer.status).toBe(200);
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
+  });
+
+  it("when the bot cannot say which campaigns the player plays in, a new character waits and a synced one keeps syncing", async () => {
+    const { deps, anyToken, state } = setup();
+    state.campaigns = null;
+    const fresh = await extSync(deps).POST(post(anyToken, payload(caster)));
+    expect(fresh.status).toBe(503);
+    expect(await codeOf(fresh)).toBe("bot_unavailable");
+    state.campaigns = campaigns;
+    const { sheetId } = (await (await extSync(deps).POST(post(anyToken, payload(inCampaign("Ember Isles"))))).json()) as { sheetId: string };
+    state.campaigns = null;
+    const again = await extSync(deps).POST(post(anyToken, payload(inCampaign("Ember Isles"), { capturedAt: T1 })));
+    expect(again.status).toBe(200);
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
+  });
+
+  it("keeps a token that was made for one campaign inside that campaign", async () => {
+    const { deps, token, state } = setup();
+    state.campaigns = campaigns;
+    const { sheetId } = (await (await extSync(deps).POST(post(token, payload(inCampaign("Tyranny of Dragons"))))).json()) as { sheetId: string };
+    expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
   });
 });
