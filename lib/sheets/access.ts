@@ -47,6 +47,8 @@ export type SheetSummary = {
   hp: number;
   maxHp: number;
   ac: number;
+  // Passive scores, for the DM's party cards.
+  passive: { perception: number; investigation: number; insight: number };
   conditions: string[];
   concentration: string | null;
   nameSync: StoredSheet["nameSync"];
@@ -70,6 +72,7 @@ export function summaryOf(sheet: StoredSheet, userId: string, ownerName: string 
     hp: sheet.vitals.hp,
     maxHp: derived.maxHp,
     ac: derived.ac.value,
+    passive: derived.passive,
     conditions: sheet.vitals.conditions.map((c) => c.name),
     concentration: sheet.vitals.concentration?.name ?? null,
     nameSync: sheet.nameSync,

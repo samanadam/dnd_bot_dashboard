@@ -202,12 +202,22 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted">Passive Perception</dt>
-              <dd className="font-semibold">{derived.passive.perception}</dd>
-            </div>
-            <div>
               <dt className="text-xs text-muted">Level</dt>
               <dd className="font-semibold">{derived.totalLevel}</dd>
+            </div>
+          </dl>
+          <dl className="grid grid-cols-3 gap-3 border-t border-border pt-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted">Passive Perception</dt>
+              <dd className="text-xl font-semibold">{derived.passive.perception}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Passive Investigation</dt>
+              <dd className="text-xl font-semibold">{derived.passive.investigation}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Passive Insight</dt>
+              <dd className="text-xl font-semibold">{derived.passive.insight}</dd>
             </div>
           </dl>
           <div className="flex flex-wrap gap-2 text-sm">
