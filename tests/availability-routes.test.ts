@@ -71,7 +71,7 @@ describe("availability routes", () => {
     expect((await put(operator.deps, ["2026-11-28"])).status).toBe(404);
   });
 
-  it("shows own days and counts only listed players, names only to the owner", async () => {
+  it("shows own days, counts only listed players, and names who is free to every player", async () => {
     const { deps, repo } = setup(P1);
     repo.setPlayers(CAMPAIGN, [P1, P2]);
     repo.setFreeDays(CAMPAIGN, P1, ["2026-11-28"], "2026-11-20");
@@ -84,7 +84,10 @@ describe("availability routes", () => {
     expect(body.counts["2026-11-28"]).toBe(2);
     expect(body.counts["2026-11-29"]).toBe(1);
     expect(body.total).toBe(2);
-    expect(body.who).toBeUndefined();
+    expect(body.players.sort()).toEqual(["Ann", "Bo"]);
+    expect(body.who["2026-11-28"].sort()).toEqual(["Ann", "Bo"]);
+    // The outsider is not on the list, so never named.
+    expect(body.who["2026-11-29"]).toEqual(["Bo"]);
 
     const owner = setup(OWNER);
     owner.repo.setPlayers(CAMPAIGN, [P1, P2]);

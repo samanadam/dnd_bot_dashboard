@@ -87,7 +87,7 @@ export function availabilityCollection(deps: AvailabilityDeps) {
         counts,
         total: players.length,
         players: players.map((id) => names.get(id) ?? "Player"),
-        ...(guard.access.owner ? { who } : {}),
+        who,
       });
     },
 
