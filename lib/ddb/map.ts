@@ -65,6 +65,17 @@ function mapClasses(data: Obj, warnings: string[]): ClassEntry[] {
   });
 }
 
+/**
+ * Flat "+N <ability> score" modifiers: the points a feat or background gives (the 2024
+ * rules) are stored as modifiers, not in the stored bonus. Conditional and not-granted ones are left out.
+ */
+function scoreBonuses(data: Obj, ability: Ability): number {
+  const subType = `${ABILITY_WORDS[ability]}-score`;
+  return modifiersOf(data)
+    .filter((m) => m.type === "bonus" && m.subType === subType && typeof m.value === "number" && m.isGranted !== false && !text(m.restriction, 200))
+    .reduce((n, m) => n + whole(m.value, -10, 10, 0), 0);
+}
+
 function armorClass(data: Obj, dexMod: number): number {
   const worn = list(data.inventory)
     .map(obj)
@@ -125,7 +136,7 @@ export function mapCharacter(raw: unknown): MapResult {
       const id = index + 1;
       body.abilities[ability] = {
         base: whole(statById(data.stats, id), 1, 30, 10),
-        bonus: whole(statById(data.bonusStats, id), -10, 10, 0),
+        bonus: whole(whole(statById(data.bonusStats, id), -10, 10, 0) + scoreBonuses(data, ability), -10, 10, 0),
         override: wholeOrNull(statById(data.overrideStats, id), 1, 30),
       };
     });
