@@ -1,0 +1,265 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Ambient backdrop glow strictly within central 70% safe zone -->
+    <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#B45309" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#080912" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Core portal glow -->
+    <radialGradient id="coreGlow" cx="50%" cy="54%" r="42%">
+      <stop offset="0%" stop-color="#FFFBEB" stop-opacity="0.95"/>
+      <stop offset="28%" stop-color="#FDE047" stop-opacity="0.75"/>
+      <stop offset="65%" stop-color="#D97706" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#78350F" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Facet gradients (Lit from top-left, deep amber shadow bottom-right) -->
+    <!-- 1. Top-Left Upper Facet (Brightest Gold) -->
+    <linearGradient id="fTopLeftUp" x1="0%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#FFF7D6"/>
+      <stop offset="35%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+
+    <!-- 2. Top-Right Upper Facet -->
+    <linearGradient id="fTopRightUp" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="45%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+
+    <!-- 3. Top-Left Inner Facet -->
+    <linearGradient id="fTopLeftIn" x1="0%" y1="10%" x2="100%" y2="90%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="55%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+
+    <!-- 4. Center Main Facet -->
+    <linearGradient id="fCenter" x1="25%" y1="0%" x2="75%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="40%" stop-color="#F59E0B"/>
+      <stop offset="85%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+
+    <!-- 5. Top-Right Inner Facet -->
+    <linearGradient id="fTopRightIn" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="50%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+
+    <!-- 6. Left Outer Facet -->
+    <linearGradient id="fLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="60%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#6B210B"/>
+    </linearGradient>
+
+    <!-- 7. Right Outer Facet -->
+    <linearGradient id="fRight" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="55%" stop-color="#92400E"/>
+      <stop offset="100%" stop-color="#451A03"/>
+    </linearGradient>
+
+    <!-- 8. Bottom Inner Facet -->
+    <linearGradient id="fBottomIn" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="45%" stop-color="#92400E"/>
+      <stop offset="100%" stop-color="#451A03"/>
+    </linearGradient>
+
+    <!-- 9. Bottom-Left Lower Facet -->
+    <linearGradient id="fBottomLeft" x1="0%" y1="10%" x2="95%" y2="95%">
+      <stop offset="0%" stop-color="#B45309"/>
+      <stop offset="60%" stop-color="#78350F"/>
+      <stop offset="100%" stop-color="#3B1103"/>
+    </linearGradient>
+
+    <!-- 10. Bottom-Right Lower Facet -->
+    <linearGradient id="fBottomRight" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#92400E"/>
+      <stop offset="55%" stop-color="#5C1D06"/>
+      <stop offset="100%" stop-color="#270901"/>
+    </linearGradient>
+
+    <!-- Ridge & Rim Stroke Gradients -->
+    <linearGradient id="outerRim" x1="15%" y1="5%" x2="85%" y2="95%">
+      <stop offset="0%" stop-color="#FFFBEB"/>
+      <stop offset="30%" stop-color="#FDE047"/>
+      <stop offset="65%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+
+    <linearGradient id="innerRidge" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FFFBEB"/>
+      <stop offset="45%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+
+    <linearGradient id="portalRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#B45309" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed solid dark background (no rounded corners, no transparency) -->
+  <rect width="512" height="512" fill="#080912"/>
+
+  <!-- All icon artwork contained strictly inside central 70% safe zone (x,y in 84..428) -->
+  <g>
+    <!-- Soft radial backlight inside safe area -->
+    <circle cx="256" cy="256" r="172" fill="url(#ambientGlow)"/>
+
+    <!-- Subtle campaign portal / recording control rings around the d20 -->
+    <circle cx="256" cy="256" r="164" fill="none" stroke="url(#portalRingGrad)" stroke-width="1.5" stroke-dasharray="28 10 6 10"/>
+    <circle cx="256" cy="256" r="156" fill="none" stroke="#F59E0B" stroke-opacity="0.16" stroke-width="1"/>
+
+    <!-- Cardinal portal tick marks (within safe bounds r=164..170) -->
+    <g stroke="#FBBF24" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round">
+      <line x1="256" y1="86" x2="256" y2="92"/>
+      <line x1="256" y1="420" x2="256" y2="426"/>
+      <line x1="86" y1="256" x2="92" y2="256"/>
+      <line x1="420" y1="256" x2="426" y2="256"/>
+    </g>
+
+    <!-- ================= D20 ICOSAHEDRON BASE FACETS ================= -->
+    <!-- Outer Hexagon Vertices (R = 148):
+         V1 (Top):          (256, 108)
+         V2 (Top-Right):    (384.17, 182)
+         V3 (Bottom-Right): (384.17, 330)
+         V4 (Bottom):       (256, 404)
+         V5 (Bottom-Left):  (127.83, 330)
+         V6 (Top-Left):     (127.83, 182)
+         Inner Triangle Vertices (R = 86):
+         I1 (Top):          (256, 170)
+         I2 (Bottom-Right): (330.48, 299)
+         I3 (Bottom-Left):  (181.52, 299)
+    -->
+    <g stroke-linejoin="round">
+      <!-- 1. Top-Left Upper (V6 - V1 - I1) -->
+      <polygon points="127.83,182 256,108 256,170" fill="url(#fTopLeftUp)"/>
+
+      <!-- 2. Top-Right Upper (V1 - V2 - I1) -->
+      <polygon points="256,108 384.17,182 256,170" fill="url(#fTopRightUp)"/>
+
+      <!-- 3. Top-Left Inner (I3 - V6 - I1) -->
+      <polygon points="181.52,299 127.83,182 256,170" fill="url(#fTopLeftIn)"/>
+
+      <!-- 4. Top-Right Inner (I1 - V2 - I2) -->
+      <polygon points="256,170 384.17,182 330.48,299" fill="url(#fTopRightIn)"/>
+
+      <!-- 5. Left Outer (V5 - V6 - I3) -->
+      <polygon points="127.83,330 127.83,182 181.52,299" fill="url(#fLeft)"/>
+
+      <!-- 6. Right Outer (V2 - V3 - I2) -->
+      <polygon points="384.17,182 384.17,330 330.48,299" fill="url(#fRight)"/>
+
+      <!-- 7. Bottom-Left Lower (V4 - V5 - I3) -->
+      <polygon points="256,404 127.83,330 181.52,299" fill="url(#fBottomLeft)"/>
+
+      <!-- 8. Bottom-Right Lower (V3 - V4 - I2) -->
+      <polygon points="384.17,330 256,404 330.48,299" fill="url(#fBottomRight)"/>
+
+      <!-- 9. Bottom Inner (I2 - V4 - I3) -->
+      <polygon points="330.48,299 256,404 181.52,299" fill="url(#fBottomIn)"/>
+
+      <!-- 10. Center Main Facet (I1 - I2 - I3) -->
+      <polygon points="256,170 330.48,299 181.52,299" fill="url(#fCenter)"/>
+    </g>
+
+    <!-- ================= SUBTLE INNER FACET & REFRACTION LINES ================= -->
+    <!-- Back-projected icosahedron internal lattice (B1: 330.48,213 | B2: 256,342 | B3: 181.52,213) -->
+    <g fill="none" stroke="#FEF08A" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Deep internal crystal lattice -->
+      <polygon points="330.48,213 256,342 181.52,213" stroke-opacity="0.22" stroke-width="1.25" stroke-dasharray="4 4"/>
+      <line x1="256" y1="108" x2="181.52" y2="213" stroke-opacity="0.20" stroke-width="1.1"/>
+      <line x1="256" y1="108" x2="330.48" y2="213" stroke-opacity="0.18" stroke-width="1.1"/>
+      <line x1="384.17" y1="330" x2="330.48" y2="213" stroke-opacity="0.18" stroke-width="1.1"/>
+      <line x1="384.17" y1="330" x2="256" y2="342" stroke-opacity="0.18" stroke-width="1.1"/>
+      <line x1="127.83" y1="330" x2="181.52" y2="213" stroke-opacity="0.20" stroke-width="1.1"/>
+      <line x1="127.83" y1="330" x2="256" y2="342" stroke-opacity="0.18" stroke-width="1.1"/>
+
+      <!-- Precision inset sub-facet bevel lines inside each face -->
+      <!-- Center facet double-bevel -->
+      <polygon points="256,184 318.36,292 193.64,292" stroke-opacity="0.42" stroke-width="1.4"/>
+      <polygon points="256,198 306.23,285 205.77,285" stroke-opacity="0.25" stroke-width="1"/>
+
+      <!-- Top-Left Upper inset -->
+      <polygon points="149,176 249,118 249,164" stroke-opacity="0.38" stroke-width="1.1"/>
+      <!-- Top-Right Upper inset -->
+      <polygon points="263,118 363,176 263,164" stroke-opacity="0.32" stroke-width="1.1"/>
+      <!-- Top-Left Inner inset -->
+      <polygon points="184,283 140,192 243,178" stroke-opacity="0.34" stroke-width="1.2"/>
+      <!-- Top-Right Inner inset -->
+      <polygon points="269,178 372,192 328,283" stroke-opacity="0.28" stroke-width="1.2"/>
+      <!-- Left Outer inset -->
+      <polygon points="135,313 135,204 173,287" stroke-opacity="0.28" stroke-width="1.1"/>
+      <!-- Right Outer inset -->
+      <polygon points="377,204 377,313 339,287" stroke-opacity="0.22" stroke-width="1.1"/>
+      <!-- Bottom Inner inset -->
+      <polygon points="316,306 256,391 196,306" stroke-opacity="0.28" stroke-width="1.2"/>
+      <!-- Bottom-Left Lower inset -->
+      <polygon points="244,390 143,332 183,309" stroke-opacity="0.24" stroke-width="1.1"/>
+      <!-- Bottom-Right Lower inset -->
+      <polygon points="369,332 268,390 329,309" stroke-opacity="0.20" stroke-width="1.1"/>
+
+      <!-- Center facet median rays from centroid (256, 256) -->
+      <line x1="256" y1="256" x2="256" y2="170" stroke-opacity="0.35" stroke-width="1.2"/>
+      <line x1="256" y1="256" x2="330.48" y2="299" stroke-opacity="0.30" stroke-width="1.2"/>
+      <line x1="256" y1="256" x2="181.52" y2="299" stroke-opacity="0.30" stroke-width="1.2"/>
+    </g>
+
+    <!-- ================= ARCANE RECORDING PORTAL CORE (CENTER MOTIF ACCENT) ================= -->
+    <g>
+      <!-- Warm radial core illumination -->
+      <circle cx="256" cy="256" r="46" fill="url(#coreGlow)"/>
+      <!-- Outer harmonic resonance ring -->
+      <circle cx="256" cy="256" r="24" fill="none" stroke="#FEF08A" stroke-opacity="0.55" stroke-width="1.5"/>
+      <circle cx="256" cy="256" r="16" fill="none" stroke="#FFFBEB" stroke-opacity="0.75" stroke-width="1.5" stroke-dasharray="12 5"/>
+      <!-- Glowing recording indicator jewel at heart of the d20 -->
+      <circle cx="256" cy="256" r="7.5" fill="#FFFBEB" fill-opacity="0.95"/>
+      <circle cx="256" cy="256" r="4" fill="#F59E0B"/>
+    </g>
+
+    <!-- ================= PRIMARY STRUCTURAL FACET RIDGES ================= -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Outer ridges radiating from inner triangle to hexagon perimeter -->
+      <line x1="256" y1="108" x2="256" y2="170" stroke="#FFFBEB" stroke-opacity="0.9" stroke-width="3"/>
+      <line x1="127.83" y1="182" x2="256" y2="170" stroke="#FEF08A" stroke-opacity="0.85" stroke-width="2.6"/>
+      <line x1="384.17" y1="182" x2="256" y2="170" stroke="#FBBF24" stroke-opacity="0.8" stroke-width="2.6"/>
+
+      <line x1="127.83" y1="182" x2="181.52" y2="299" stroke="#FCD34D" stroke-opacity="0.8" stroke-width="2.5"/>
+      <line x1="127.83" y1="330" x2="181.52" y2="299" stroke="#F59E0B" stroke-opacity="0.75" stroke-width="2.5"/>
+      <line x1="256" y1="404" x2="181.52" y2="299" stroke="#D97706" stroke-opacity="0.75" stroke-width="2.5"/>
+
+      <line x1="384.17" y1="182" x2="330.48" y2="299" stroke="#F59E0B" stroke-opacity="0.75" stroke-width="2.5"/>
+      <line x1="384.17" y1="330" x2="330.48" y2="299" stroke="#B45309" stroke-opacity="0.75" stroke-width="2.5"/>
+      <line x1="256" y1="404" x2="330.48" y2="299" stroke="#B45309" stroke-opacity="0.7" stroke-width="2.5"/>
+
+      <!-- Central Equilateral Triangle Ridge -->
+      <polygon points="256,170 330.48,299 181.52,299" stroke="url(#innerRidge)" stroke-width="3.2"/>
+
+      <!-- Outer Hexagonal Silhouette Rim -->
+      <polygon points="256,108 384.17,182 384.17,330 256,404 127.83,330 127.83,182" stroke="url(#outerRim)" stroke-width="4"/>
+    </g>
+
+    <!-- ================= VERTEX SPECULAR GLINTS ================= -->
+    <g fill="#FFFBEB">
+      <!-- Top Crown Vertex Glint -->
+      <circle cx="256" cy="108" r="3.2" fill-opacity="0.95"/>
+      <!-- Inner Triangle Vertex Glints -->
+      <circle cx="256" cy="170" r="3" fill-opacity="0.95"/>
+      <circle cx="181.52" cy="299" r="2.5" fill-opacity="0.8"/>
+      <circle cx="330.48" cy="299" r="2.3" fill-opacity="0.75"/>
+      <!-- Upper Perimeter Vertex Glints -->
+      <circle cx="127.83" cy="182" r="2.6" fill-opacity="0.85"/>
+      <circle cx="384.17" cy="182" r="2.3" fill-opacity="0.75"/>
+    </g>
+  </g>
+</svg>
