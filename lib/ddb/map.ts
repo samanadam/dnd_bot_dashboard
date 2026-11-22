@@ -9,7 +9,7 @@ import { vitalsSchema, type Condition, type Vitals } from "@/lib/sheets/vitals";
 // changes it, fix this file and its fixtures in tests/fixtures/ddb. Nothing here
 // may throw: anything unreadable becomes a default plus a warning, or { ok: false }.
 
-export type SyncedVitals = Pick<Vitals, "hp" | "tempHp" | "deathSaves" | "stable" | "slotsSpent" | "pactSpent" | "conditions" | "exhaustion" | "inspiration" | "concentration" | "resourcesUsed">;
+export type SyncedVitals = Pick<Vitals, "hp" | "tempHp" | "deathSaves" | "stable" | "slotsSpent" | "pactSpent" | "conditions" | "exhaustion" | "inspiration" | "resourcesUsed" | "hitDiceSpent">;
 export type Mapped = { body: SheetBody; vitals: SyncedVitals; edition: Edition; name: string; warnings: string[] };
 export type MapResult = { ok: true; mapped: Mapped } | { ok: false; reason: string };
 
@@ -473,6 +473,18 @@ function mapResources(data: Obj, features: SheetBody["features"], warnings: stri
   return { resources: resources.slice(0, MAX_RESOURCES), used };
 }
 
+/** Hit dice spent, added up per die size over the classes. */
+function hitDiceSpent(data: Obj, classes: ClassEntry[]): SyncedVitals["hitDiceSpent"] {
+  const spent = { 6: 0, 8: 0, 10: 0, 12: 0 };
+  list(data.classes)
+    .slice(0, 6)
+    .forEach((entry, index) => {
+      const die = classes[index]?.hitDie;
+      if (die) spent[die] = Math.min(10_000, spent[die] + whole(obj(entry).hitDiceUsed, 0, classes[index].level, 0));
+    });
+  return spent;
+}
+
 const MAX_SPELLS = 400;
 const SPELL_RANK = { known: 0, prepared: 1, always: 2 } as const;
 
@@ -602,13 +614,13 @@ export function mapCharacter(raw: unknown): MapResult {
       conditions: conditions.slice(0, 12),
       exhaustion: exhaustion ? whole(exhaustion.level, 0, 6, 1) : 0,
       inspiration: data.inspiration === true,
-      concentration: null,
+      hitDiceSpent: hitDiceSpent(data, classes),
       resourcesUsed: Object.fromEntries(Object.entries(limited.used).filter(([id]) => limited.resources.some((r) => r.id === id))),
     };
 
     const parsedBody = sheetBodySchema.safeParse(body);
     if (!parsedBody.success) return { ok: false, reason: `sheet did not validate: ${parsedBody.error.issues[0]?.message ?? "invalid"}` };
-    const checked = vitalsSchema.pick({ hp: true, tempHp: true, deathSaves: true, stable: true, slotsSpent: true, pactSpent: true, conditions: true, exhaustion: true, inspiration: true, concentration: true, resourcesUsed: true }).safeParse(vitals);
+    const checked = vitalsSchema.pick({ hp: true, tempHp: true, deathSaves: true, stable: true, slotsSpent: true, pactSpent: true, conditions: true, exhaustion: true, inspiration: true, resourcesUsed: true, hitDiceSpent: true }).safeParse(vitals);
     if (!checked.success) return { ok: false, reason: `vitals did not validate: ${checked.error.issues[0]?.message ?? "invalid"}` };
     return { ok: true, mapped: { body: parsedBody.data, vitals: checked.data, edition, name, warnings } };
   } catch (error) {

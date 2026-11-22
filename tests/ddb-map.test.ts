@@ -458,3 +458,16 @@ describe("mapCharacter limited-use resources", () => {
     expect(mapped(r).body.resources).toHaveLength(30);
   });
 });
+
+describe("mapCharacter hit dice and concentration", () => {
+  it("copies the hit dice spent, per die size, and does not touch concentration", () => {
+    const r = structuredClone(multiclass) as { data: { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].hitDiceUsed = 2;
+    r.data.classes[1].hitDiceUsed = 1;
+    const m = mapped(r);
+    const dice = m.body.classes.map((c) => c.hitDie);
+    const spent = m.vitals.hitDiceSpent!;
+    for (const die of [6, 8, 10, 12] as const) expect(spent[die]).toBe(dice.reduce((n, d, i) => n + (d === die ? [2, 1][i] : 0), 0));
+    expect("concentration" in m.vitals).toBe(false);
+  });
+});
