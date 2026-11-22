@@ -100,3 +100,86 @@ describe("mapCharacter", () => {
     }
   });
 });
+
+describe("mapCharacter inventory and coins", () => {
+  const CHARACTER = 777;
+  const entry = (id: number, name: string, extra: Record<string, unknown> = {}, definition: Record<string, unknown> = {}) => ({
+    id,
+    quantity: 1,
+    equipped: false,
+    isAttuned: false,
+    containerEntityId: CHARACTER,
+    definition: { id: id + 1000, name, weight: 1, description: "", ...definition },
+    ...extra,
+  });
+  const withData = (extra: Record<string, unknown>) => {
+    const raw = structuredClone(caster) as { data: Record<string, unknown> };
+    Object.assign(raw.data, { id: CHARACTER }, extra);
+    return raw;
+  };
+
+  it("copies items with quantity, weight per item, equipped, attuned and where they are carried", () => {
+    const m = mapped(
+      withData({
+        inventory: [
+          entry(10, "Backpack", {}, { weight: 5 }),
+          entry(11, "Lamp", { containerEntityId: 10 }, { weight: 1 }),
+          entry(12, "Dagger", { equipped: true, quantity: 2 }, { weight: 1 }),
+          entry(13, "Ring of Protection", { isAttuned: true, equipped: true }, { weight: 0 }),
+        ],
+        currencies: { cp: 3, sp: 4, ep: 0, gp: 28, pp: 1 },
+      }),
+    );
+    expect(m.body.inventory.items).toEqual([
+      { id: "d10", name: "Backpack", ref: null, qty: 1, weightLb: 5, equipped: false, attuned: false, container: "", notes: "" },
+      { id: "d11", name: "Lamp", ref: null, qty: 1, weightLb: 1, equipped: false, attuned: false, container: "Backpack", notes: "" },
+      { id: "d12", name: "Dagger", ref: null, qty: 2, weightLb: 1, equipped: true, attuned: false, container: "", notes: "" },
+      { id: "d13", name: "Ring of Protection", ref: null, qty: 1, weightLb: 0, equipped: true, attuned: true, container: "", notes: "" },
+    ]);
+    expect(m.body.inventory.currency).toEqual({ cp: 3, sp: 4, ep: 0, gp: 28, pp: 1 });
+    // The rules the player set on the portal stay as they were.
+    expect(m.body.inventory.attunementMax).toBe(3);
+    expect(m.body.inventory.encumbrance).toBe("off");
+  });
+
+  it("copies custom items too", () => {
+    const m = mapped(withData({ inventory: [], customItems: [{ id: 5, name: "Solvane Signet", description: "A family ring.", weight: 0.5, quantity: 2, notes: null, cost: null }] }));
+    expect(m.body.inventory.items).toEqual([{ id: "c5", name: "Solvane Signet", ref: null, qty: 2, weightLb: 0.5, equipped: false, attuned: false, container: "", notes: "A family ring." }]);
+  });
+
+  it("turns the HTML description into plain text, capped", () => {
+    const html = "<p>A <strong>fine</strong> blade&nbsp;&amp; sheath.</p><ul><li>Light</li><li>Finesse</li></ul>";
+    const m = mapped(withData({ inventory: [entry(1, "Dagger", {}, { description: html }), entry(2, "Tome", {}, { description: `<p>${"x".repeat(3000)}</p>` })] }));
+    expect(m.body.inventory.items[0].notes).toBe("A fine blade & sheath. Light Finesse");
+    expect(m.body.inventory.items[1].notes).toHaveLength(1000);
+  });
+
+  it("skips entries without a name and keeps numbers in range", () => {
+    const m = mapped(
+      withData({
+        inventory: [entry(1, "", {}), entry(2, "Bag of Coins", { quantity: 99999 }, { weight: -3 }), entry(3, "Anvil", {}, { weight: 99999 }), { id: 4, definition: null }, "junk", null],
+        currencies: { cp: -5, sp: "many", gp: 1e12 },
+      }),
+    );
+    expect(m.body.inventory.items.map((i) => [i.name, i.qty, i.weightLb])).toEqual([
+      ["Bag of Coins", 9999, 0],
+      ["Anvil", 1, 10_000],
+    ]);
+    expect(m.body.inventory.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 10_000_000, pp: 0 });
+  });
+
+  it("copies the first 300 items and says so when there are more", () => {
+    const inventory = Array.from({ length: 305 }, (_, i) => entry(i + 1, `Item ${i + 1}`));
+    const m = mapped(withData({ inventory }));
+    expect(m.body.inventory.items).toHaveLength(300);
+    expect(m.warnings.some((w) => /300/.test(w))).toBe(true);
+  });
+
+  it("leaves the inventory empty, and never throws, when it is not a list", () => {
+    for (const bad of ["junk", 5, { a: 1 }, null]) {
+      const m = mapped(withData({ inventory: bad, customItems: bad, currencies: bad }));
+      expect(m.body.inventory.items).toEqual([]);
+      expect(m.body.inventory.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
+    }
+  });
+});
