@@ -6,9 +6,9 @@ Shows your D&D Beyond character in the portal, live, and replays your D&D Beyond
 
 1. `npm run build:extension`. This writes `extension/dist/`.
 2. Open `chrome://extensions` (or `edge://extensions`), turn on Developer mode, choose **Load unpacked**, pick `extension/dist`.
-3. In the portal open **Settings, D&D Beyond sync**, make a token (one per browser, tied to one campaign) and copy it. It is shown once.
+3. In the portal open **Settings, D&D Beyond sync**, make a token (one per browser, good for every campaign you play in) and copy it. It is shown once.
 4. Click the extension icon, enter the portal address and the token, **Save** (the browser asks to let the extension reach the portal), then **Test**.
-5. Open your character on D&D Beyond. Within seconds it appears in the portal as a sheet marked "Synced from D&D Beyond".
+5. Open your character on D&D Beyond. Within seconds it appears in the portal as a sheet marked "Synced from D&D Beyond", in the campaign D&D Beyond says it is in (matched by name). If the portal cannot tell, the pairing page lists the character under "Waiting for a campaign" and you choose one; you can change it later.
 
 ## What it does
 

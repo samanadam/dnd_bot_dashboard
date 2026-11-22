@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { UserRepo } from "@/lib/access/grants";
+import { campaignOf, NO_DDB_CAMPAIGN, resolveCampaign, type CampaignRef } from "@/lib/ddb/campaign";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
 import { mapCharacter } from "@/lib/ddb/map";
 import { invalidBody, readDmJson } from "@/lib/dm/guard";
@@ -21,8 +22,8 @@ export type ExtDeps = {
   links: () => DdbLinkRepo;
   sheets: () => SheetRepo;
   users: () => UserRepo;
-  // Whether the user (by their last-seen roles) still plays in the campaign the token was made for.
-  playsIn: (userId: string, campaignId: string) => Promise<boolean>;
+  // The campaigns the user (by their last-seen roles) plays in, with their names; null when the bot cannot be asked.
+  campaignsOf: (userId: string) => Promise<CampaignRef[] | null>;
   announce?: (roll: RollToAnnounce, userId: string) => Promise<boolean>;
   // Tells the bot which character a player is in a campaign (null clears it). False on failure.
   syncName?: (campaignId: string, userId: string, name: string | null) => Promise<boolean>;
@@ -38,7 +39,7 @@ const REQUESTS: Limit = { max: 120, windowMs: 60_000 };
 const sharedLimiter = new RateLimiter();
 
 /** Keeps the bot's character name for this player in step with their active sheet, as the sheet routes do. */
-async function syncName(deps: ExtDeps, campaignId: string, userId: string): Promise<void> {
+export async function syncName(deps: Pick<ExtDeps, "sheets" | "syncName">, campaignId: string, userId: string): Promise<void> {
   if (!deps.syncName) return;
   const sheets = deps.sheets();
   const active = sheets.activeFor(campaignId, userId);
@@ -63,7 +64,7 @@ export function extPing(deps: ExtDeps) {
     async GET(request: Request): Promise<Response> {
       const who = bearer(request, deps);
       if (!who.ok) return who.response;
-      return json({ user: deps.users().get(who.userId)?.displayName ?? "Player", campaignId: who.campaignId });
+      return json({ user: deps.users().get(who.userId)?.displayName ?? "Player", campaignId: who.campaignId || null });
     },
   };
 }
@@ -94,11 +95,22 @@ export function extSync(deps: ExtDeps) {
 
       // A shared or read-only view is somebody else's character: never theirs to sync.
       if (readOnly || !editable) return errorResponse(422, "read_only", "This D&D Beyond page is read-only. Open your own character.");
-      if (!(await deps.playsIn(who.userId, who.campaignId))) return errorResponse(403, "not_in_campaign", "You no longer play in this campaign. Pair the extension again.");
 
       const links = deps.links();
       const sheets = deps.sheets();
       const link = links.find(who.userId, ddbCharacterId);
+
+      // Which portal campaign: what the player chose before, the name D&D Beyond gives the
+      // campaign, or the only one they play in. A token made for one campaign stays in it.
+      const ddb = campaignOf(character);
+      const ddbKey = ddb?.id ?? NO_DDB_CAMPAIGN;
+      const playing = await deps.campaignsOf(who.userId);
+      // Without the list, a character that already has a sheet keeps syncing where it is; a new one has to wait.
+      if (playing === null && !link) return errorResponse(503, "bot_unavailable", "The portal cannot reach the bot right now. It will retry.");
+      const candidates = who.campaignId ? (playing ?? []).filter((c) => c.id === who.campaignId) : (playing ?? []);
+      const resolution = playing === null ? ({ kind: "needs", candidates: [] } as const) : resolveCampaign({ ddb, mapped: links.mappedCampaign(who.userId, ddbKey), candidates });
+      if (resolution.kind === "none") return errorResponse(403, "not_in_campaign", "You no longer play in this campaign. Pair the extension again.");
+
       // A retried or out-of-order push must never roll a newer sheet back.
       if (link && Date.parse(capturedAt) <= Date.parse(link.capturedAt)) return json({ sheetId: link.sheetId, created: false, ignored: true, warnings: [] });
 
@@ -109,19 +121,40 @@ export function extSync(deps: ExtDeps) {
       }
       const { mapped } = result;
 
+      // A character that already has a sheet is never asked about again: it stays where it is
+      // until the player chooses another campaign.
+      const current = link ? sheets.get(link.sheetId) : null;
+      let campaignId: string;
+      if (resolution.kind === "ok") {
+        campaignId = resolution.campaignId;
+        if (resolution.remember) links.mapCampaign(who.userId, ddbKey, campaignId);
+      } else if (current) {
+        campaignId = current.campaignId;
+      } else {
+        links.setPending(who.userId, ddbCharacterId, mapped.name, ddb ?? { id: NO_DDB_CAMPAIGN, name: "No D&D Beyond campaign" }, new Date(deps.now?.() ?? Date.now()).toISOString());
+        return json({ error: { code: "needs_campaign", message: "Choose which campaign this character belongs to in the portal.", campaigns: resolution.candidates } }, 409);
+      }
+
       if (link) {
         const before = sheets.get(link.sheetId);
-        const saved = sheets.saveSynced(link.sheetId, mapped.body, mapped.vitals, mapped.edition);
+        let saved = sheets.saveSynced(link.sheetId, mapped.body, mapped.vitals, mapped.edition);
         if (!saved) return errorResponse(404, "not_found", "The synced sheet is gone.");
         links.touch(link.sheetId, capturedAt);
-        if (before && before.name !== saved.name) await syncName(deps, saved.campaignId, who.userId);
+        links.setDdbCampaign(link.sheetId, ddb);
+        links.clearPending(who.userId, ddbCharacterId);
+        if (saved.campaignId !== campaignId) {
+          const from = saved.campaignId;
+          saved = sheets.moveToCampaign(link.sheetId, campaignId) ?? saved;
+          await syncName(deps, from, who.userId);
+          await syncName(deps, campaignId, who.userId);
+        } else if (before && before.name !== saved.name) await syncName(deps, saved.campaignId, who.userId);
         deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
         return json({ sheetId: saved.id, created: false, warnings: mapped.warnings });
       }
 
       const maxHp = mapped.body.combat.hp.mode === "manual" ? mapped.body.combat.hp.max : 1;
       const created = sheets.create({
-        campaignId: who.campaignId,
+        campaignId,
         ownerUserId: who.userId,
         edition: mapped.edition,
         name: mapped.name,
@@ -130,12 +163,13 @@ export function extSync(deps: ExtDeps) {
       });
       if (created === "limit") return errorResponse(409, "limit", "No room for another sheet. Delete one in the portal first.");
       try {
-        links.create(created.id, who.userId, ddbCharacterId, capturedAt);
+        links.create(created.id, who.userId, ddbCharacterId, capturedAt, ddb);
       } catch {
         sheets.remove(created.id);
         return errorResponse(409, "conflict", "Another sync of this character is running. Try again.");
       }
-      await syncName(deps, who.campaignId, who.userId);
+      links.clearPending(who.userId, ddbCharacterId);
+      await syncName(deps, campaignId, who.userId);
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
       return json({ sheetId: created.id, created: true, warnings: mapped.warnings });
     },
