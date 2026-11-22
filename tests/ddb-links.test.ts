@@ -43,14 +43,14 @@ describe("synced sheets", () => {
   it("saveSynced replaces body and vitals, bumps both versions, keeps untouched vitals", () => {
     const { db, sheets, links, sheet } = setup();
     links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
-    db.prepare("UPDATE characters SET vitals = ? WHERE id = ?").run(JSON.stringify({ ...sheet.vitals, resourcesUsed: { r1: 1 } }), sheet.id);
+    db.prepare("UPDATE characters SET vitals = ? WHERE id = ?").run(JSON.stringify({ ...sheet.vitals, hitDiceSpent: { 6: 0, 8: 1, 10: 0, 12: 0 } }), sheet.id);
     const m = ok(caster);
     const saved = sheets.saveSynced(sheet.id, m.body, m.vitals, m.edition)!;
     expect(saved.version).toBe(sheet.version + 1);
     expect(saved.vitalsVersion).toBe(sheet.vitalsVersion + 1);
     expect(saved.vitals.hp).toBe(m.vitals.hp);
     expect(saved.vitals.slotsSpent.slice(0, 2)).toEqual([2, 1]);
-    expect(saved.vitals.resourcesUsed).toEqual({ r1: 1 });
+    expect(saved.vitals.hitDiceSpent[8]).toBe(1);
     expect(saved.edition).toBe(m.edition);
     expect(saved.name).toBe("Aria Test");
   });
