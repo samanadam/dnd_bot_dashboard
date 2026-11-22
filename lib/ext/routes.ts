@@ -31,6 +31,7 @@ export type ExtDeps = {
   limiter?: RateLimiter;
   rollLimiter?: RateLimiter;
   syncLimiter?: RateLimiter;
+  badTokenLimiter?: RateLimiter;
   log?: AuditLog;
 };
 
@@ -40,6 +41,9 @@ const REQUESTS: Limit = { max: 120, windowMs: 60_000 };
 // Reading and mapping a whole character is the costly call: the extension syncs about 4 times a minute.
 const SYNCS: Limit = { max: 20, windowMs: 60_000 };
 const sharedSyncLimiter = new RateLimiter();
+// Wrong tokens per client address: guessing one is hopeless, but each try still costs a lookup.
+const BAD_TOKENS: Limit = { max: 30, windowMs: 60_000 };
+const sharedBadTokenLimiter = new RateLimiter();
 const sharedLimiter = new RateLimiter();
 
 /** Keeps the bot's character name for this player in step with their active sheet, as the sheet routes do. */
@@ -57,7 +61,12 @@ export function bearer(request: Request, deps: ExtDeps): Bearer {
   const header = request.headers.get("authorization") ?? "";
   const match = /^Bearer (ptx_[A-Za-z0-9_-]{20,100})$/.exec(header);
   const found = match ? deps.tokens().verify(match[1]) : null;
-  if (!found) return { ok: false, response: errorResponse(401, "unauthorized", "Pair the extension again.") };
+  if (!found) {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const wait = (deps.badTokenLimiter ?? sharedBadTokenLimiter).take(`ext-bad:${ip}`, BAD_TOKENS);
+    if (wait > 0) return { ok: false, response: errorResponse(429, "rate_limited", "Too many wrong tokens. Slow down.", { "Retry-After": String(wait) }) };
+    return { ok: false, response: errorResponse(401, "unauthorized", "Pair the extension again.") };
+  }
   const wait = (deps.limiter ?? sharedLimiter).take(`ext:${found.id}`, REQUESTS);
   if (wait > 0) return { ok: false, response: errorResponse(429, "rate_limited", "Too many requests. Slow down.", { "Retry-After": String(wait) }) };
   return { ok: true, tokenId: found.id, userId: found.userId, campaignId: found.campaignId };
