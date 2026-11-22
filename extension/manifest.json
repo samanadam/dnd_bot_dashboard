@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Portal D&D Beyond Sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shows your D&D Beyond character in the party portal, live, and replays your rolls with the portal dice.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.dndbeyond.com/*"],

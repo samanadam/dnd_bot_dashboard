@@ -24,6 +24,20 @@ export function signature(text: string): string {
   return `${text.length}:${hash.toString(16)}`;
 }
 
+/**
+ * The finished-roll message in a frame the page sends to D&D Beyond's game log, or null.
+ * The page sends its own rolls out and never gets them echoed back, so this is where they are seen.
+ */
+export function rollFromFrame(socketUrl: string, data: unknown): { id?: string; eventType: string } | null {
+  if (!/game-log/.test(socketUrl) || typeof data !== "string") return null;
+  try {
+    const message = JSON.parse(data) as { eventType?: unknown } | null;
+    return message && message.eventType === "dice/roll/fulfilled" ? (message as { id?: string; eventType: string }) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The numeric character id in a D&D Beyond path such as /characters/150752285, or null. */
 export function characterIdFromPath(pathname: string): string | null {
   return /^\/characters\/(\d{1,20})(?:\/|$)/.exec(pathname)?.[1] ?? null;
