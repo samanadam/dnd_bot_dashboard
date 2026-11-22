@@ -85,8 +85,12 @@
   },
   "conditions": [
    {
-    "id": 4,
+    "id": 11,
     "level": null
+   },
+   {
+    "id": 4,
+    "level": 2
    }
   ],
   "spellSlots": [
