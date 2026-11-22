@@ -1,3 +1,4 @@
+import { listSrdSpells } from "@/lib/dm/srdSpells";
 import { newBody, sheetBodySchema, type ClassEntry, type SheetBody } from "@/lib/sheets/body";
 import { ABILITIES, modifier, SKILL_IDS, srdClass, type Ability, type Edition } from "@/lib/sheets/rules";
 import { vitalsSchema, type Condition, type Vitals } from "@/lib/sheets/vitals";
@@ -303,6 +304,154 @@ function mapFeatures(data: Obj, warnings: string[]): { features: SheetBody["feat
   return { features: features.slice(0, MAX_FEATURES), feats: feats.slice(0, MAX_FEATS) };
 }
 
+/** A short field (age, height...): a number or text, cut to 40 characters. */
+const shortField = (v: unknown): string => (typeof v === "number" && Number.isFinite(v) ? String(Math.trunc(v)) : text(v, 40));
+
+/** Backstory, personality, notes and the looks. D&D Beyond keeps these as free text (some HTML). */
+function mapStory(data: Obj): Pick<SheetBody, "backstory" | "notes"> & { looks: Partial<SheetBody["identity"]> } {
+  const traits = obj(data.traits);
+  const notes = obj(data.notes);
+  const field = (v: unknown, max: number) => rich(v, max);
+  const labelled = (pairs: Array<[string, unknown]>) =>
+    pairs
+      .map(([label, v]) => [label, field(v, 4000)] as const)
+      .filter(([, v]) => v)
+      .map(([label, v]) => `${label}: ${v}`)
+      .join("\n")
+      .slice(0, 10_000);
+  const backstory = newBody("x").backstory;
+  return {
+    backstory: {
+      ...backstory,
+      personalityTraits: field(traits.personalityTraits, 5000),
+      ideals: field(traits.ideals, 5000),
+      bonds: field(traits.bonds, 5000),
+      flaws: field(traits.flaws, 5000),
+      appearance: field(traits.appearance, 5000),
+      backstory: field(notes.backstory, 50_000),
+      alliesAndOrganizations: labelled([
+        ["Allies", notes.allies],
+        ["Organizations", notes.organizations],
+        ["Enemies", notes.enemies],
+      ]),
+      treasure: [field(notes.personalPossessions, 2500), field(notes.otherHoldings, 2500)].filter(Boolean).join("\n"),
+    },
+    notes: field(notes.otherNotes, 50_000),
+    looks: { age: shortField(data.age), hair: shortField(data.hair), eyes: shortField(data.eyes), skin: shortField(data.skin), height: shortField(data.height), weight: shortField(data.weight), faith: text(data.faith, 80) },
+  };
+}
+
+const compact = (v: string) => v.toLowerCase().replace(/[^a-z]/g, "");
+const SKILL_KEYS = new Set(SKILL_IDS.map(compact));
+const WEAPONS = new Set(
+  "club dagger greatclub handaxe javelin lighthammer mace quarterstaff sickle spear dart shortbow sling lightcrossbow handcrossbow heavycrossbow longbow longsword shortsword rapier scimitar battleaxe flail glaive greataxe greatsword halberd lance maul morningstar pike trident warhammer warpick whip blowgun net".split(" "),
+);
+const labelOf = (m: Obj): string => text(m.friendlySubtypeName, 60) || text(m.subType, 60).replace(/-/g, " ");
+const unique = (items: string[], max: number): string[] => [...new Set(items.filter(Boolean))].slice(0, max);
+
+/** Languages, armor, weapon and tool proficiencies, and Jack of All Trades. */
+function mapProficiencies(mods: Obj[]): Pick<SheetBody["proficiencies"], "armor" | "weapons" | "tools" | "languages" | "jackOfAllTrades"> {
+  const armor: string[] = [];
+  const weapons: string[] = [];
+  const tools: string[] = [];
+  for (const m of mods) {
+    if (m.type !== "proficiency" || typeof m.subType !== "string") continue;
+    const key = compact(m.subType);
+    if (SKILL_KEYS.has(key) || /savingthrows?$/.test(key)) continue;
+    if (/armor|shield/.test(key)) armor.push(labelOf(m));
+    else if (/weapons?$/.test(key) || WEAPONS.has(key)) weapons.push(labelOf(m));
+    else tools.push(labelOf(m));
+  }
+  return {
+    armor: unique(armor, 40),
+    weapons: unique(weapons, 40),
+    tools: unique(tools, 40),
+    languages: unique(mods.filter((m) => m.type === "language").map(labelOf), 40),
+    jackOfAllTrades: mods.some((m) => m.type === "half-proficiency" && m.subType === "ability-checks"),
+  };
+}
+
+const SENSES = ["darkvision", "blindsight", "tremorsense", "truesight"];
+const MOVES = { walk: "walking", fly: "flying", swim: "swimming", climb: "climbing", burrow: "burrowing" } as const;
+
+/** Senses, speeds, and damage resistances, immunities and vulnerabilities. */
+function mapDefenses(data: Obj, mods: Obj[]): Pick<SheetBody["combat"], "senses" | "speed" | "resistances" | "immunities" | "vulnerabilities"> {
+  const senses = new Map<string, number>();
+  for (const m of mods) {
+    if ((m.type !== "set-base" && m.type !== "sense") || typeof m.subType !== "string" || !SENSES.includes(m.subType) || typeof m.value !== "number") continue;
+    senses.set(m.subType, Math.max(senses.get(m.subType) ?? 0, whole(m.value, 0, 1000, 0)));
+  }
+  const normal = obj(obj(obj(data.race).weightSpeeds).normal);
+  const speed = { walk: 30, fly: 0, swim: 0, climb: 0, burrow: 0 };
+  for (const move of Object.keys(MOVES) as Array<keyof typeof MOVES>) {
+    speed[move] = whole(normal[move], 0, 500, speed[move]);
+    for (const m of mods) {
+      if ((m.type === "set" || m.type === "set-base") && m.subType === `innate-speed-${MOVES[move]}` && typeof m.value === "number") speed[move] = Math.max(speed[move], whole(m.value, 0, 500, 0));
+    }
+  }
+  const defense = (type: string) =>
+    unique(
+      mods
+        .filter((m) => m.type === type && typeof m.subType === "string")
+        .map((m) => {
+          const restriction = text(m.restriction, 200);
+          return (restriction ? `${labelOf(m)} (${restriction})` : labelOf(m)).slice(0, 40);
+        }),
+      20,
+    );
+  return {
+    senses: [...senses].map(([sense, range]) => `${sense[0].toUpperCase()}${sense.slice(1)} ${range} ft.`).join(", ").slice(0, 200),
+    speed,
+    resistances: defense("resistance"),
+    immunities: defense("immunity"),
+    vulnerabilities: defense("vulnerability"),
+  };
+}
+
+const MAX_SPELLS = 400;
+const SPELL_RANK = { known: 0, prepared: 1, always: 2 } as const;
+
+/**
+ * Spells with a bundled SRD page are linked (by name, in the sheet's edition first);
+ * the rest cannot be linked, so they are listed by name at the end of the notes.
+ */
+function mapSpells(data: Obj, classes: ClassEntry[], edition: Edition, warnings: string[]): { entries: SheetBody["spellcasting"]["entries"]; unlinked: string[] } {
+  const norm = (n: string) => n.toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim();
+  const bySlug = new Map<string, { slug: string; edition: Edition }>();
+  for (const sp of [...listSrdSpells()].sort((a, b) => Number(a.edition === edition) - Number(b.edition === edition))) bySlug.set(norm(sp.name), { slug: sp.slug, edition: sp.edition });
+  const classIdOf = new Map<unknown, string>(list(data.classes).slice(0, 6).map((c, i) => [obj(c).id, classes[i]?.id ?? ""] as [unknown, string]));
+
+  const found = new Map<string, SheetBody["spellcasting"]["entries"][number]>();
+  const unlinked = new Map<string, number>();
+  const take = (raw: unknown, classId: string | null, always: boolean) => {
+    const spell = obj(raw);
+    const def = obj(spell.definition);
+    const name = text(def.name, 120);
+    if (!name) return;
+    const hit = bySlug.get(norm(name));
+    if (!hit) return void unlinked.set(name, whole(def.level, 0, 9, 0));
+    const status: SheetBody["spellcasting"]["entries"][number]["status"] = always || spell.alwaysPrepared === true ? "always" : spell.prepared === true ? "prepared" : "known";
+    const key = `${hit.edition}/${hit.slug}/${classId ?? ""}`;
+    const old = found.get(key);
+    if (old) {
+      if (SPELL_RANK[status] > SPELL_RANK[old.status]) old.status = status;
+      return;
+    }
+    found.set(key, { id: `s${found.size + 1}`, ref: { source: "srd", edition: hit.edition, slug: hit.slug }, classId, status, notes: "" });
+  };
+
+  for (const group of list(data.classSpells).map(obj)) {
+    const classId = classIdOf.get(group.characterClassId) || null;
+    for (const spell of list(group.spells)) take(spell, classId, false);
+  }
+  const other = obj(data.spells);
+  for (const key of Object.keys(other)) for (const spell of list(other[key])) take(spell, null, true);
+
+  const entries = [...found.values()];
+  if (entries.length > MAX_SPELLS) warnings.push(`Only the first ${MAX_SPELLS} spells were copied from D&D Beyond.`);
+  return { entries: entries.slice(0, MAX_SPELLS), unlinked: [...unlinked].map(([name, level]) => `${name} (${level === 0 ? "cantrip" : `level ${level}`})`) };
+}
+
 export function mapCharacter(raw: unknown): MapResult {
   try {
     const data = obj(obj(raw).data);
@@ -314,6 +463,9 @@ export function mapCharacter(raw: unknown): MapResult {
     if (classes.length === 0) return { ok: false, reason: "no classes" };
     const totalLevel = classes.reduce((n, c) => n + c.level, 0);
     if (totalLevel > 20) return { ok: false, reason: "class levels add up to more than 20" };
+
+    const modern = obj(data.race).isLegacy === false && list(data.classes).every((c) => obj(obj(c).definition).isLegacy !== true);
+    const edition: Edition = modern ? "2024" : "2014";
 
     const body = newBody(name);
     body.classes = classes;
@@ -341,7 +493,17 @@ export function mapCharacter(raw: unknown): MapResult {
       xp: whole(data.currentXp, 0, 10_000_000, 0),
     };
 
+    const story = mapStory(data);
+    body.identity = { ...body.identity, ...story.looks };
+    body.backstory = story.backstory;
+
     const mods = modifiersOf(data);
+    Object.assign(body.proficiencies, mapProficiencies(mods));
+    Object.assign(body.combat, mapDefenses(data, mods));
+    const spells = mapSpells(data, classes, edition, warnings);
+    body.spellcasting = { ...body.spellcasting, entries: spells.entries };
+    const unlinkedText = spells.unlinked.length > 0 ? `Spells not in the SRD (not linked): ${spells.unlinked.join(", ")}` : "";
+    body.notes = [story.notes, unlinkedText].filter(Boolean).join("\n\n").slice(0, 50_000);
     const hasProficiency = (subType: string, type = "proficiency") => mods.some((m) => m.type === type && m.subType === subType);
     body.proficiencies.saves = ABILITIES.filter((a) => hasProficiency(`${ABILITY_WORDS[a]}-saving-throws`));
     for (const skill of SKILL_IDS) {
@@ -374,9 +536,6 @@ export function mapCharacter(raw: unknown): MapResult {
       inspiration: data.inspiration === true,
       concentration: null,
     };
-
-    const modern = race.isLegacy === false && list(data.classes).every((c) => obj(obj(c).definition).isLegacy !== true);
-    const edition: Edition = modern ? "2024" : "2014";
 
     const parsedBody = sheetBodySchema.safeParse(body);
     if (!parsedBody.success) return { ok: false, reason: `sheet did not validate: ${parsedBody.error.issues[0]?.message ?? "invalid"}` };

@@ -287,3 +287,97 @@ describe("mapCharacter features and feats", () => {
     }
   });
 });
+
+describe("mapCharacter the rest of the sheet", () => {
+  type Raw = { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+  const base = (): Raw => structuredClone(caster) as Raw;
+  const mod = (type: string, subType: string, friendlySubtypeName: string, extra: Record<string, unknown> = {}) => ({ type, subType, friendlySubtypeName, isGranted: true, restriction: "", ...extra });
+
+  it("copies the story: personality, ideals, bonds, flaws, appearance, backstory, allies, possessions and notes", () => {
+    const raw = base();
+    Object.assign(raw.data, {
+      traits: { personalityTraits: "Curious", ideals: "Freedom", bonds: "My sister", flaws: "<p>Greedy</p>", appearance: "Tall" },
+      notes: { allies: "Lyra", organizations: "The Guild", enemies: "Baron Vex", backstory: "<p>Born <b>far</b> away.</p>", personalPossessions: "A locket", otherHoldings: "A house", otherNotes: "Remember the key" },
+      age: 21, hair: "white", eyes: "blue", skin: "pale", height: "182", weight: 70, faith: "Mystra",
+    });
+    const m = mapped(raw);
+    expect(m.body.backstory).toMatchObject({
+      personalityTraits: "Curious",
+      ideals: "Freedom",
+      bonds: "My sister",
+      flaws: "Greedy",
+      appearance: "Tall",
+      backstory: "Born **far** away.",
+      alliesAndOrganizations: "Allies: Lyra\nOrganizations: The Guild\nEnemies: Baron Vex",
+      treasure: "A locket\nA house",
+    });
+    expect(m.body.notes).toBe("Remember the key");
+    expect(m.body.identity).toMatchObject({ age: "21", hair: "white", eyes: "blue", skin: "pale", height: "182", weight: "70", faith: "Mystra" });
+  });
+
+  it("leaves the story empty when the fields are null, numbers or objects", () => {
+    const raw = base();
+    Object.assign(raw.data, { traits: { ideals: null, bonds: 5 }, notes: "junk", age: { a: 1 }, hair: null });
+    const m = mapped(raw);
+    expect(m.body.backstory.ideals).toBe("");
+    expect(m.body.backstory.bonds).toBe("");
+    expect(m.body.notes).toBe("");
+    expect(m.body.identity.age).toBe("");
+  });
+
+  it("copies languages, armor, weapon and tool proficiencies, and jack of all trades", () => {
+    const raw = base();
+    raw.data.modifiers = {
+      race: [mod("language", "common", "Common"), mod("language", "elvish", "Elvish", { isGranted: false })],
+      class: [mod("proficiency", "light-armor", "Light Armor"), mod("proficiency", "shields", "Shields"), mod("proficiency", "simple-weapons", "Simple Weapons"), mod("proficiency", "longsword", "Longsword"), mod("proficiency", "thieves-tools", "Thieves' Tools"), mod("proficiency", "arcana", "Arcana"), mod("proficiency", "dexterity-saving-throws", "Dexterity Saving Throws"), mod("half-proficiency", "ability-checks", "Ability Checks")],
+    };
+    const m = mapped(raw);
+    expect(m.body.proficiencies.languages).toEqual(["Common", "Elvish"]);
+    expect(m.body.proficiencies.armor).toEqual(["Light Armor", "Shields"]);
+    expect(m.body.proficiencies.weapons).toEqual(["Simple Weapons", "Longsword"]);
+    expect(m.body.proficiencies.tools).toEqual(["Thieves' Tools"]);
+    expect(m.body.proficiencies.jackOfAllTrades).toBe(true);
+  });
+
+  it("copies senses, speeds, resistances, immunities and vulnerabilities", () => {
+    const raw = base();
+    raw.data.race = { fullName: "High Elf", weightSpeeds: { normal: { walk: 35, fly: 0, swim: 20, climb: 0, burrow: 0 } } };
+    raw.data.modifiers = {
+      race: [mod("set-base", "darkvision", "Darkvision", { value: 60 }), mod("sense", "truesight", "Truesight", { value: 30 }), mod("resistance", "fire", "Fire"), mod("resistance", "cold", "Cold", { restriction: "from nonmagical attacks" }), mod("immunity", "poison", "Poison"), mod("vulnerability", "radiant", "Radiant"), mod("set", "innate-speed-flying", "Innate Speed (Flying)", { value: 40 })],
+    };
+    const m = mapped(raw);
+    expect(m.body.combat.senses).toBe("Darkvision 60 ft., Truesight 30 ft.");
+    expect(m.body.combat.speed).toMatchObject({ walk: 35, swim: 20, fly: 40 });
+    expect(m.body.combat.resistances).toEqual(["Fire", "Cold (from nonmagical attacks)"]);
+    expect(m.body.combat.immunities).toEqual(["Poison"]);
+    expect(m.body.combat.vulnerabilities).toEqual(["Radiant"]);
+  });
+
+  it("links SRD spells to the class and prepared state, and lists the others in the notes", () => {
+    const raw = base();
+    const classId = (raw.data.classes[0] as { id: number }).id;
+    const spell = (name: string, level: number, extra: Record<string, unknown> = {}) => ({ definition: { name, level }, prepared: false, alwaysPrepared: false, countsAsKnownSpell: true, ...extra });
+    raw.data.classSpells = [{ characterClassId: classId, spells: [spell("Magic Missile", 1, { prepared: true }), spell("Mage Hand", 0), spell("Shield", 1, { alwaysPrepared: true }), spell("Magic Missile", 1), spell("Spellfire Flare", 1, { prepared: true })] }];
+    raw.data.spells = { race: [spell("Message", 0)], class: null };
+    raw.data.notes = { otherNotes: "My note" };
+    const m = mapped(raw);
+    const entries = m.body.spellcasting.entries;
+    const named = (slug: string) => entries.filter((e) => e.ref.source === "srd" && e.ref.slug === slug);
+    expect(named("magic-missile")).toHaveLength(1);
+    expect(named("magic-missile")[0]).toMatchObject({ status: "prepared", classId: m.body.classes[0].id });
+    expect(named("mage-hand")[0].status).toBe("known");
+    expect(named("shield")[0].status).toBe("always");
+    expect(named("message")[0]).toMatchObject({ status: "always", classId: null });
+    expect(entries.some((e) => e.ref.source === "srd" && e.ref.slug.includes("spellfire"))).toBe(false);
+    expect(m.body.notes).toBe("My note\n\nSpells not in the SRD (not linked): Spellfire Flare (level 1)");
+  });
+
+  it("copes with spell data that is not lists", () => {
+    for (const bad of ["junk", 5, null, { a: 1 }]) {
+      const raw = base();
+      Object.assign(raw.data, { classSpells: bad, spells: bad, traits: bad, modifiers: bad });
+      const m = mapped(raw);
+      expect(m.body.spellcasting.entries).toEqual([]);
+    }
+  });
+});
