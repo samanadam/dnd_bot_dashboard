@@ -120,12 +120,40 @@ function armorBonuses(data: Obj): number {
 
 const ENTITIES: Record<string, string> = { "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&rsquo;": "'", "&lsquo;": "'" };
 
-/** D&D Beyond descriptions are HTML; the sheet wants plain text, cut to `max` characters. */
+const decode = (t: string): string =>
+  t.replace(/&(?:nbsp|amp|lt|gt|quot|#39|rsquo|lsquo);/g, (e) => ENTITIES[e] ?? e).replace(/&#(\d{1,6});/g, (e, n: string) => (Number(n) < 0x110000 ? String.fromCodePoint(Number(n)) : e));
+
+/** D&D Beyond descriptions are HTML; this is plain text on one line, cut to `max` characters. */
 function plain(html: unknown, max: number): string {
   if (typeof html !== "string") return "";
   const withBreaks = html.replace(/<\/(p|li|div|h[1-6]|tr)>|<br\s*\/?>/gi, " ");
-  const stripped = withBreaks.replace(/<[^>]*>/g, "").replace(/&(?:nbsp|amp|lt|gt|quot|#39|rsquo|lsquo);/g, (e) => ENTITIES[e] ?? e);
-  return stripped.replace(/\s+/g, " ").trim().slice(0, max);
+  return decode(withBreaks.replace(/<[^>]*>/g, ""))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * The same HTML as the little formatting the sheet shows (**bold**, _italic_, "- " lists and
+ * line breaks; see components/dm/RichText.tsx). Nothing is ever parsed as HTML on the way back.
+ */
+function rich(html: unknown, max: number): string {
+  if (typeof html !== "string") return "";
+  const marked = html
+    .replace(/<\s*(strong|b)\b[^>]*>([\s\S]*?)<\s*\/\s*\1\s*>/gi, "**$2**")
+    .replace(/<\s*(em|i)\b[^>]*>([\s\S]*?)<\s*\/\s*\1\s*>/gi, "_$2_")
+    .replace(/<\s*li\b[^>]*>/gi, "\n- ")
+    .replace(/<\s*\/\s*(td|th)\s*>/gi, " | ")
+    .replace(/<\s*\/\s*(p|div|h[1-6]|tr|ul|ol|table|blockquote)\s*>|<\s*br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "");
+  return decode(marked)
+    .replace(/\*\*\s*\*\*|(?<![\w])__(?![\w])/g, "")
+    .split("\n")
+    .map((line) => line.replace(/[ \t\u00a0]+/g, " ").trim())
+    .filter((line) => line !== "")
+    .join("\n")
+    .trim()
+    .slice(0, max);
 }
 
 const MAX_ITEMS = 300;
@@ -189,6 +217,92 @@ function mapInventory(data: Obj, warnings: string[]): { items: SheetBody["invent
 /** A weight in pounds, 0 to 10 000, to two places. */
 const weightOf = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.min(10_000, Math.max(0, v)) * 100) / 100 : 0);
 
+const MAX_FEATURES = 200;
+const MAX_FEATS = 60;
+
+/**
+ * Class features up to the level reached (D&D Beyond lists all twenty levels), species traits,
+ * the choices made for species and class, a background feature that has its own text, and feats
+ * with the choices made on them.
+ */
+function mapFeatures(data: Obj, warnings: string[]): { features: SheetBody["features"]; feats: SheetBody["feats"] } {
+  const features: SheetBody["features"] = [];
+  const seen = new Set<string>();
+  const add = (id: string, name: string, source: string, description: string) => {
+    if (!name || seen.has(id) || !/^[A-Za-z0-9_-]{1,24}$/.test(id)) return;
+    seen.add(id);
+    features.push({ id, name, source: source.slice(0, 80), description, resourceId: null });
+  };
+  const idOf = (prefix: string, def: Obj, index: number) => `${prefix}${typeof def.id === "number" && def.id >= 0 ? Math.trunc(def.id) : `n${index + 1}`}`.slice(0, 24);
+
+  for (const entry of list(data.classes).map(obj)) {
+    const className = text(obj(entry.definition).name, 60) || "Class";
+    const subclass = text(obj(entry.subclassDefinition).name, 60);
+    const level = whole(entry.level, 1, 20, 1);
+    list(entry.classFeatures)
+      .map(obj)
+      .forEach((feature, index) => {
+        const def = obj(feature.definition);
+        const needs = typeof def.requiredLevel === "number" ? Math.trunc(def.requiredLevel) : 1;
+        if (def.hideInSheet === true || needs > level) return;
+        const label = def.isSubClassFeature === true && subclass ? subclass : className;
+        add(idOf("f", def, index), text(def.name, 120), `${label} ${needs}`, rich(def.description, 20_000) || rich(def.snippet, 20_000));
+      });
+  }
+
+  const race = obj(data.race);
+  const raceName = text(race.fullName, 60) || "Species";
+  list(race.racialTraits)
+    .map(obj)
+    .forEach((trait, index) => {
+      const def = obj(trait.definition);
+      if (def.hideInSheet === true) return;
+      add(idOf("r", def, index), text(def.name, 120), raceName, rich(def.description, 20_000) || rich(def.snippet, 20_000));
+    });
+
+  const options = obj(data.options);
+  for (const [group, label] of [
+    ["race", `${raceName} choice`],
+    ["class", "Class choice"],
+  ] as const) {
+    list(options[group])
+      .map(obj)
+      .forEach((option, index) => {
+        const def = obj(option.definition);
+        add(idOf("o", def, index), text(def.name, 120), label, rich(def.description, 20_000) || rich(def.snippet, 20_000));
+      });
+  }
+
+  const background = obj(obj(data.background).definition);
+  const backgroundText = rich(background.featureDescription, 20_000);
+  if (backgroundText) add("b1", text(background.featureName, 120), `Background: ${text(background.name, 60) || "background"}`, backgroundText);
+
+  const choicesOf = (feat: Obj): string => {
+    if (feat.componentId === undefined) return "";
+    return list(options.feat)
+      .map(obj)
+      .filter((o) => o.componentId === feat.componentId && o.componentTypeId === feat.componentTypeId)
+      .map((o) => text(obj(o.definition).name, 120))
+      .filter(Boolean)
+      .join(", ")
+      .slice(0, 500);
+  };
+  const feats: SheetBody["feats"] = [];
+  list(data.feats)
+    .map(obj)
+    .forEach((feat, index) => {
+      const def = obj(feat.definition);
+      const name = text(def.name, 120);
+      const id = idOf("t", def, index);
+      if (!name || feats.some((f) => f.id === id)) return;
+      feats.push({ id, ref: null, name, source: "Feat", description: rich(def.description, 20_000) || rich(def.snippet, 20_000), choices: choicesOf(feat) });
+    });
+
+  if (features.length > MAX_FEATURES) warnings.push(`Only the first ${MAX_FEATURES} features were copied from D&D Beyond.`);
+  if (feats.length > MAX_FEATS) warnings.push(`Only the first ${MAX_FEATS} feats were copied from D&D Beyond.`);
+  return { features: features.slice(0, MAX_FEATURES), feats: feats.slice(0, MAX_FEATS) };
+}
+
 export function mapCharacter(raw: unknown): MapResult {
   try {
     const data = obj(obj(raw).data);
@@ -204,6 +318,7 @@ export function mapCharacter(raw: unknown): MapResult {
     const body = newBody(name);
     body.classes = classes;
     body.inventory = { ...body.inventory, ...mapInventory(data, warnings) };
+    Object.assign(body, mapFeatures(data, warnings));
     ABILITIES.forEach((ability, index) => {
       const id = index + 1;
       body.abilities[ability] = {

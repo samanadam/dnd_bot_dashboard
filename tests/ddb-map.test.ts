@@ -183,3 +183,107 @@ describe("mapCharacter inventory and coins", () => {
     }
   });
 });
+
+describe("mapCharacter features and feats", () => {
+  type Raw = { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+  const feature = (id: number, name: string, requiredLevel: number, description = "", extra: Record<string, unknown> = {}) => ({ definition: { id, name, requiredLevel, description, isSubClassFeature: false, hideInSheet: false, ...extra } });
+  const base = (): Raw => structuredClone(caster) as Raw;
+
+  it("copies the class features the character has reached, labelled with the class and level", () => {
+    const raw = base();
+    raw.data.classes[0].level = 3;
+    raw.data.classes[0].classFeatures = [feature(1, "Spellcasting", 1, "<p>You cast spells.</p>"), feature(2, "Scholar", 2), feature(3, "Wizard Subclass", 3), feature(4, "Ability Score Improvement", 4), feature(5, "Spell Mastery", 18)];
+    const m = mapped(raw);
+    expect(m.body.features.map((f) => [f.name, f.source])).toEqual([
+      ["Spellcasting", "Wizard 1"],
+      ["Scholar", "Wizard 2"],
+      ["Wizard Subclass", "Wizard 3"],
+    ]);
+    expect(m.body.features[0]).toMatchObject({ id: "f1", description: "You cast spells.", resourceId: null });
+  });
+
+  it("labels subclass features with the subclass, counts levels per class and skips hidden ones", () => {
+    const raw = base();
+    raw.data.classes = [
+      { ...raw.data.classes[0], level: 2, subclassDefinition: null, classFeatures: [feature(1, "Arcane Recovery", 1), feature(9, "Hidden thing", 1, "", { hideInSheet: true })] },
+      {
+        ...raw.data.classes[0],
+        id: 2,
+        definition: { ...(raw.data.classes[0].definition as object), name: "Fighter", hitDice: 10, canCastSpells: false },
+        level: 3,
+        subclassDefinition: { name: "Champion" },
+        classFeatures: [feature(20, "Second Wind", 1), feature(21, "Improved Critical", 3, "", { isSubClassFeature: true }), feature(22, "Remarkable Athlete", 7, "", { isSubClassFeature: true })],
+      },
+    ];
+    const m = mapped(raw);
+    expect(m.body.features.map((f) => [f.name, f.source])).toEqual([
+      ["Arcane Recovery", "Wizard 1"],
+      ["Second Wind", "Fighter 1"],
+      ["Improved Critical", "Champion 3"],
+    ]);
+  });
+
+  it("copies species traits and the choices made for species and class, and a background feature that has a description", () => {
+    const raw = base();
+    raw.data.classes[0].classFeatures = [];
+    raw.data.race = { fullName: "High Elf", racialTraits: [{ definition: { id: 50, name: "Darkvision", description: "<p>60 ft.</p>" } }, { definition: { id: 51, name: "Size", description: "", hideInSheet: true } }] };
+    raw.data.options = { race: [{ definition: { id: 60, name: "High Elf Lineage", description: "<p>Cantrip: Prestidigitation.</p>" } }], class: [{ definition: { id: 61, name: "Pact of the Tome", description: "A book." } }], feat: [] };
+    raw.data.background = { definition: { name: "Sage", featureName: "Researcher", featureDescription: "<p>You know where to look.</p>" } };
+    const m = mapped(raw);
+    expect(m.body.features.map((f) => [f.id, f.name, f.source, f.description])).toEqual([
+      ["r50", "Darkvision", "High Elf", "60 ft."],
+      ["o60", "High Elf Lineage", "High Elf choice", "Cantrip: Prestidigitation."],
+      ["o61", "Pact of the Tome", "Class choice", "A book."],
+      ["b1", "Researcher", "Background: Sage", "You know where to look."],
+    ]);
+    // A background that only grants a feat is not listed twice.
+    raw.data.background = { definition: { name: "Scribe", featureName: "Skilled", featureDescription: "" } };
+    expect(mapped(raw).body.features.some((f) => f.name === "Skilled")).toBe(false);
+  });
+
+  it("copies feats with the choices made on them", () => {
+    const raw = base();
+    raw.data.classes[0].classFeatures = [];
+    raw.data.feats = [
+      { componentTypeId: 1, componentId: 7, definition: { id: 7001, name: "Ability Score Improvement", description: "<p>Raise <strong>two</strong> scores.</p>", snippet: "" } },
+      { componentTypeId: 2, componentId: 8, definition: { id: 7002, name: "Skilled", description: "", snippet: "Gain three skills." } },
+    ];
+    raw.data.options = { feat: [{ componentTypeId: 1, componentId: 7, definition: { id: 1, name: "Increase two scores (+1 / +1)" } }, { componentTypeId: 1, componentId: 7, definition: { id: 2, name: "Dexterity" } }] };
+    const m = mapped(raw);
+    expect(m.body.feats).toEqual([
+      { id: "t7001", ref: null, name: "Ability Score Improvement", source: "Feat", description: "Raise **two** scores.", choices: "Increase two scores (+1 / +1), Dexterity" },
+      { id: "t7002", ref: null, name: "Skilled", source: "Feat", description: "Gain three skills.", choices: "" },
+    ]);
+  });
+
+  it("turns HTML into the sheet's formatting: bold, italic, lists, paragraphs, tables, entities", () => {
+    const raw = base();
+    raw.data.classes[0].classFeatures = [
+      feature(1, "Rich", 1, "<p>One <b>bold</b> and <em>slanted</em>&nbsp;word &amp; more.</p><p>Second.</p><ul><li>Alpha</li><li>Beta</li></ul><table><tr><th>Lvl</th><th>Dice</th></tr><tr><td>1</td><td>d6</td></tr></table><strong></strong>It&#8217;s done."),
+    ];
+    const text = mapped(raw).body.features[0].description;
+    expect(text).toBe("One **bold** and _slanted_ word & more.\nSecond.\n- Alpha\n- Beta\nLvl | Dice |\n1 | d6 |\nIt\u2019s done.");
+  });
+
+  it("caps descriptions, keeps at most 200 features and 60 feats, and says so", () => {
+    const raw = base();
+    raw.data.classes[0].classFeatures = Array.from({ length: 205 }, (_, i) => feature(i + 1, `Feature ${i + 1}`, 1, i === 0 ? `<p>${"x".repeat(30_000)}</p>` : ""));
+    raw.data.feats = Array.from({ length: 65 }, (_, i) => ({ componentId: i, definition: { id: i + 1, name: `Feat ${i + 1}`, description: "" } }));
+    const m = mapped(raw);
+    expect(m.body.features).toHaveLength(200);
+    expect(m.body.features[0].description).toHaveLength(20_000);
+    expect(m.body.feats).toHaveLength(60);
+    expect(m.warnings.filter((w) => /features|feats/.test(w))).toHaveLength(2);
+  });
+
+  it("leaves features and feats empty, and never throws, when the data is not lists", () => {
+    for (const bad of ["junk", 5, { a: 1 }, null]) {
+      const raw = base();
+      raw.data.classes[0].classFeatures = bad;
+      Object.assign(raw.data, { feats: bad, options: bad, race: bad, background: bad });
+      const m = mapped(raw);
+      expect(m.body.features).toEqual([]);
+      expect(m.body.feats).toEqual([]);
+    }
+  });
+});
