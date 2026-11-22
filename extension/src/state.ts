@@ -8,6 +8,9 @@ export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters
 /** Whether a character needs pushing: false when it is identical to the last one pushed. */
 export const shouldPush = (previous: string | null, next: string): boolean => previous !== next;
 
+/** Whether the pairing should be checked again: every 5 minutes, so a revoked token shows up even while the character does not change. */
+export const needsCheck = (lastCheckedAt: number | null, now: number): boolean => lastCheckedAt === null || now - lastCheckedAt >= 300_000;
+
 /** How long to wait before the next try after `failures` failed ones in a row: 15 s doubling, at most 5 min. */
 export const nextBackoff = (failures: number): number => Math.min(300_000, 15_000 * 2 ** Math.max(0, failures));
 

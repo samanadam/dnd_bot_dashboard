@@ -1,4 +1,4 @@
-import { EMPTY_STATE, shouldPush, signature, type SyncState } from "./state";
+import { EMPTY_STATE, needsCheck, shouldPush, signature, type SyncState } from "./state";
 
 // The only script that talks to the portal. Content scripts send it what they read
 // from D&D Beyond; it keeps the pairing, remembers how each character is doing, and
@@ -43,6 +43,17 @@ async function pushCharacter(message: { ddbCharacterId: string; capturedAt: stri
   const previous = ((await chrome.storage.session.get(sessionKey))[sessionKey] as string | undefined) ?? null;
   const current = signature(JSON.stringify(message.character));
   if (!shouldPush(previous, current)) {
+    const checked = ((await chrome.storage.session.get("checked")).checked as number | undefined) ?? null;
+    if (needsCheck(checked, Date.now())) {
+      const answer = await callPortal(state, "ping").catch(() => null);
+      if (answer?.status === 401) {
+        entry.lastError = "The token is no longer valid. Pair the extension again.";
+        badge("AUTH");
+        await save(state);
+        return { ok: false };
+      }
+      if (answer?.ok) await chrome.storage.session.set({ checked: Date.now() });
+    }
     entry.lastSyncAt = new Date().toISOString();
     await save(state);
     return { ok: true };

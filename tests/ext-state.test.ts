@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { characterIdFromPath, nextBackoff, portalOrigin, shouldPush, signature } from "@/extension/src/state";
+import { characterIdFromPath, needsCheck, nextBackoff, portalOrigin, shouldPush, signature } from "@/extension/src/state";
 
 describe("extension state helpers", () => {
   it("pushes only when the character changed", () => {
@@ -25,6 +25,12 @@ describe("extension state helpers", () => {
     expect(characterIdFromPath("/characters/150752285/builder")).toBe("150752285");
     expect(characterIdFromPath("/characters/builder")).toBeNull();
     expect(characterIdFromPath("/profile")).toBeNull();
+  });
+
+  it("re-checks the pairing every five minutes, even when nothing changed", () => {
+    expect(needsCheck(null, 1_000)).toBe(true);
+    expect(needsCheck(1_000, 1_000 + 299_999)).toBe(false);
+    expect(needsCheck(1_000, 1_000 + 300_000)).toBe(true);
   });
 
   it("accepts https portals and localhost, and nothing else", () => {
