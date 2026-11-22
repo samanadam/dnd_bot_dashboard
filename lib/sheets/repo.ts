@@ -30,6 +30,8 @@ export type StoredSheet = {
   dmNotes: string;
   portrait: string | null;
   nameSync: "ok" | "pending";
+  /** Mirrored from D&D Beyond: written only by the sync (see lib/ddb). */
+  synced: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -91,6 +93,7 @@ export class SheetRepo {
       dmNotes: row.dm_notes,
       portrait: row.portrait,
       nameSync: row.name_sync === "pending" ? "pending" : "ok",
+      synced: this.isSynced(row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -172,6 +175,35 @@ export class SheetRepo {
       .run(JSON.stringify(value), value.identity.name, edition ?? null, at, id, expectedVersion);
     if (Number(result.changes) === 0) return this.get(id) ? "conflict" : null;
     return this.get(id);
+  }
+
+  /** True when the sheet mirrors a D&D Beyond character (see lib/ddb/links.ts). */
+  isSynced(id: string): boolean {
+    return this.db.prepare("SELECT 1 FROM ddb_links WHERE sheet_id = ?").get(id) !== undefined;
+  }
+
+  /**
+   * Writes what D&D Beyond says: the whole body and the synced vitals, with no
+   * version check. Vitals the sync does not own (resources, hit dice, companions)
+   * stay. A sheet that would not change is left alone, so polling never churns versions.
+   */
+  saveSynced(id: string, body: SheetBody, vitals: Partial<Vitals>, edition: Edition): StoredSheet | null {
+    if (!SHEET_ID.test(id)) return null;
+    const value = sheetBodySchema.parse(body);
+    return this.transaction(() => {
+      const sheet = this.get(id);
+      if (!sheet) return null;
+      const merged = vitalsSchema.parse({ ...sheet.vitals, ...vitals });
+      const bodyChanged = JSON.stringify(value) !== JSON.stringify(sheet.body) || edition !== sheet.edition;
+      const vitalsChanged = JSON.stringify(merged) !== JSON.stringify(sheet.vitals);
+      if (!bodyChanged && !vitalsChanged) return sheet;
+      this.db
+        .prepare(
+          `UPDATE characters SET body = ?, name = ?, edition = ?, version = version + ?, vitals = ?, vitals_version = vitals_version + ?, updated_at = ? WHERE id = ?`,
+        )
+        .run(JSON.stringify(value), value.identity.name, edition, bodyChanged ? 1 : 0, JSON.stringify(merged), vitalsChanged ? 1 : 0, this.now().toISOString(), id);
+      return this.get(id);
+    });
   }
 
   /** Applies operations to the vitals in one transaction: all or none. */

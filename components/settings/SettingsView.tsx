@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock, Cookie, Fingerprint, KeyRound, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { CalendarDays, Clock, Cookie, Fingerprint, KeyRound, Link2, MonitorSmartphone, Palette, Server, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useHealth, useStats } from "@/lib/bot/useBotState";
 import type { ThemeId } from "@/lib/theme";
@@ -179,6 +179,13 @@ export function SettingsView({ theme, user, expires, signOut, canSeeBot, owner }
         <p className="text-sm text-muted">Link an authenticator app once, then sign in with a 6-digit code instead of Discord.</p>
         <PortalLink href="/settings/security" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
           Set up sign-in code
+        </PortalLink>
+      </Card>
+
+      <Card title="D&D Beyond sync" subtitle="Show your D&D Beyond character here, live" icon={Link2}>
+        <p className="text-sm text-muted">Pair the browser extension once. Your sheet and your rolls then follow D&D Beyond.</p>
+        <PortalLink href="/settings/extension" className="mt-3 inline-flex text-sm font-medium text-accent underline-offset-2 hover:underline">
+          Pair the extension
         </PortalLink>
       </Card>
 

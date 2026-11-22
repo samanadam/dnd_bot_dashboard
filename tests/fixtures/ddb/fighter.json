@@ -1,0 +1,369 @@
+{
+ "id": 100000001,
+ "success": true,
+ "message": "OK",
+ "data": {
+  "id": 100000001,
+  "name": "Brannoc Test",
+  "canEdit": true,
+  "inspiration": true,
+  "baseHitPoints": 28,
+  "bonusHitPoints": null,
+  "overrideHitPoints": null,
+  "removedHitPoints": 9,
+  "temporaryHitPoints": 3,
+  "currentXp": 900,
+  "alignmentId": 5,
+  "bonusStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": null
+   }
+  ],
+  "overrideStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": null
+   }
+  ],
+  "deathSaves": {
+   "failCount": 1,
+   "successCount": 2,
+   "isStabilized": false
+  },
+  "conditions": [
+   {
+    "id": 11,
+    "level": null
+   },
+   {
+    "id": 4,
+    "level": 2
+   }
+  ],
+  "spellSlots": [
+   {
+    "level": 1,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 6,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 7,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 8,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 9,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "pactMagic": [
+   {
+    "level": 1,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "race": {
+   "fullName": "Human",
+   "baseRaceName": "Human",
+   "sizeId": 4,
+   "isLegacy": false
+  },
+  "background": {
+   "definition": {
+    "name": "Soldier"
+   }
+  },
+  "modifiers": {
+   "race": [],
+   "class": [
+    {
+     "type": "proficiency",
+     "subType": "strength-saving-throws",
+     "isGranted": true,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "constitution-saving-throws",
+     "isGranted": true,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "athletics",
+     "isGranted": false,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "perception",
+     "isGranted": false,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "expertise",
+     "subType": "athletics",
+     "isGranted": false,
+     "value": null,
+     "fixedValue": null
+    }
+   ],
+   "background": [
+    {
+     "type": "proficiency",
+     "subType": "intimidation",
+     "isGranted": false,
+     "value": null,
+     "fixedValue": null
+    }
+   ],
+   "item": [
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 101,
+     "isGranted": true,
+     "requiresAttunement": false,
+     "restriction": ""
+    },
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 102,
+     "isGranted": true,
+     "requiresAttunement": true,
+     "restriction": ""
+    },
+    {
+     "type": "bonus",
+     "subType": "armor-class",
+     "value": 1,
+     "fixedValue": 1,
+     "componentId": 103,
+     "isGranted": true,
+     "requiresAttunement": false,
+     "restriction": ""
+    }
+   ],
+   "feat": [],
+   "condition": []
+  },
+  "inventory": [
+   {
+    "equipped": true,
+    "isAttuned": false,
+    "definition": {
+     "id": 101,
+     "name": "Chain Mail, +1",
+     "armorClass": 16,
+     "armorTypeId": 3,
+     "filterType": "Armor"
+    }
+   },
+   {
+    "equipped": true,
+    "isAttuned": false,
+    "definition": {
+     "id": 102,
+     "name": "Ring of Protection",
+     "armorClass": null,
+     "armorTypeId": null,
+     "filterType": "Ring"
+    }
+   },
+   {
+    "equipped": false,
+    "isAttuned": false,
+    "definition": {
+     "id": 103,
+     "name": "Cloak of Protection",
+     "armorClass": null,
+     "armorTypeId": null,
+     "filterType": "Wondrous item"
+    }
+   },
+   {
+    "equipped": true,
+    "definition": {
+     "name": "Shield",
+     "armorClass": 2,
+     "armorTypeId": 4,
+     "filterType": "Armor"
+    }
+   },
+   {
+    "equipped": false,
+    "definition": {
+     "name": "Leather Armor",
+     "armorClass": 11,
+     "armorTypeId": 1,
+     "filterType": "Armor"
+    }
+   }
+  ],
+  "preferences": {
+   "hitPointType": 1
+  },
+  "stats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": 16
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": 12
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": 14
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": 10
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": 11
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": 8
+   }
+  ],
+  "classes": [
+   {
+    "level": 3,
+    "isStartingClass": true,
+    "definition": {
+     "name": "Fighter",
+     "hitDice": 10,
+     "canCastSpells": false,
+     "spellCastingAbilityId": null,
+     "isLegacy": false
+    },
+    "subclassDefinition": {
+     "name": "Champion"
+    }
+   }
+  ]
+ }
+}

@@ -50,6 +50,7 @@ export type SheetSummary = {
   conditions: string[];
   concentration: string | null;
   nameSync: StoredSheet["nameSync"];
+  synced: boolean;
   vitalsVersion: number;
   version: number;
 };
@@ -72,6 +73,7 @@ export function summaryOf(sheet: StoredSheet, userId: string, ownerName: string 
     conditions: sheet.vitals.conditions.map((c) => c.name),
     concentration: sheet.vitals.concentration?.name ?? null,
     nameSync: sheet.nameSync,
+    synced: sheet.synced,
     vitalsVersion: sheet.vitalsVersion,
     version: sheet.version,
   };

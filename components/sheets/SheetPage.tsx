@@ -205,6 +205,7 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
             </p>
             <div className="mt-1 flex flex-wrap gap-1.5">
               <Badge>SRD {view.edition}</Badge>
+              {view.synced ? <Badge tone="ok">Synced from D&D Beyond</Badge> : null}
               {view.status !== "active" ? <Badge tone="warn">{view.status === "dead" ? "Dead" : "Retired"}</Badge> : null}
               {view.active ? <Badge tone="ok">In play</Badge> : null}
               {view.owner && !view.owner.you ? <Badge>{view.owner.name}</Badge> : null}
@@ -214,10 +215,10 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Rests sheet={sheet} />
-            <Button size="sm" variant={editing ? "primary" : "secondary"} icon={Pencil} onClick={() => setEditing((v) => !v)} aria-pressed={editing}>
+            {view.synced ? null : <Rests sheet={sheet} />}
+            {view.synced ? null : <Button size="sm" variant={editing ? "primary" : "secondary"} icon={Pencil} onClick={() => setEditing((v) => !v)} aria-pressed={editing}>
               {editing ? "Done editing" : "Edit"}
-            </Button>
+            </Button>}
             {otherCampaigns.length ? (
               <select
                 aria-label="Copy to another campaign"
@@ -245,6 +246,8 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
             ) : null}
           </div>
         </header>
+
+        {view.synced ? <Notice tone="neutral">This character is synced live from D&amp;D Beyond. Change it there; this page updates by itself.</Notice> : null}
 
         {conflict ? (
           <Notice tone="warn" title="Someone else changed this sheet">

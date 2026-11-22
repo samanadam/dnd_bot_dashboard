@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Portal D&D Beyond Sync",
+  "version": "0.1.0",
+  "description": "Shows your D&D Beyond character in the party portal, live, and replays your rolls with the portal dice.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.dndbeyond.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Portal sync", "default_popup": "popup.html" },
+  "content_scripts": [
+    { "matches": ["https://www.dndbeyond.com/characters/*"], "js": ["page.js"], "run_at": "document_start", "world": "MAIN" },
+    { "matches": ["https://www.dndbeyond.com/characters/*"], "js": ["content.js"], "run_at": "document_idle" }
+  ]
+}

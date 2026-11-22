@@ -165,6 +165,13 @@ cp .env.example .env && chmod 600 .env   # fill in
 docker compose up -d                     # COMPOSE_FILE in .env picks the stack
 ```
 
+## D&D Beyond sync
+
+A browser extension (Chrome, Edge) shows a player's D&D Beyond character in the
+portal, live, and replays their rolls with the portal dice. Build it with
+`npm run build:extension`; setup is in `extension/README.md`, the design in
+`docs/superpowers/specs/2026-11-22-ddb-sync-extension-design.md`.
+
 ## Adding a tool
 
 1. Add an entry to `lib/tools/registry.ts`.

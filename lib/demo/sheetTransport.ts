@@ -74,6 +74,7 @@ const routes: Array<[string, RegExp, Handler]> = [
           dmNotes: "",
           portrait: null,
           nameSync: "ok",
+          synced: false,
           createdAt: at,
           updatedAt: at,
         };

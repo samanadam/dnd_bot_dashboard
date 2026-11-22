@@ -75,6 +75,22 @@ make sure only the right people can make the portal use it.
 
 Each layer stops an anonymous request on its own.
 
+## D&D Beyond sync extension
+
+- The extension talks to `/api/ext/*` with a bearer token (`ptx_...`). A token is
+  made by a signed-in player on the pairing page, belongs to one campaign, is
+  stored only as a sha256 hash, can be revoked, and works on `/api/ext/*` and
+  nowhere else. At most five per player; 120 requests a minute per token and 30
+  rolls a minute.
+- The extension never sees or stores a D&D Beyond password or cookie. It uses the
+  short-lived token D&D Beyond's own page gets for the logged-in player, in the
+  page's memory, and sends only the character data to the portal.
+- A read-only or shared D&D Beyond view is refused, so nobody can sync a character
+  they do not own. Older pushes never replace newer ones.
+- The data format is unofficial and may break without warning; a failed read keeps
+  the last good sheet and shows an error. Using it may sit outside D&D Beyond's
+  terms of service.
+
 ## Known limits
 
 - Rate limits and the role-check cache live in process memory. Run a single
