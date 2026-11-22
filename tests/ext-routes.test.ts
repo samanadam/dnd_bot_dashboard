@@ -137,7 +137,10 @@ describe("sheet sync", () => {
     const { deps, token } = setup();
     expect((await extSync(deps).POST(post(token, { ddbCharacterId: "abc", capturedAt: T0, readOnly: false, character: {} }))).status).toBe(400);
     expect((await extSync(deps).POST(post(token, { ddbCharacterId: "1", capturedAt: "yesterday", readOnly: false, character: {} }))).status).toBe(400);
-    expect((await extSync(deps).POST(post(token, "x".repeat(1_100_000)))).status).toBe(413);
+    // A real character is hundreds of KB: a big one must reach the reader (422 unreadable), not be cut off.
+    const big = { ddbCharacterId: "1", capturedAt: T0, readOnly: false, character: { data: { canEdit: true, filler: "x".repeat(2_000_000) } } };
+    expect((await extSync(deps).POST(post(token, big))).status).not.toBe(413);
+    expect((await extSync(deps).POST(post(token, "x".repeat(4_300_000)))).status).toBe(413);
   });
 });
 

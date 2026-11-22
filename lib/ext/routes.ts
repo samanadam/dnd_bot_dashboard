@@ -32,7 +32,8 @@ export type ExtDeps = {
   log?: AuditLog;
 };
 
-export const MAX_SYNC_BYTES = 1024 * 1024;
+// A whole D&D Beyond character is already ~600 KB at level 1; deploy/Caddyfile allows the same on this path.
+export const MAX_SYNC_BYTES = 4 * 1024 * 1024;
 const REQUESTS: Limit = { max: 120, windowMs: 60_000 };
 const sharedLimiter = new RateLimiter();
 

@@ -18,11 +18,6 @@
 {$PORTAL_DOMAIN} {
 	encode zstd gzip
 
-	# The portal never accepts request bodies over 8 KB.
-	request_body {
-		max_size 64KB
-	}
-
 	# The portal sets its own security headers (CSP, HSTS, framing, referrer).
 	# Caddy only removes its own identifying header.
 	header -Server
@@ -40,7 +35,21 @@
 		reverse_proxy 127.0.0.1:8080
 	}
 
+	# The browser extension pushes a whole D&D Beyond character (hundreds of KB),
+	# so this one path may carry a large body. The portal caps it again.
+	@sync path /api/ext/sheets/sync
+	handle @sync {
+		request_body {
+			max_size 4MB
+		}
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Everything else: request bodies stay small.
 	handle {
+		request_body {
+			max_size 64KB
+		}
 		reverse_proxy 127.0.0.1:3000
 	}
 
