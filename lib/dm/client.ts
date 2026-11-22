@@ -14,6 +14,8 @@ import type { Encounter } from "./encounter";
 import type { EncounterSummary, StoredEncounter } from "./encounters";
 import type { SavedInput, SavedTrack } from "./saved";
 import type { Scene, SceneInput } from "./scenes";
+import type { StoryInput, StorySummary } from "./story";
+import type { StoryDetail } from "./storyRoutes";
 import type { TagMap } from "./tags";
 import type { StatBlock } from "./statblock";
 import { inDemo } from "@/lib/demo/base";
@@ -118,6 +120,13 @@ export const dm = {
   updateArea: (id: string, version: number, input: AreaInput) => dmCall<AreaDetail>("PUT", `areas/${enc(id)}`, { version, ...input }),
   deleteArea: (id: string) => dmCall<void>("DELETE", `areas/${enc(id)}`),
   reorderAreas: (ids: string[]) => dmCall<void>("PUT", "areas/order", { ids }),
+  listStory: (campaign?: string) => dmCall<StorySummary[]>("GET", campaign ? `story/notes?campaign=${enc(campaign)}` : "story/notes"),
+  getStoryNote: (id: string) => dmCall<StoryDetail>("GET", `story/notes/${enc(id)}`),
+  createStoryNote: (input: StoryInput) => dmCall<StoryDetail>("POST", "story/notes", input),
+  // A stale version rejects with a DmError whose code is "conflict".
+  updateStoryNote: (id: string, version: number, input: StoryInput) => dmCall<StoryDetail>("PUT", `story/notes/${enc(id)}`, { version, ...input }),
+  deleteStoryNote: (id: string) => dmCall<void>("DELETE", `story/notes/${enc(id)}`),
+  seedStory: (campaignId: string | null) => dmCall<{ seeded: number }>("POST", "story/starter", { campaignId }),
   setAreaEncounters: (id: string, version: number, encounterIds: string[]) =>
     dmCall<AreaDetail>("PUT", `areas/${enc(id)}/encounters`, { version, encounterIds }),
   setAreaRewards: (id: string, version: number, rewards: RewardInput[]) =>

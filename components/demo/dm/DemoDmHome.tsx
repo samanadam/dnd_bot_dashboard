@@ -16,6 +16,7 @@ export function DemoDmHome() {
             monsterCount={DEMO_SRD_MONSTERS.length + state.dm.creatures.length - npcs}
             npcCount={npcs}
             areaCount={state.dm.areas.length}
+            storyCount={state.dm.story.length}
           />
         );
       }}

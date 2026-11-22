@@ -57,7 +57,7 @@ export const tools: Tool[] = [
   {
     id: "dm",
     name: "DM Screen",
-    description: "Bestiary, NPCs, areas with battles and rewards, items, spells, initiative tracker and dice.",
+    description: "Bestiary, NPCs, areas with battles and rewards, story notes and map, items, spells, initiative tracker and dice.",
     href: "/dm",
     icon: "scroll",
     status: "live",
@@ -66,6 +66,7 @@ export const tools: Tool[] = [
       { href: "/dm/combat", label: "Combat", icon: "swords", permission: "dm" },
       { href: "/dm/bestiary", label: "Bestiary", icon: "book", permission: "dm" },
       { href: "/dm/areas", label: "Areas", icon: "map", permission: "dm" },
+      { href: "/dm/story", label: "Story", icon: "scroll", permission: "dm" },
       { href: "/dm/items", label: "Items", icon: "gem", permission: "dm" },
       { href: "/dm/spells", label: "Spells", icon: "sparkles", permission: "dm" },
       { href: "/dm/party", label: "Party", icon: "users", permission: "dm" },

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bot, BotError } from "@/lib/bot/client";
 import { isDemoPath, stripBase, withBase } from "@/lib/demo/base";
 import { dm, DmError } from "@/lib/dm/client";
+import { CAMPAIGN_EMBER } from "@/lib/demo/fixtures";
 import { readDemo, resetDemo } from "@/lib/demo/store";
 
 // The demo is public, so what matters is what it cannot do: reach the portal API,
@@ -144,6 +145,36 @@ describe("demo transport", () => {
     const stored = await dm.getEncounter(first.id);
     await dm.saveEncounter(stored.id, stored.version, stored.encounter);
     await expect(dm.saveEncounter(stored.id, stored.version, stored.encounter)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("serves the story wiki like the real API, without a network request", async () => {
+    browserAt("/demo/dm/story");
+    const all = await dm.listStory();
+    expect(all.length).toBeGreaterThan(3);
+    expect(all.some((note) => note.links.length > 0)).toBe(true);
+    const scoped = await dm.listStory(CAMPAIGN_EMBER);
+    expect(scoped.length).toBeGreaterThan(0);
+    expect(scoped.every((note) => note.campaignId === CAMPAIGN_EMBER)).toBe(true);
+
+    const input = { title: "Demo inn", type: "place" as const, tags: ["town"], body: "see [[Ghost]]", campaignId: null };
+    const created = await dm.createStoryNote(input);
+    expect(created.missing).toEqual(["Ghost"]);
+    await expect(dm.createStoryNote({ ...input, title: " demo INN " })).rejects.toMatchObject({ status: 409 });
+    await expect(dm.createStoryNote({ ...input, title: "", campaignId: null })).rejects.toBeInstanceOf(DmError);
+    await dm.createStoryNote({ ...input, title: "Ölüm" });
+    await expect(dm.createStoryNote({ ...input, title: "ÖLÜM" })).rejects.toMatchObject({ status: 409 });
+
+    const saved = await dm.updateStoryNote(created.note.id, 1, { ...input, body: "ok" });
+    expect(saved.note.version).toBe(2);
+    await expect(dm.updateStoryNote(created.note.id, 1, input)).rejects.toMatchObject({ status: 409, code: "conflict" });
+    created.note.title = "changed by a component";
+    expect((await dm.getStoryNote(created.note.id)).note.title).toBe("Demo inn");
+
+    expect((await dm.seedStory("cafe0c0de099")).seeded).toBeGreaterThan(0);
+    expect((await dm.seedStory("cafe0c0de099")).seeded).toBe(0);
+    await dm.deleteStoryNote(created.note.id);
+    await expect(dm.getStoryNote(created.note.id)).rejects.toMatchObject({ status: 404 });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("does not exist on the server, where it would be shared by every visitor", () => {

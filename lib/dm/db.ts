@@ -285,6 +285,22 @@ const MIGRATIONS: readonly string[] = [
      fails INTEGER NOT NULL DEFAULT 0,
      locked_until INTEGER NOT NULL DEFAULT 0
    );`,
+  // Story notes: the DM's linked wiki. Links are not stored; they are read out of
+  // [[Title]] in the body, so a title is unique per campaign (case-insensitive).
+  `CREATE TABLE story_notes (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT,
+     title TEXT NOT NULL,
+     title_key TEXT NOT NULL,
+     type TEXT NOT NULL,
+     tags TEXT NOT NULL DEFAULT '[]',
+     body TEXT NOT NULL DEFAULT '',
+     version INTEGER NOT NULL DEFAULT 1,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE UNIQUE INDEX story_title ON story_notes (COALESCE(campaign_id, ''), title_key);
+   CREATE INDEX story_campaign ON story_notes (campaign_id);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

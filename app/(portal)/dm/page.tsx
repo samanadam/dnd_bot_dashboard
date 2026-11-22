@@ -5,6 +5,7 @@ import { AreaRepo } from "@/lib/dm/areas";
 import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
 import { EncounterRepo } from "@/lib/dm/encounters";
+import { StoryRepo } from "@/lib/dm/story";
 import { listSrd } from "@/lib/dm/srd";
 
 export const metadata: Metadata = { title: "DM Screen" };
@@ -22,6 +23,7 @@ export default async function DmHome() {
       monsterCount={listSrd().length + creatures.length - npcs}
       npcCount={npcs}
       areaCount={new AreaRepo(db).list(mine).length}
+      storyCount={new StoryRepo(db).list(mine).length}
     />
   );
 }

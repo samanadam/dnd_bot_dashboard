@@ -12,6 +12,7 @@ import type { Reward } from "@/lib/dm/rewards";
 import type { SavedTrack } from "@/lib/dm/saved";
 import type { Scene } from "@/lib/dm/scenes";
 import type { StatBlock } from "@/lib/dm/statblock";
+import type { NoteType, StoryNote } from "@/lib/dm/story";
 import type { TagMap } from "@/lib/dm/tags";
 import { DEMO_SRD_MONSTERS } from "./srdSample";
 
@@ -385,6 +386,27 @@ export function demoFixtures(now: number) {
     ],
   };
 
+  const storyNote = (n: number, title: string, type: NoteType, tags: string[], body: string, campaignId: string | null, minutes: number): StoryNote => ({
+    id: uuid(800 + n),
+    title,
+    type,
+    tags,
+    body,
+    campaignId,
+    version: 1,
+    createdAt: ago(60 * 24 * 12),
+    updatedAt: ago(minutes),
+  });
+  const story: StoryNote[] = [
+    storyNote(1, "Hollowmere Village", "place", ["act 1"], "# Hollowmere Village\nA lakeside village still smoking from last month's fire.\n\n- Tavern: The Drowned Lantern\n- The mill is where the goblins cross\n\nThe [[The Ashen Guild]] collectors come every new moon, and [[Mayor Osric]] never talks about why.", CAMPAIGN_EMBER, 60 * 3),
+    storyNote(2, "The Ashen Guild", "faction", ["villains"], "Collectors who burn what they cannot tax. They answer to a **ledger keeper** hiding in [[The Sunken Keep]].\n\nThey are paid off by [[Mayor Osric]]: see [[The mayor's secret]].", CAMPAIGN_EMBER, 60 * 5),
+    storyNote(3, "Mayor Osric", "npc", ["act 1","ally?"], "Keeps the map of the keep in his desk. Nervous, sweats when the guild is named.\n\n> We do what we must to keep the village alive.\n\nSecretly pays the [[The Ashen Guild]]. [[Captain Veyra]] suspects him.", CAMPAIGN_EMBER, 60 * 26),
+    storyNote(4, "Captain Veyra", "npc", ["act 1","ally"], "Leads the river patrol. Honest, tired, and short of soldiers. Will fight beside the party at [[The Sunken Keep]] if they tell her what [[Mayor Osric]] is hiding.", CAMPAIGN_EMBER, 60 * 30),
+    storyNote(5, "The Sunken Keep", "place", ["act 2"], "An old keep half under the lake. The troll guards the only dry bridge. The guild's ledger is in the flooded chapel.\n\nOld rumours say a [[The Drowned Saint]] sleeps below.", CAMPAIGN_EMBER, 60 * 48),
+    storyNote(6, "The mayor's secret", "secret", ["act 1","clue"], "Osric pays the [[The Ashen Guild]] a tenth of the harvest. **Clues:** a second set of books in his desk, scorch marks on his cellar door.\n\nRevealed in [[Session 1: The fire]] if the party searches the cellar.", CAMPAIGN_EMBER, 60 * 50),
+    storyNote(7, "Session 1: The fire", "session", ["log"], "The party reached [[Hollowmere Village]], met [[Captain Veyra]] and put out the temple fire. Next: confront [[Mayor Osric]] and follow the ledger to [[The Sunken Keep]].", CAMPAIGN_EMBER, 60 * 24 * 2),
+    storyNote(8, "The Citadel", "place", ["one-shot"], "A glass tower above the clouds. The one-shot ends when someone opens the vault.", CAMPAIGN_CITADEL, 60 * 24 * 6),
+  ];
   const item = (id: string, block: Omit<CustomItem, "id" | "campaignId" | "createdAt" | "updatedAt">, minutes: number): CustomItem => ({
     id,
     ...block,
@@ -530,7 +552,7 @@ export function demoFixtures(now: number) {
       layers,
       initiative,
     },
-    dm: { creatures, encounters, areas, areaBattles, areaRewards, items, spells, feats, scenes, saved: savedTracks, tags },
+    dm: { creatures, encounters, areas, areaBattles, areaRewards, story, items, spells, feats, scenes, saved: savedTracks, tags },
   };
 }
 
