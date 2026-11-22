@@ -1,6 +1,7 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { isDemoPath } from "@/lib/demo/base";
+import { isVaultPath } from "@/lib/vault/base";
 
 // Runs before every page render: sets a per-request nonce CSP and bounces
 // signed-out visitors to /signin. This is the optimistic first gate only —
@@ -8,10 +9,10 @@ import { isDemoPath } from "@/lib/demo/base";
 
 const PUBLIC_PATHS = new Set(["/signin", "/signin/code", "/terms", "/privacy", "/cookies"]);
 
-// /signin, the legal pages (readable before signing in), and the demo: made-up data only, and its pages never read a session,
+// /signin, the legal pages (readable before signing in), the character vault (static published notes, see app/vault/layout.tsx), and the demo: made-up data only, and its pages never read a session,
 // the database or the bot (see app/demo/layout.tsx), so there is nothing to guard.
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.has(pathname) || isDemoPath(pathname);
+  return PUBLIC_PATHS.has(pathname) || isDemoPath(pathname) || isVaultPath(pathname);
 }
 
 function contentSecurityPolicy(nonce: string) {
