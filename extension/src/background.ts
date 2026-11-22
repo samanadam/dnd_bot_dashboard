@@ -73,6 +73,18 @@ async function pushCharacter(message: { ddbCharacterId: string; capturedAt: stri
   }
 }
 
+async function relayRoll(roll: { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string }): Promise<{ ok: boolean }> {
+  const state = await load();
+  if (!state.portalUrl || !state.token || state.characters[roll.ddbCharacterId]?.enabled === false) return { ok: false };
+  const { ddbCharacterId, label, expression, total, breakdown } = roll;
+  try {
+    return { ok: (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown }) })).ok };
+  } catch {
+    // The dice already showed on the page; a missed relay is not worth a warning.
+    return { ok: false };
+  }
+}
+
 async function ping(): Promise<{ ok: boolean; text: string }> {
   const state = await load();
   if (!state.portalUrl || !state.token) return { ok: false, text: "Enter the portal address and a token first." };
@@ -91,9 +103,11 @@ chrome.runtime.onMessage.addListener((message: { type: string }, _sender, respon
   const work =
     message.type === "character"
       ? pushCharacter(message as never)
-      : message.type === "ping"
-        ? ping()
-        : Promise.resolve({ ok: false });
+      : message.type === "roll"
+        ? relayRoll((message as unknown as { roll: Parameters<typeof relayRoll>[0] }).roll)
+        : message.type === "ping"
+          ? ping()
+          : Promise.resolve({ ok: false });
   void work.then(respond);
   return true;
 });

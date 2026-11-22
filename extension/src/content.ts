@@ -1,3 +1,5 @@
+import { playRoll } from "./overlay";
+import { parseRolls } from "./rolls";
 import { characterIdFromPath, nextBackoff } from "./state";
 
 // Runs on a D&D Beyond character page. Reads the character the way the page does
@@ -61,6 +63,22 @@ function schedule(delay: number) {
   }, delay);
 }
 
+// The same message can arrive twice (reconnects); each one is thrown once.
+const seen: string[] = [];
+
+async function handleRoll(message: { id?: string }): Promise<void> {
+  if (message.id) {
+    if (seen.includes(message.id)) return;
+    seen.push(message.id);
+    if (seen.length > 50) seen.shift();
+  }
+  for (const roll of parseRolls(message)) {
+    if (roll.ddbCharacterId !== id) continue;
+    void chrome.runtime.sendMessage({ type: "roll", roll: { ...roll, dice: undefined } });
+    await playRoll(roll.dice);
+  }
+}
+
 if (id) {
   void tick();
   document.addEventListener("visibilitychange", () => {
@@ -69,5 +87,6 @@ if (id) {
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.data?.source !== "portal-ddb") return;
     if (event.data.type === "changed") schedule(1500);
+    if (event.data.type === "roll") void handleRoll(event.data.message);
   });
 }

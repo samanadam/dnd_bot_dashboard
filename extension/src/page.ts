@@ -20,3 +20,24 @@ window.fetch = function (this: unknown, input: RequestInfo | URL, init?: Request
   }
   return result;
 };
+
+// Rolls made at a table (a campaign game) are broadcast through D&D Beyond's game log
+// socket. Hand every finished roll message to the content script, which decides whether
+// it is this character's. Rolls outside a campaign never reach the log.
+const NativeSocket = window.WebSocket;
+window.WebSocket = new Proxy(NativeSocket, {
+  construct(target, args: ConstructorParameters<typeof WebSocket>) {
+    const socket = new target(...args);
+    if (/game-log/.test(String(args[0]))) {
+      socket.addEventListener("message", (event) => {
+        try {
+          const message = JSON.parse(String(event.data)) as { eventType?: string };
+          if (message.eventType === "dice/roll/fulfilled") window.postMessage({ source: "portal-ddb", type: "roll", message }, window.location.origin);
+        } catch {
+          // Not a roll message.
+        }
+      });
+    }
+    return socket;
+  },
+});
