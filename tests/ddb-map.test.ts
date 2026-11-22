@@ -56,6 +56,19 @@ describe("mapCharacter", () => {
     expect(m.vitals.pactSpent).toBe(1);
   });
 
+  it("adds ability score bonuses that come from feats and the like, next to the stored bonus", () => {
+    const raw = structuredClone(caster) as { data: { modifiers: Record<string, unknown[]>; bonusStats?: Array<{ id: number; value: number | null }> } };
+    const entry = (subType: string, extra: Record<string, unknown> = {}) => ({ type: "bonus", subType, value: 1, isGranted: true, restriction: null, ...extra });
+    raw.data.modifiers.feat = [...(raw.data.modifiers.feat ?? []), entry("dexterity-score"), entry("intelligence-score"), entry("wisdom-score", { restriction: "only at night" }), entry("charisma-score", { isGranted: false })];
+    const before = mapped(caster);
+    const m = mapped(raw);
+    expect(m.body.abilities.dex.bonus).toBe(before.body.abilities.dex.bonus + 1);
+    expect(m.body.abilities.int.bonus).toBe(before.body.abilities.int.bonus + 1);
+    // conditional and not-granted bonuses are not counted
+    expect(m.body.abilities.wis.bonus).toBe(before.body.abilities.wis.bonus);
+    expect(m.body.abilities.cha.bonus).toBe(before.body.abilities.cha.bonus);
+  });
+
   it("produces a body that passes the sheet schema and derives the same max hp", () => {
     for (const raw of [fighter, caster, multiclass]) {
       const m = mapped(raw);
