@@ -34,6 +34,6 @@ export function DemoStoryNote({ id }: { id: string }) {
   );
 }
 
-export function DemoStoryNew({ initialTitle }: { initialTitle: string }) {
-  return <WithDemo>{(state) => <StoryNewView notes={storySummaries(state, null)} initialTitle={initialTitle} />}</WithDemo>;
+export function DemoStoryNew({ initialTitle, initialCampaign }: { initialTitle: string; initialCampaign?: string | null }) {
+  return <WithDemo>{(state) => <StoryNewView notes={storySummaries(state, null)} initialTitle={initialTitle} initialCampaign={initialCampaign} />}</WithDemo>;
 }

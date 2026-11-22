@@ -14,7 +14,7 @@ import { customItemSchema, type CustomItem, type ItemRef } from "@/lib/dm/items"
 import { DONE_STATUSES, rewardListSchema, rewardStatusBodySchema, type Reward } from "@/lib/dm/rewards";
 import { savedSchema, type SavedTrack } from "@/lib/dm/saved";
 import { sceneSchema, type Scene } from "@/lib/dm/scenes";
-import { backlinksOf, MAX_STORY_NOTES, renameLinks, STARTER_NOTES, storyNoteSchema, storyNoteUpdateSchema, summarizeNotes, type StoryNote, type StorySummary } from "@/lib/dm/story";
+import { backlinksOf, MAX_STORY_NOTES, renameLinks, STARTER_NOTES, storyNoteSchema, storyNoteUpdateSchema, summarizeNotes, titleKey, type StoryNote, type StorySummary } from "@/lib/dm/story";
 import type { StoryDetail } from "@/lib/dm/storyRoutes";
 import { setTagsSchema } from "@/lib/dm/tags";
 import type { DemoState } from "./fixtures";
@@ -134,7 +134,7 @@ export function storyDetailOf(state: DemoState, note: StoryNote): StoryDetail {
   return { note, backlinks: backlinksOf(peers, note), missing: summarizeNotes(peers).find((summary) => summary.id === note.id)?.missing ?? [] };
 }
 
-const sameTitle = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const sameTitle = (a: string, b: string) => titleKey(a) === titleKey(b);
 const starterSchema = z.object({ campaignId: campaignIdSchema.nullable() }).strict();
 
 function findNote(state: DemoState, id: string): StoryNote {

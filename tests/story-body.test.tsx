@@ -5,13 +5,13 @@ import { StoryGraph } from "@/components/dm/story/StoryGraph";
 
 describe("StoryBody", () => {
   it("links a resolved title to its note and an unresolved one to the create page", () => {
-    const html = renderToStaticMarkup(<StoryBody body="[[Inn]] and [[Old Mill]]" resolve={(t) => (t === "Inn" ? "abc" : null)} />);
+    const html = renderToStaticMarkup(<StoryBody body="[[Inn]] and [[Old Mill]]" resolve={(t) => (t === "Inn" ? "abc" : null)} campaignId="aaaaaaaaaaaa" />);
     expect(html).toContain('href="/dm/story/notes/abc"');
-    expect(html).toContain('href="/dm/story/notes/new?title=Old%20Mill"');
+    expect(html).toContain('href="/dm/story/notes/new?title=Old%20Mill&amp;campaign=aaaaaaaaaaaa"');
   });
 
   it("never renders hostile text as markup or a live link", () => {
-    const html = renderToStaticMarkup(<StoryBody body={"<script>alert(1)</script> <img src=x onerror=alert(1)>\n\n[x](javascript:alert(1))"} resolve={() => null} />);
+    const html = renderToStaticMarkup(<StoryBody body={"<script>alert(1)</script> <img src=x onerror=alert(1)>\n\n[x](javascript:alert(1))"} resolve={() => null} campaignId={null} />);
     expect(html).not.toContain("<script");
     expect(html).not.toContain("<img");
     expect(html).not.toContain('href="javascript');

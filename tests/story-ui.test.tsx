@@ -63,7 +63,7 @@ describe("story helpers", () => {
       note("2", "B", { type: "npc", missing: ["ghost"] }),
     ];
     expect(countByType(notes)).toMatchObject({ place: 1, npc: 1, secret: 0 });
-    expect(missingTitles(notes)).toEqual([{ title: "Ghost", count: 2 }, { title: "Lair", count: 1 }]);
+    expect(missingTitles(notes).map(({ title, count }) => ({ title, count }))).toEqual([{ title: "Ghost", count: 2 }, { title: "Lair", count: 1 }]);
   });
 });
 

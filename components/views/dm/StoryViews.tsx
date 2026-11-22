@@ -58,11 +58,11 @@ export function StoryNoteView({ detail, notes }: { detail: StoryDetail; notes: S
   );
 }
 
-export function StoryNewView({ notes, initialTitle }: { notes: StorySummary[]; initialTitle: string }) {
+export function StoryNewView({ notes, initialTitle, initialCampaign }: { notes: StorySummary[]; initialTitle: string; initialCampaign?: string | null }) {
   return (
     <div className="space-y-6">
       <DmHeader back={{ href: "/dm/story/notes", label: "All notes" }} eyebrow="Story note" title="New note" />
-      <NoteEditor notes={notes} initialTitle={initialTitle} />
+      <NoteEditor notes={notes} initialTitle={initialTitle} initialCampaign={initialCampaign} />
     </div>
   );
 }

@@ -161,6 +161,8 @@ describe("demo transport", () => {
     expect(created.missing).toEqual(["Ghost"]);
     await expect(dm.createStoryNote({ ...input, title: " demo INN " })).rejects.toMatchObject({ status: 409 });
     await expect(dm.createStoryNote({ ...input, title: "", campaignId: null })).rejects.toBeInstanceOf(DmError);
+    await dm.createStoryNote({ ...input, title: "Ölüm" });
+    await expect(dm.createStoryNote({ ...input, title: "ÖLÜM" })).rejects.toMatchObject({ status: 409 });
 
     const saved = await dm.updateStoryNote(created.note.id, 1, { ...input, body: "ok" });
     expect(saved.note.version).toBe(2);

@@ -8,6 +8,7 @@ import type { StorySummary } from "@/lib/dm/story";
 import type { StoryDetail } from "@/lib/dm/storyRoutes";
 import { makeResolver } from "./helpers";
 import { NoteEditor } from "./NoteEditor";
+import { newNoteHref } from "./helpers";
 import { StoryBody } from "./StoryBody";
 import { TYPE_COLOR, TYPE_LABEL } from "./types";
 
@@ -33,7 +34,7 @@ export function NoteReader({ detail, notes }: { detail: StoryDetail; notes: Stor
       </div>
 
       <article className="rounded-3xl border border-border bg-surface p-5 shadow-card sm:p-6">
-        {note.body.trim() ? <StoryBody body={note.body} resolve={resolve} /> : <p className="text-sm text-muted">This note is empty. Press Edit to write it.</p>}
+        {note.body.trim() ? <StoryBody body={note.body} resolve={resolve} campaignId={note.campaignId} /> : <p className="text-sm text-muted">This note is empty. Press Edit to write it.</p>}
       </article>
 
       {missing.length > 0 ? (
@@ -41,7 +42,7 @@ export function NoteReader({ detail, notes }: { detail: StoryDetail; notes: Stor
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-warn">Linked but not written yet</h2>
           <div className="flex flex-wrap gap-2">
             {missing.map((title) => (
-              <PortalLink key={title} href={`/dm/story/notes/new?title=${encodeURIComponent(title)}`} className="rounded-full border border-dashed border-warn/60 px-3 py-1 text-sm text-warn hover:bg-warn/10">
+              <PortalLink key={title} href={newNoteHref(title, note.campaignId)} className="rounded-full border border-dashed border-warn/60 px-3 py-1 text-sm text-warn hover:bg-warn/10">
                 Create “{title}”
               </PortalLink>
             ))}

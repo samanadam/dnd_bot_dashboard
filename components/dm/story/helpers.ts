@@ -1,4 +1,5 @@
-import { NOTE_TYPES, type NoteType, type StorySummary } from "@/lib/dm/story";
+import { campaignIdSchema } from "@/lib/campaign/selection";
+import { NOTE_TYPES, titleKey, type NoteType, type StorySummary } from "@/lib/dm/story";
 
 /** "town, Inn" → ["town", "Inn"]: trimmed, distinct (case-insensitive), at most 12 of 32 characters. */
 export function parseTags(text: string): string[] {
@@ -28,8 +29,8 @@ export function filterNotes(notes: StorySummary[], { query, type, tag }: NoteFil
 
 /** Title → note id for the notes of one campaign, ignoring case and outer spaces. */
 export function makeResolver(notes: StorySummary[], campaignId: string | null): (title: string) => string | null {
-  const byTitle = new Map(notes.filter((n) => n.campaignId === campaignId).map((n) => [n.title.trim().toLowerCase(), n.id]));
-  return (title) => byTitle.get(title.trim().toLowerCase()) ?? null;
+  const byTitle = new Map(notes.filter((n) => n.campaignId === campaignId).map((n) => [titleKey(n.title), n.id]));
+  return (title) => byTitle.get(titleKey(title)) ?? null;
 }
 
 export function countByType(notes: StorySummary[]): Record<NoteType, number> {
@@ -39,13 +40,14 @@ export function countByType(notes: StorySummary[]): Record<NoteType, number> {
 }
 
 /** Titles that notes link to but no note has, most linked first. */
-export function missingTitles(notes: StorySummary[]): { title: string; count: number }[] {
-  const found = new Map<string, { title: string; count: number }>();
+export function missingTitles(notes: StorySummary[]): { title: string; campaignId: string | null; count: number }[] {
+  const found = new Map<string, { title: string; campaignId: string | null; count: number }>();
   for (const note of notes) {
     for (const title of note.missing) {
-      const entry = found.get(title.toLowerCase());
+      const id = `${note.campaignId ?? ""}|${titleKey(title)}`;
+      const entry = found.get(id);
       if (entry) entry.count++;
-      else found.set(title.toLowerCase(), { title, count: 1 });
+      else found.set(id, { title, campaignId: note.campaignId, count: 1 });
     }
   }
   return [...found.values()].sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
@@ -53,3 +55,13 @@ export function missingTitles(notes: StorySummary[]): { title: string; count: nu
 
 export const allTags = (notes: StorySummary[]): string[] =>
   [...new Set(notes.flatMap((n) => n.tags))].sort((a, b) => a.localeCompare(b));
+
+/** Link to the editor for a note that is linked but not written, filed under the campaign that links to it. */
+export const newNoteHref = (title: string, campaignId: string | null): string =>
+  `/dm/story/notes/new?title=${encodeURIComponent(title)}&campaign=${campaignId ?? "unassigned"}`;
+
+/** The ?campaign= of a "create it" link: an id, "unassigned" for none, undefined when absent or not valid. */
+export function campaignParam(value: string | string[] | undefined): string | null | undefined {
+  if (value === "unassigned") return null;
+  return typeof value === "string" && campaignIdSchema.safeParse(value).success ? value : undefined;
+}

@@ -291,6 +291,7 @@ const MIGRATIONS: readonly string[] = [
      id TEXT PRIMARY KEY,
      campaign_id TEXT,
      title TEXT NOT NULL,
+     title_key TEXT NOT NULL,
      type TEXT NOT NULL,
      tags TEXT NOT NULL DEFAULT '[]',
      body TEXT NOT NULL DEFAULT '',
@@ -298,7 +299,7 @@ const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    );
-   CREATE UNIQUE INDEX story_title ON story_notes (COALESCE(campaign_id, ''), lower(title));
+   CREATE UNIQUE INDEX story_title ON story_notes (COALESCE(campaign_id, ''), title_key);
    CREATE INDEX story_campaign ON story_notes (campaign_id);`,
 ];
 

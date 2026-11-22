@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "@/lib/dm/db";
-import { extractLinks, MAX_STORY_NOTES, STARTER_NOTES, StoryRepo, type StoryInput } from "@/lib/dm/story";
+import { makeResolver, missingTitles, newNoteHref } from "@/components/dm/story/helpers";
+import { extractLinks, MAX_STORY_NOTES, STARTER_NOTES, StoryRepo, storyNoteSchema, type StoryInput } from "@/lib/dm/story";
 
 const A = "aaaaaaaaaaaa";
 const B = "bbbbbbbbbbbb";
@@ -98,9 +99,9 @@ describe("StoryRepo", () => {
 
   it("stops at the per-campaign limit", () => {
     const { db, story } = repo();
-    const insert = db.prepare("INSERT INTO story_notes (id, campaign_id, title, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, 'other', '[]', '', 1, 'x', 'x')");
+    const insert = db.prepare("INSERT INTO story_notes (id, campaign_id, title, title_key, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, ?, 'other', '[]', '', 1, 'x', 'x')");
     db.exec("BEGIN");
-    for (let i = 0; i < MAX_STORY_NOTES; i++) insert.run(`id${i}`, A, `n${i}`);
+    for (let i = 0; i < MAX_STORY_NOTES; i++) insert.run(`id${i}`, A, `n${i}`, `n${i}`);
     db.exec("COMMIT");
     expect(story.create(note("one more"))).toBe("limit");
     expect(story.create(note("one more", "", B))).toMatchObject({ campaignId: B });
@@ -116,5 +117,45 @@ describe("StoryRepo", () => {
     expect(list).toHaveLength(STARTER_NOTES.length);
     expect(list.every((s) => s.missing.length === 0)).toBe(true);
     expect(list.some((s) => s.links.length > 0)).toBe(true);
+  });
+});
+
+describe("titles beyond ASCII and brackets", () => {
+  it("treats Turkish and other non-ASCII titles as the same title whatever the case", () => {
+    const { story } = repo();
+    created(story.create(note("Ölüm")));
+    expect(story.create(note("ölüm"))).toBe("duplicate");
+    expect(story.create(note("  ÖLÜM "))).toBe("duplicate");
+    expect(story.create(note("Mayor   Osric"))).toMatchObject({ title: "Mayor   Osric" });
+    expect(story.create(note("mayor osric"))).toBe("duplicate");
+  });
+
+  it("resolves a link to a non-ASCII title in any case", () => {
+    const { story } = repo();
+    const dead = created(story.create(note("Ölüm")));
+    created(story.create(note("Hub", "[[ölüm]] [[Ghost]]")));
+    const list = story.list(A);
+    expect(list.find((n) => n.title === "Hub")!.links).toEqual([dead.id]);
+    expect(makeResolver(list, A)("ÖLÜM")).toBe(dead.id);
+  });
+
+  it("refuses a title that could never be a link", () => {
+    for (const title of ["Keep [act 2]", "A]B", "two\nlines"]) expect(storyNoteSchema.safeParse(note(title)).success).toBe(false);
+    expect(storyNoteSchema.safeParse(note("Keep (act 2)")).success).toBe(true);
+  });
+});
+
+describe("creating a missing note", () => {
+  it("keeps the campaign of the note that links to it", () => {
+    expect(newNoteHref("The Saint", A)).toBe(`/dm/story/notes/new?title=The%20Saint&campaign=${A}`);
+    expect(newNoteHref("The Saint", null)).toBe("/dm/story/notes/new?title=The%20Saint&campaign=unassigned");
+  });
+
+  it("reports the campaign for each missing title", () => {
+    const { story } = repo();
+    created(story.create(note("Hub", "[[Ghost]]")));
+    created(story.create(note("Other", "[[Ghost]]", B)));
+    const rows = missingTitles([...story.list(A), ...story.list(B)]);
+    expect(rows.map((r) => [r.title, r.campaignId, r.count]).sort()).toEqual([["Ghost", A, 1], ["Ghost", B, 1]]);
   });
 });

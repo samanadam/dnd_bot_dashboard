@@ -19,10 +19,12 @@ import { TYPE_LABEL } from "./types";
  * campaign being looked at. A 409 (someone saved first, or the title is taken)
  * shows the server's own message and keeps what was typed.
  */
-export function NoteEditor({ notes, initial, initialTitle = "", onCancel }: { notes: StorySummary[]; initial?: StoryDetail; initialTitle?: string; onCancel?: () => void }) {
+export function NoteEditor({ notes, initial, initialTitle = "", initialCampaign, onCancel }: { notes: StorySummary[]; initial?: StoryDetail; initialTitle?: string; initialCampaign?: string | null; onCancel?: () => void }) {
   const router = usePortalRouter();
   const toast = useToast();
-  const defaultCampaign = useDmDefaultCampaign();
+  const pickedCampaign = useDmDefaultCampaign();
+  // A link that asked for a note names the campaign it was written in; otherwise the one picked in the switcher.
+  const defaultCampaign = initialCampaign === undefined ? pickedCampaign : initialCampaign;
   const [title, setTitle] = useState(initial?.note.title ?? initialTitle);
   const [type, setType] = useState<NoteType>(initial?.note.type ?? "other");
   const [tags, setTags] = useState(initial?.note.tags.join(", ") ?? "");
@@ -88,7 +90,7 @@ export function NoteEditor({ notes, initial, initialTitle = "", onCancel }: { no
         </div>
         {preview ? (
           <div className="min-h-48 rounded-xl border border-border bg-surface-2 p-4">
-            {body.trim() ? <StoryBody body={body} resolve={resolve} /> : <p className="text-sm text-muted">Nothing to preview yet.</p>}
+            {body.trim() ? <StoryBody body={body} resolve={resolve} campaignId={initial ? initial.note.campaignId : defaultCampaign} /> : <p className="text-sm text-muted">Nothing to preview yet.</p>}
           </div>
         ) : (
           <textarea className={`${inputBaseClass} min-h-64 w-full py-2.5 font-mono text-sm`} aria-label="Note body" value={body} maxLength={50_000} onChange={(event) => setBody(event.target.value)} />

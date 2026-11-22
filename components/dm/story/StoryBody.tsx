@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { PortalLink } from "@/components/PortalLink";
+import { newNoteHref } from "./helpers";
 import { parseStory, type StoryInline } from "@/lib/dm/storyMarkdown";
 
 // A story note's body, rendered as React elements only.
 
-function Inlines({ nodes }: { nodes: StoryInline[] }): ReactNode {
+function Inlines({ nodes, campaignId }: { nodes: StoryInline[]; campaignId: string | null }): ReactNode {
   return nodes.map((n, i) => {
     if (typeof n === "string") return n;
     switch (n.k) {
@@ -20,7 +21,7 @@ function Inlines({ nodes }: { nodes: StoryInline[] }): ReactNode {
         return n.id ? (
           <PortalLink key={i} href={`/dm/story/notes/${n.id}`} className="text-accent underline underline-offset-2 hover:text-accent-strong">{n.title}</PortalLink>
         ) : (
-          <PortalLink key={i} href={`/dm/story/notes/new?title=${encodeURIComponent(n.title)}`} title="No note with this title yet. Create it." className="text-warn underline decoration-dashed underline-offset-2">
+          <PortalLink key={i} href={newNoteHref(n.title, campaignId)} title="No note with this title yet. Create it." className="text-warn underline decoration-dashed underline-offset-2">
             {n.title}
           </PortalLink>
         );
@@ -30,17 +31,17 @@ function Inlines({ nodes }: { nodes: StoryInline[] }): ReactNode {
 
 const heading = ["", "text-2xl", "text-xl", "text-lg"];
 
-export function StoryBody({ body, resolve }: { body: string; resolve: (title: string) => string | null }) {
+export function StoryBody({ body, resolve, campaignId }: { body: string; resolve: (title: string) => string | null; campaignId: string | null }) {
   return (
     <div className="space-y-4 text-[15px] leading-relaxed text-text">
       {parseStory(body, resolve).map((b, i) => {
         switch (b.t) {
           case "h":
-            return <h3 key={i} className={`font-display font-semibold ${heading[b.l]} mt-6 first:mt-0`}><Inlines nodes={b.c} /></h3>;
+            return <h3 key={i} className={`font-display font-semibold ${heading[b.l]} mt-6 first:mt-0`}><Inlines nodes={b.c} campaignId={campaignId} /></h3>;
           case "p":
-            return <p key={i}><Inlines nodes={b.c} /></p>;
+            return <p key={i}><Inlines nodes={b.c} campaignId={campaignId} /></p>;
           case "q":
-            return <blockquote key={i} className="border-l-2 border-accent/60 pl-4 italic text-muted"><Inlines nodes={b.c} /></blockquote>;
+            return <blockquote key={i} className="border-l-2 border-accent/60 pl-4 italic text-muted"><Inlines nodes={b.c} campaignId={campaignId} /></blockquote>;
           case "hr":
             return <hr key={i} className="border-border" />;
           case "code":
@@ -49,7 +50,7 @@ export function StoryBody({ body, resolve }: { body: string; resolve: (title: st
             const Tag = b.ordered ? "ol" : "ul";
             return (
               <Tag key={i} className={`space-y-1.5 pl-5 ${b.ordered ? "list-decimal" : "list-disc"}`}>
-                {b.items.map((item, j) => <li key={j}><Inlines nodes={item} /></li>)}
+                {b.items.map((item, j) => <li key={j}><Inlines nodes={item} campaignId={campaignId} /></li>)}
               </Tag>
             );
           }

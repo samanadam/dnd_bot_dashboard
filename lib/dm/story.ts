@@ -15,7 +15,7 @@ export const STORY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 
 export const storyNoteSchema = z
   .object({
-    title: z.string().trim().min(1).max(120),
+    title: z.string().trim().min(1).max(120).regex(/^[^\[\]\n\r]+$/, "A title cannot contain square brackets or line breaks."),
     type: z.enum(NOTE_TYPES),
     tags: z.array(z.string().trim().min(1).max(32)).max(12),
     body: z.string().max(50_000),
@@ -68,7 +68,9 @@ const toNote = (row: Row): StoryNote => ({
 });
 
 const WIKILINK = /\[\[([^\[\]\n]+)\]\]/g;
-const key = (campaignId: string | null, title: string) => `${campaignId ?? ""}|${title.trim().toLowerCase()}`;
+/** What makes two titles the same: case, accents-as-written (NFC) and runs of spaces do not count. SQLite lower() only folds ASCII, so the unique key is made here. */
+export const titleKey = (title: string): string => title.trim().replace(/\s+/g, " ").normalize("NFC").toLowerCase();
+const key = (campaignId: string | null, title: string) => `${campaignId ?? ""}|${titleKey(title)}`;
 
 /** Titles inside [[…]], trimmed, one per title (case-insensitive), first spelling kept, in order. */
 export function extractLinks(body: string): string[] {
@@ -76,8 +78,8 @@ export function extractLinks(body: string): string[] {
   const titles: string[] = [];
   for (const match of body.matchAll(WIKILINK)) {
     const title = match[1].trim();
-    if (title && !seen.has(title.toLowerCase())) {
-      seen.add(title.toLowerCase());
+    if (title && !seen.has(titleKey(title))) {
+      seen.add(titleKey(title));
       titles.push(title);
     }
   }
@@ -86,8 +88,8 @@ export function extractLinks(body: string): string[] {
 
 /** Rewrites [[from]] (any case, any inner spaces) to [[to]]. */
 export function renameLinks(body: string, from: string, to: string): string {
-  const wanted = from.trim().toLowerCase();
-  return body.replace(WIKILINK, (whole, inner: string) => (inner.trim().toLowerCase() === wanted ? `[[${to}]]` : whole));
+  const wanted = titleKey(from);
+  return body.replace(WIKILINK, (whole, inner: string) => (titleKey(inner) === wanted ? `[[${to}]]` : whole));
 }
 
 /** What each note links to (ids) and what it links to that no note has. Titles resolve within a note's own campaign. */
@@ -107,9 +109,9 @@ export function summarizeNotes(notes: readonly StoryNote[]): StorySummary[] {
 
 /** The notes in the same campaign whose body links to `note`. */
 export function backlinksOf(notes: readonly StoryNote[], note: StoryNote): { id: string; title: string }[] {
-  const wanted = note.title.toLowerCase();
+  const wanted = titleKey(note.title);
   return notes
-    .filter((other) => other.id !== note.id && other.campaignId === note.campaignId && extractLinks(other.body).some((title) => title.toLowerCase() === wanted))
+    .filter((other) => other.id !== note.id && other.campaignId === note.campaignId && extractLinks(other.body).some((title) => titleKey(title) === wanted))
     .map((other) => ({ id: other.id, title: other.title }));
 }
 
@@ -192,8 +194,8 @@ export class StoryRepo {
     const at = this.now().toISOString();
     try {
       this.db
-        .prepare("INSERT INTO story_notes (id, campaign_id, title, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)")
-        .run(id, campaignId, value.title, value.type, JSON.stringify(value.tags), value.body, at, at);
+        .prepare("INSERT INTO story_notes (id, campaign_id, title, title_key, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)")
+        .run(id, campaignId, value.title, titleKey(value.title), value.type, JSON.stringify(value.tags), value.body, at, at);
     } catch (error) {
       if (isUnique(error)) return "duplicate";
       throw error;
@@ -210,8 +212,8 @@ export class StoryRepo {
     try {
       return this.transaction(() => {
         const result = this.db
-          .prepare("UPDATE story_notes SET title = ?, type = ?, tags = ?, body = ?, campaign_id = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
-          .run(value.title, value.type, JSON.stringify(value.tags), value.body, campaignId, at, id, version);
+          .prepare("UPDATE story_notes SET title = ?, title_key = ?, type = ?, tags = ?, body = ?, campaign_id = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+          .run(value.title, titleKey(value.title), value.type, JSON.stringify(value.tags), value.body, campaignId, at, id, version);
         if (Number(result.changes) === 0) return "conflict";
         if (value.title !== current.title) {
           const scope = campaignClause(campaignId ?? "unassigned");
@@ -240,9 +242,9 @@ export class StoryRepo {
       const scope = campaignClause(campaignId ?? "unassigned");
       const { n } = this.db.prepare(`SELECT COUNT(*) AS n FROM story_notes WHERE ${scope.sql}`).get(...scope.args) as { n: number };
       if (Number(n) > 0) return 0;
-      const insert = this.db.prepare("INSERT INTO story_notes (id, campaign_id, title, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, ?, '[]', ?, 1, ?, ?)");
+      const insert = this.db.prepare("INSERT INTO story_notes (id, campaign_id, title, title_key, type, tags, body, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, '[]', ?, 1, ?, ?)");
       const at = this.now().toISOString();
-      for (const starter of STARTER_NOTES) insert.run(this.newId(), campaignId, starter.title, starter.type, starter.body, at, at);
+      for (const starter of STARTER_NOTES) insert.run(this.newId(), campaignId, starter.title, titleKey(starter.title), starter.type, starter.body, at, at);
       return STARTER_NOTES.length;
     });
   }

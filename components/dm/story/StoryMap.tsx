@@ -83,7 +83,7 @@ export function StoryMap({ notes }: { notes: StorySummary[] }) {
           </div>
           <div className="space-y-5 p-4">
             {detail ? (
-              detail.note.body.trim() ? <StoryBody body={detail.note.body} resolve={makeResolver(notes, detail.note.campaignId)} /> : <p className="text-sm text-muted">This note is empty.</p>
+              detail.note.body.trim() ? <StoryBody body={detail.note.body} resolve={makeResolver(notes, detail.note.campaignId)} campaignId={detail.note.campaignId} /> : <p className="text-sm text-muted">This note is empty.</p>
             ) : (
               <p className="text-sm text-muted">Loading…</p>
             )}

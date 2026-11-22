@@ -8,7 +8,7 @@ import { Badge, Button, EmptyState } from "@/components/ui";
 import { useDmDefaultCampaign } from "@/lib/campaign/useSelection";
 import { dm, DmError } from "@/lib/dm/client";
 import { NOTE_TYPES, type StorySummary } from "@/lib/dm/story";
-import { countByType, missingTitles } from "./helpers";
+import { countByType, missingTitles, newNoteHref } from "./helpers";
 import { TYPE_COLOR, TYPE_LABEL } from "./types";
 
 function StarterButton() {
@@ -91,9 +91,9 @@ export function StoryOverview({ notes }: { notes: StorySummary[] }) {
             <p className="text-sm text-muted">Every link points at a note. Nice.</p>
           ) : (
             <ul className="space-y-1.5">
-              {missing.map(({ title, count }) => (
-                <li key={title}>
-                  <PortalLink href={`/dm/story/notes/new?title=${encodeURIComponent(title)}`} className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 hover:bg-surface-2">
+              {missing.map(({ title, campaignId, count }) => (
+                <li key={`${campaignId ?? ""}|${title}`}>
+                  <PortalLink href={newNoteHref(title, campaignId)} className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 hover:bg-surface-2">
                     <span className="truncate text-warn">{title}</span>
                     <Badge tone="warn">linked {count}×</Badge>
                   </PortalLink>
