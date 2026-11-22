@@ -12,6 +12,8 @@ import { inDemo, withBase } from "@/lib/demo/base";
 import { DmError } from "@/lib/dm/client";
 import type { SheetSummary, SheetView } from "@/lib/sheets/access";
 import { sheets } from "@/lib/sheets/client";
+import { PASSIVES, PASSIVE_LABELS, shownPassives, togglePassive } from "@/lib/sheets/passives";
+import { useLocalValue } from "@/lib/useLocalValue";
 
 /**
  * A campaign's sheets: a player's own, or every one for whoever manages them.
@@ -39,6 +41,9 @@ export function SheetListView({
   const [edition, setEdition] = useState<"2014" | "2024">("2024");
   const [owner, setOwner] = useState("");
   const [busy, setBusy] = useState(false);
+  // Which passive scores the cards show: a DM's choice, remembered on this device.
+  const [storedPassives, setStoredPassives] = useLocalValue("portal.party.passives");
+  const passives = shownPassives(storedPassives);
 
   async function create() {
     setBusy(true);
@@ -69,6 +74,16 @@ export function SheetListView({
         </PortalLink>
       ) : null}
       {list.isError ? <Notice tone="danger">Could not load the sheets.</Notice> : null}
+      {manager && (list.data?.length ?? 0) > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Passive scores shown on the cards">
+          <span className="text-muted">Passive scores on the cards</span>
+          {PASSIVES.map((passive) => (
+            <Button key={passive} size="sm" variant={passives.includes(passive) ? "primary" : "secondary"} aria-pressed={passives.includes(passive)} onClick={() => setStoredPassives(togglePassive(passives, passive))}>
+              {PASSIVE_LABELS[passive]}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       {list.data && list.data.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-border py-6">
           <EmptyState icon={UserRound} title="No characters yet">
@@ -99,6 +114,13 @@ export function SheetListView({
                     <span className="inline-flex items-center gap-1">
                       <Shield className="size-3.5" aria-hidden /> {sheet.ac}
                     </span>
+                    {manager
+                      ? passives.map((passive) => (
+                          <span key={passive} className="inline-flex items-center gap-1 text-muted" title={`Passive ${PASSIVE_LABELS[passive]}`}>
+                            {PASSIVE_LABELS[passive].slice(0, 3)} <span className="font-medium text-text">{sheet.passive[passive]}</span>
+                          </span>
+                        ))
+                      : null}
                     {sheet.conditions.map((c) => (
                       <Badge key={c} tone="warn">
                         {c}
