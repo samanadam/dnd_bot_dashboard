@@ -30,6 +30,8 @@ export type StoredSheet = {
   dmNotes: string;
   portrait: string | null;
   nameSync: "ok" | "pending";
+  /** Mirrored from D&D Beyond: written only by the sync (see lib/ddb). */
+  synced: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -91,6 +93,7 @@ export class SheetRepo {
       dmNotes: row.dm_notes,
       portrait: row.portrait,
       nameSync: row.name_sync === "pending" ? "pending" : "ok",
+      synced: this.isSynced(row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

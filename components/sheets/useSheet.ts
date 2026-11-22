@@ -68,6 +68,8 @@ export function useSheet(initial: SheetView) {
 
   const update = useCallback(
     (change: (draft: SheetBody) => SheetBody) => {
+      // A sheet mirrored from D&D Beyond is changed there, never here.
+      if (view.synced) return;
       const next = change(structuredClone(latest.current));
       latest.current = next;
       setBody(next);
@@ -76,7 +78,7 @@ export function useSheet(initial: SheetView) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void flush(), 800);
     },
-    [flush],
+    [flush, view.synced],
   );
 
   const acceptTheirs = useCallback(() => {
@@ -100,6 +102,10 @@ export function useSheet(initial: SheetView) {
 
   const apply = useCallback(
     async (ops: Op[]): Promise<OpResult[] | null> => {
+      if (view.synced) {
+        toast("danger", "This sheet is synced from D&D Beyond. Change it there.");
+        return null;
+      }
       const before = vitals;
       if (!ops.some((op) => SERVER_ONLY.has(op.op))) {
         const local = applyOps(before, ops, { body: latest.current, edition: view.edition, rng: secureRng, spell: () => null });
@@ -123,7 +129,7 @@ export function useSheet(initial: SheetView) {
         inflightOps.current -= 1;
       }
     },
-    [initial.id, toast, view.edition, vitals],
+    [initial.id, toast, view.edition, view.synced, vitals],
   );
 
   // Poll vitals: quickly while the tab is visible, slowly while hidden.

@@ -97,6 +97,7 @@ export function demoSheets(now: number, campaignId: string): StoredSheet[] {
       dmNotes: "The master is alive, in the Guild's lowest vault.",
       portrait: null,
       nameSync: "ok",
+      synced: false,
       createdAt: at,
       updatedAt: at,
     };
