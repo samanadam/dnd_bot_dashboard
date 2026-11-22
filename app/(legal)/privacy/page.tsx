@@ -46,6 +46,12 @@ export default function PrivacyPage() {
             "Contract",
           ],
           [
+            "Your D&D Beyond character (name, class, abilities, hit points, spell slots, conditions, armor and the like) and the dice results of rolls made in a D&D Beyond campaign, plus a pairing token",
+            "The Portal D&D Beyond Sync browser extension, only if you install and pair it (see section 12)",
+            "Show your character sheet in the Portal live, and replay your rolls with the Portal dice",
+            "Consent (you install and pair the extension)",
+          ],
+          [
             "Your Discord id sent to the recorder bot",
             "The Portal, when your active sheet changes, when a battle is shown and when your turn starts",
             "Name your character in transcripts, let /init roll from your sheet, mention you when your turn starts (if the campaign turns that on)",
@@ -152,6 +158,22 @@ export default function PrivacyPage() {
       <p>
         If we change how data is handled (for example by adding payments or a new provider) we will update this page and its date, and ask for consent again where the law requires it. See also the <Link href="/terms">terms</Link> and the <Link href="/cookies">cookie policy</Link>.
       </p>
+      <h2>12. Browser extension (Portal D&amp;D Beyond Sync)</h2>
+      <p>
+        The optional extension reads your character from the D&amp;D Beyond page you have open, using your own signed-in D&amp;D Beyond session, and sends it to this Portal. It works only on dndbeyond.com character pages and on the Portal address you enter.
+      </p>
+      <ul>
+        <li>
+          <strong>What is sent to the Portal:</strong> the character data D&amp;D Beyond shows on your sheet, the dice results of campaign rolls on that page, and the pairing token. Nothing is sent anywhere else, and the extension has no analytics or advertising.
+        </li>
+        <li>
+          <strong>What stays in your browser:</strong> the Portal address, the pairing token and sync status are kept in the extension&rsquo;s local storage. Your D&amp;D Beyond password and sign-in are never read, stored or sent. D&amp;D Beyond&rsquo;s short-lived access token stays in the page&rsquo;s memory.
+        </li>
+        <li>
+          <strong>Control:</strong> a token is tied to one person and one campaign. Revoke it in Settings, D&amp;D Beyond sync, and the extension stops at once. Removing the extension stops everything. The synced sheet stays in the Portal until a DM deletes it; ask the operator to remove it sooner.
+        </li>
+        <li>The extension never changes anything on D&amp;D Beyond.</li>
+      </ul>
     </LegalDoc>
   );
 }
