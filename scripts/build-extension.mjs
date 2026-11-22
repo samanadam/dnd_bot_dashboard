@@ -1,7 +1,7 @@
 // Bundles the browser extension into extension/dist (load that folder unpacked in Chrome or Edge).
 // The portal's own code (the dice scene, skins) is bundled in, so the extension and the portal share it.
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 const out = "extension/dist";
 rmSync(out, { recursive: true, force: true });
@@ -23,5 +23,13 @@ await build({
   logLevel: "info",
 });
 
-copyFileSync("extension/manifest.json", `${out}/manifest.json`);
+const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
+// STORE_PORTAL=https://your.portal builds the store version: it may only ask for that one site,
+// instead of any https site (which store review would question).
+if (process.env.STORE_PORTAL) {
+  const origin = new URL(process.env.STORE_PORTAL).origin;
+  manifest.optional_host_permissions = [`${origin}/*`];
+}
+writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2));
 copyFileSync("extension/src/popup.html", `${out}/popup.html`);
+cpSync("extension/icons", `${out}/icons`, { recursive: true, filter: (src) => !src.endsWith(".svg") });
