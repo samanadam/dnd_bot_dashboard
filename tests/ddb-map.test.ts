@@ -287,3 +287,224 @@ describe("mapCharacter features and feats", () => {
     }
   });
 });
+
+describe("mapCharacter the rest of the sheet", () => {
+  type Raw = { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+  const base = (): Raw => structuredClone(caster) as Raw;
+  const mod = (type: string, subType: string, friendlySubtypeName: string, extra: Record<string, unknown> = {}) => ({ type, subType, friendlySubtypeName, isGranted: true, restriction: "", ...extra });
+
+  it("copies the story: personality, ideals, bonds, flaws, appearance, backstory, allies, possessions and notes", () => {
+    const raw = base();
+    Object.assign(raw.data, {
+      traits: { personalityTraits: "Curious", ideals: "Freedom", bonds: "My sister", flaws: "<p>Greedy</p>", appearance: "Tall" },
+      notes: { allies: "Lyra", organizations: "The Guild", enemies: "Baron Vex", backstory: "<p>Born <b>far</b> away.</p>", personalPossessions: "A locket", otherHoldings: "A house", otherNotes: "Remember the key" },
+      age: 21, hair: "white", eyes: "blue", skin: "pale", height: "182", weight: 70, faith: "Mystra",
+    });
+    const m = mapped(raw);
+    expect(m.body.backstory).toMatchObject({
+      personalityTraits: "Curious",
+      ideals: "Freedom",
+      bonds: "My sister",
+      flaws: "Greedy",
+      appearance: "Tall",
+      backstory: "Born **far** away.",
+      alliesAndOrganizations: "Allies: Lyra\nOrganizations: The Guild\nEnemies: Baron Vex",
+      treasure: "A locket\nA house",
+    });
+    expect(m.body.notes).toBe("Remember the key");
+    expect(m.body.identity).toMatchObject({ age: "21", hair: "white", eyes: "blue", skin: "pale", height: "182", weight: "70", faith: "Mystra" });
+  });
+
+  it("leaves the story empty when the fields are null, numbers or objects", () => {
+    const raw = base();
+    Object.assign(raw.data, { traits: { ideals: null, bonds: 5 }, notes: "junk", age: { a: 1 }, hair: null });
+    const m = mapped(raw);
+    expect(m.body.backstory.ideals).toBe("");
+    expect(m.body.backstory.bonds).toBe("");
+    expect(m.body.notes).toBe("");
+    expect(m.body.identity.age).toBe("");
+  });
+
+  it("copies languages, armor, weapon and tool proficiencies, and jack of all trades", () => {
+    const raw = base();
+    raw.data.modifiers = {
+      race: [mod("language", "common", "Common"), mod("language", "elvish", "Elvish", { isGranted: false })],
+      class: [mod("proficiency", "light-armor", "Light Armor"), mod("proficiency", "shields", "Shields"), mod("proficiency", "simple-weapons", "Simple Weapons"), mod("proficiency", "longsword", "Longsword"), mod("proficiency", "thieves-tools", "Thieves' Tools"), mod("proficiency", "arcana", "Arcana"), mod("proficiency", "dexterity-saving-throws", "Dexterity Saving Throws"), mod("half-proficiency", "ability-checks", "Ability Checks")],
+    };
+    const m = mapped(raw);
+    expect(m.body.proficiencies.languages).toEqual(["Common", "Elvish"]);
+    expect(m.body.proficiencies.armor).toEqual(["Light Armor", "Shields"]);
+    expect(m.body.proficiencies.weapons).toEqual(["Simple Weapons", "Longsword"]);
+    expect(m.body.proficiencies.tools).toEqual(["Thieves' Tools"]);
+    expect(m.body.proficiencies.jackOfAllTrades).toBe(true);
+  });
+
+  it("copies senses, speeds, resistances, immunities and vulnerabilities", () => {
+    const raw = base();
+    raw.data.race = { fullName: "High Elf", weightSpeeds: { normal: { walk: 35, fly: 0, swim: 20, climb: 0, burrow: 0 } } };
+    raw.data.modifiers = {
+      race: [mod("set-base", "darkvision", "Darkvision", { value: 60 }), mod("sense", "truesight", "Truesight", { value: 30 }), mod("resistance", "fire", "Fire"), mod("resistance", "cold", "Cold", { restriction: "from nonmagical attacks" }), mod("immunity", "poison", "Poison"), mod("vulnerability", "radiant", "Radiant"), mod("set", "innate-speed-flying", "Innate Speed (Flying)", { value: 40 })],
+    };
+    const m = mapped(raw);
+    expect(m.body.combat.senses).toBe("Darkvision 60 ft., Truesight 30 ft.");
+    expect(m.body.combat.speed).toMatchObject({ walk: 35, swim: 20, fly: 40 });
+    expect(m.body.combat.resistances).toEqual(["Fire", "Cold (from nonmagical attacks)"]);
+    expect(m.body.combat.immunities).toEqual(["Poison"]);
+    expect(m.body.combat.vulnerabilities).toEqual(["Radiant"]);
+  });
+
+  it("links SRD spells to the class and prepared state, and lists the others in the notes", () => {
+    const raw = base();
+    const classId = (raw.data.classes[0] as { id: number }).id;
+    const spell = (name: string, level: number, extra: Record<string, unknown> = {}) => ({ definition: { name, level }, prepared: false, alwaysPrepared: false, countsAsKnownSpell: true, ...extra });
+    raw.data.classSpells = [{ characterClassId: classId, spells: [spell("Magic Missile", 1, { prepared: true }), spell("Mage Hand", 0), spell("Shield", 1, { alwaysPrepared: true }), spell("Magic Missile", 1), spell("Spellfire Flare", 1, { prepared: true })] }];
+    raw.data.spells = { race: [spell("Message", 0)], class: null };
+    raw.data.notes = { otherNotes: "My note" };
+    const m = mapped(raw);
+    const entries = m.body.spellcasting.entries;
+    const named = (slug: string) => entries.filter((e) => e.ref.source === "srd" && e.ref.slug === slug);
+    expect(named("magic-missile")).toHaveLength(1);
+    expect(named("magic-missile")[0]).toMatchObject({ status: "prepared", classId: m.body.classes[0].id });
+    expect(named("mage-hand")[0].status).toBe("known");
+    expect(named("shield")[0].status).toBe("always");
+    expect(named("message")[0]).toMatchObject({ status: "always", classId: null });
+    expect(entries.some((e) => e.ref.source === "srd" && e.ref.slug.includes("spellfire"))).toBe(false);
+    expect(m.body.notes).toBe("My note\n\nSpells not in the SRD (not linked): Spellfire Flare (level 1, prepared)");
+  });
+
+  it("copes with spell data that is not lists", () => {
+    for (const bad of ["junk", 5, null, { a: 1 }]) {
+      const raw = base();
+      Object.assign(raw.data, { classSpells: bad, spells: bad, traits: bad, modifiers: bad });
+      const m = mapped(raw);
+      expect(m.body.spellcasting.entries).toEqual([]);
+    }
+  });
+});
+
+describe("mapCharacter weapon attacks", () => {
+  const weapon = (id: number, name: string, extra: Record<string, unknown> = {}, equipped = true) => ({
+    id,
+    equipped,
+    definition: { id: id + 1000, name, filterType: "Weapon", categoryId: 2, attackType: 1, range: 5, longRange: 5, damage: { diceString: "1d8" }, damageType: "Slashing", properties: [{ name: "Versatile" }], type: "Longsword", grantedModifiers: [], ...extra },
+  });
+  const run = (inventory: unknown[], modifiers: unknown = {}) => {
+    const raw = structuredClone(caster) as { data: Record<string, unknown> };
+    raw.data.inventory = inventory;
+    raw.data.modifiers = modifiers;
+    return mapped(raw).body.combat.attacks;
+  };
+
+  it("lists equipped weapons with dice, damage type, range, properties and the linked item", () => {
+    const attacks = run([weapon(7, "Longsword"), weapon(8, "Dagger", { attackType: 1, range: 20, longRange: 60, damage: { diceString: "1d4" }, damageType: "Piercing", properties: [{ name: "Finesse" }, { name: "Thrown" }], type: "Dagger" }, false)], { class: [{ type: "proficiency", subType: "martial-weapons" }] });
+    expect(attacks).toHaveLength(1);
+    expect(attacks[0]).toMatchObject({ id: "w7", name: "Longsword", ability: "str", proficient: true, toHitBonus: 0, range: "5 ft.", properties: "Versatile", itemId: "d7" });
+    expect(attacks[0].damage).toEqual([{ roll: "1d8", type: "Slashing", addAbility: true }]);
+  });
+
+  it("uses the better of strength and dexterity for finesse, dexterity for ranged, and the magic bonus", () => {
+    const attacks = run([
+      weapon(1, "Rapier", { properties: [{ name: "Finesse" }], type: "Rapier" }),
+      weapon(2, "Longbow", { attackType: 2, range: 150, longRange: 600, type: "Longbow", damage: { diceString: "1d8" }, damageType: "Piercing", properties: [{ name: "Heavy" }] }),
+      weapon(3, "Sword +2", { grantedModifiers: [{ type: "bonus", subType: "magic", value: 2 }] }),
+    ]);
+    expect(attacks.map((a) => [a.ability, a.range, a.toHitBonus, a.proficient])).toEqual([
+      ["best-str-dex", "5 ft.", 0, false],
+      ["dex", "150/600 ft.", 0, false],
+      ["str", "5 ft.", 2, false],
+    ]);
+  });
+
+  it("skips weapons it cannot read and never throws", () => {
+    const attacks = run([weapon(1, "Odd", { damage: { diceString: "banana" } }), { id: 2, equipped: true, definition: "junk" }, weapon(3, "", {}), weapon(4, "Fine")]);
+    expect(attacks.map((a) => a.name)).toEqual(["Odd", "Fine"]);
+    expect(attacks[0].damage).toEqual([]);
+  });
+});
+
+describe("mapCharacter limited-use resources", () => {
+  const action = (componentId: number, name: string, limitedUse: Record<string, unknown> | null) => ({ componentId, name, limitedUse });
+  const raw = () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = [{ definition: { id: 10, name: "Arcane Recovery", requiredLevel: 1, description: "" } }];
+    return r;
+  };
+
+  it("turns limited-use actions into resources, links the feature, and copies the uses spent", () => {
+    const r = raw();
+    r.data.actions = {
+      class: [action(10, "Arcane Recovery", { resetType: 2, numberUsed: 1, maxUses: 3 }), action(11, "Ki", { resetType: 1, numberUsed: 0, maxUses: 2 }), action(12, "Dawn thing", { resetType: 3, numberUsed: 0, maxUses: 1 })],
+      race: [action(13, "No limit", null), action(14, "Zero", { resetType: 2, numberUsed: 0, maxUses: 0 })],
+    };
+    const m = mapped(r);
+    expect(m.body.resources.map((x) => [x.name, x.max, x.reset, x.resetAmount])).toEqual([
+      ["Arcane Recovery", 3, "long", "all"],
+      ["Ki", 2, "short", "all"],
+      ["Dawn thing", 1, "dawn", "all"],
+    ]);
+    const id = m.body.resources[0].id;
+    expect(m.body.features.find((f) => f.name === "Arcane Recovery")?.resourceId).toBe(id);
+    expect(m.vitals.resourcesUsed).toEqual({ [id]: 1 });
+  });
+
+  it("never throws on junk and caps at 30", () => {
+    for (const bad of ["x", 5, null, { class: "x" }]) {
+      const r = raw();
+      r.data.actions = bad;
+      expect(mapped(r).body.resources).toEqual([]);
+    }
+    const r = raw();
+    r.data.actions = { class: Array.from({ length: 40 }, (_, i) => action(100 + i, "R" + i, { resetType: 2, numberUsed: 0, maxUses: 1 })) };
+    expect(mapped(r).body.resources).toHaveLength(30);
+  });
+});
+
+describe("mapCharacter hit dice and concentration", () => {
+  it("copies the hit dice spent, per die size, and does not touch concentration", () => {
+    const r = structuredClone(multiclass) as { data: { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].hitDiceUsed = 2;
+    r.data.classes[1].hitDiceUsed = 1;
+    const m = mapped(r);
+    const dice = m.body.classes.map((c) => c.hitDie);
+    const spent = m.vitals.hitDiceSpent!;
+    for (const die of [6, 8, 10, 12] as const) expect(spent[die]).toBe(dice.reduce((n, d, i) => n + (d === die ? [2, 1][i] : 0), 0));
+    expect("concentration" in m.vitals).toBe(false);
+  });
+});
+
+describe("mapCharacter size", () => {
+  it("shortens long descriptions when the whole sheet would pass 1 MB, and says so", () => {
+    const r = structuredClone(caster) as { data: { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = Array.from({ length: 100 }, (_, i) => ({ definition: { id: i + 1, name: "F" + i, requiredLevel: 1, description: "<p>" + "x".repeat(19_000) + "</p>" } }));
+    const m = mapped(r);
+    expect(JSON.stringify(m.body).length).toBeLessThan(1_000_000);
+    expect(m.body.features).toHaveLength(100);
+    expect(m.warnings.some((w) => /shortened/.test(w))).toBe(true);
+  });
+});
+
+describe("mapCharacter uses that depend on a stat, and magic weapons", () => {
+  it("adds the ability modifier (and proficiency bonus) to the uses of a limited feature", () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> & { classes: Array<Record<string, unknown>> } };
+    r.data.classes[0].classFeatures = [];
+    const wisdom = (r.data.stats as Array<{ id: number; value: number }>).find((x) => x.id === 5)!;
+    wisdom.value = 16;
+    r.data.actions = {
+      class: [
+        { componentId: 1, name: "By stat", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0, statModifierUsesId: 5, operator: 1, useProficiencyBonus: false } },
+        { componentId: 2, name: "By prof", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0, useProficiencyBonus: true, proficiencyBonusOperator: 1 } },
+        { componentId: 3, name: "Neither", limitedUse: { resetType: 2, numberUsed: 0, maxUses: 0 } },
+      ],
+    };
+    const got = Object.fromEntries(mapped(r).body.resources.map((x) => [x.name, x.max]));
+    expect(got["By stat"]).toBeGreaterThanOrEqual(3);
+    expect(got["By prof"]).toBeGreaterThanOrEqual(2);
+    expect(got["Neither"]).toBeUndefined();
+  });
+
+  it("notes the magic damage bonus of a weapon", () => {
+    const r = structuredClone(caster) as { data: Record<string, unknown> };
+    r.data.inventory = [{ id: 1, equipped: true, definition: { id: 9, name: "Sword +2", filterType: "Weapon", attackType: 1, range: 5, damage: { diceString: "1d8" }, damageType: "Slashing", properties: [], grantedModifiers: [{ type: "bonus", subType: "magic", value: 2 }] } }];
+    expect(mapped(r).body.combat.attacks[0]).toMatchObject({ toHitBonus: 2, notes: "Magic +2: add 2 to the damage too." });
+  });
+});

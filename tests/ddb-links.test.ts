@@ -43,14 +43,14 @@ describe("synced sheets", () => {
   it("saveSynced replaces body and vitals, bumps both versions, keeps untouched vitals", () => {
     const { db, sheets, links, sheet } = setup();
     links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
-    db.prepare("UPDATE characters SET vitals = ? WHERE id = ?").run(JSON.stringify({ ...sheet.vitals, resourcesUsed: { r1: 1 } }), sheet.id);
+    db.prepare("UPDATE characters SET vitals = ? WHERE id = ?").run(JSON.stringify({ ...sheet.vitals, maxHpAdjust: 5 }), sheet.id);
     const m = ok(caster);
     const saved = sheets.saveSynced(sheet.id, m.body, m.vitals, m.edition)!;
     expect(saved.version).toBe(sheet.version + 1);
     expect(saved.vitalsVersion).toBe(sheet.vitalsVersion + 1);
     expect(saved.vitals.hp).toBe(m.vitals.hp);
     expect(saved.vitals.slotsSpent.slice(0, 2)).toEqual([2, 1]);
-    expect(saved.vitals.resourcesUsed).toEqual({ r1: 1 });
+    expect(saved.vitals.maxHpAdjust).toBe(5);
     expect(saved.edition).toBe(m.edition);
     expect(saved.name).toBe("Aria Test");
   });
@@ -152,5 +152,17 @@ describe("campaigns of synced characters", () => {
     const { sheets, sheet } = setup();
     expect(sheet.active).toBe(true);
     expect(sheets.moveToCampaign(sheet.id, TYR)!.active).toBe(true);
+  });
+});
+
+describe("waiting characters are bounded", () => {
+  it("keeps at most 50 per player, but still updates one already waiting", () => {
+    const { links } = setup();
+    const camp = { id: "1", name: "C" };
+    for (let i = 0; i < 60; i++) links.setPending(ARIA, String(1000 + i), "N" + i, camp, "2026-11-22T10:00:00.000Z");
+    expect(links.pending(ARIA)).toHaveLength(50);
+    links.setPending(ARIA, "1000", "Renamed", camp, "2026-11-22T10:05:00.000Z");
+    expect(links.pending(ARIA).find((p) => p.ddbCharacterId === "1000")?.name).toBe("Renamed");
+    expect(links.pending(ARIA)).toHaveLength(50);
   });
 });

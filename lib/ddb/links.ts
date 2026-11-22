@@ -18,6 +18,8 @@ export type LinkStatus = {
 };
 export type PendingCharacter = { ddbCharacterId: string; name: string; ddbCampaignId: string; ddbCampaignName: string; seenAt: string };
 
+const MAX_PENDING = 50;
+
 export class DdbLinkRepo {
   constructor(
     private readonly db: DatabaseSync,
@@ -72,6 +74,9 @@ export class DdbLinkRepo {
   }
 
   setPending(userId: string, ddbCharacterId: string, name: string, ddbCampaign: DdbCampaign, seenAt: string): void {
+    const waiting = Number((this.db.prepare("SELECT COUNT(*) AS n FROM ddb_pending WHERE user_id = ?").get(userId) as { n: number }).n);
+    const known = this.db.prepare("SELECT 1 AS x FROM ddb_pending WHERE user_id = ? AND ddb_character_id = ?").get(userId, ddbCharacterId);
+    if (waiting >= MAX_PENDING && !known) return;
     this.db
       .prepare(
         `INSERT INTO ddb_pending (user_id, ddb_character_id, name, ddb_campaign_id, ddb_campaign_name, seen_at) VALUES (?, ?, ?, ?, ?, ?)

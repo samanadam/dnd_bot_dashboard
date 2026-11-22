@@ -31,6 +31,8 @@ function setup() {
     campaignsOf: async () => state.campaigns,
     limiter: new RateLimiter(),
     rollLimiter: new RateLimiter(),
+    syncLimiter: new RateLimiter(),
+    badTokenLimiter: new RateLimiter(),
     now: () => clock.now,
     syncName: async (campaignId, userId, name) => {
       names.push([campaignId, userId, name]);
@@ -58,6 +60,15 @@ function post(token: string | null, body: unknown, path = "sheets/sync") {
 const payload = (character: unknown, extra: Record<string, unknown> = {}) => ({ ddbCharacterId: "100000002", capturedAt: T0, readOnly: false, character, ...extra });
 
 describe("bearer token", () => {
+  it("slows down a client that keeps sending wrong tokens, without blocking real ones", async () => {
+    const { deps, token } = setup();
+    const bad = () => new Request("https://portal.example/api/ext/ping", { headers: { authorization: "Bearer ptx_" + "a".repeat(43), "x-forwarded-for": "203.0.113.9" } });
+    for (let i = 0; i < 30; i++) expect((await extPing(deps).GET(bad())).status).toBe(401);
+    expect((await extPing(deps).GET(bad())).status).toBe(429);
+    const real = new Request("https://portal.example/api/ext/ping", { headers: { authorization: "Bearer " + token, "x-forwarded-for": "203.0.113.9" } });
+    expect((await extPing(deps).GET(real)).status).toBe(200);
+  });
+
   it("answers 401 without a token, with a wrong one, and after revoking", async () => {
     const { deps, tokens, token } = setup();
     expect((await extPing(deps).GET(new Request("https://portal.example/api/ext/ping"))).status).toBe(401);
@@ -161,6 +172,12 @@ describe("rolls", () => {
     const { deps, token, announced } = setup();
     expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(404);
     expect(announced).toEqual([]);
+  });
+
+  it("limits a flood of syncs", async () => {
+    const { deps, token } = setup();
+    for (let i = 0; i < 20; i++) expect((await extSync(deps).POST(post(token, payload(caster)))).status).toBe(200);
+    expect((await extSync(deps).POST(post(token, payload(caster)))).status).toBe(429);
   });
 
   it("limits a flood of rolls", async () => {
