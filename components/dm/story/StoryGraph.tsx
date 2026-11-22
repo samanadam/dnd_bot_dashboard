@@ -10,6 +10,8 @@ type Props = {
   notes: GraphNote[];
   selected: string | null;
   query?: string;
+  /** Pixels at the right edge covered by a side panel, so a selected node stays in view. */
+  inset?: number;
   onSelect: (id: string | null) => void;
 };
 
@@ -22,14 +24,14 @@ function seeded() {
 }
 
 /** The story map: a note is a node, a [[link]] an edge. Drag, pan, zoom; click to select. */
-export function StoryGraph({ notes, selected, query = "", onSelect }: Props) {
+export function StoryGraph({ notes, selected, query = "", inset = 0, onSelect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const live = useRef({ selected, query, onSelect });
+  const live = useRef({ selected, query, inset, onSelect });
   const kick = useRef<() => void>(() => {});
   const focus = useRef<(id: string) => void>(() => {});
 
   useEffect(() => {
-    live.current = { selected, query, onSelect };
+    live.current = { selected, query, inset, onSelect };
     kick.current();
   });
   useEffect(() => {
@@ -114,7 +116,8 @@ export function StoryGraph({ notes, selected, query = "", onSelect }: Props) {
     let hover: string | null = null;
     let fitted = false, touched = false;
 
-    const toWorld = (sx: number, sy: number) => ({ x: (sx - w / 2 - cam.x) / cam.k, y: (sy - h / 2 - cam.y) / cam.k });
+    const cx = () => (w - live.current.inset) / 2;
+    const toWorld = (sx: number, sy: number) => ({ x: (sx - cx() - cam.x) / cam.k, y: (sy - h / 2 - cam.y) / cam.k });
     const fit = () => {
       if (nodes.length === 0) return;
       const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
@@ -161,7 +164,7 @@ export function StoryGraph({ notes, selected, query = "", onSelect }: Props) {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      ctx.setTransform(dpr * cam.k, 0, 0, dpr * cam.k, dpr * (w / 2 + cam.x), dpr * (h / 2 + cam.y));
+      ctx.setTransform(dpr * cam.k, 0, 0, dpr * cam.k, dpr * (cx() + cam.x), dpr * (h / 2 + cam.y));
       const dim = (n: Sim) => (needle && !n.title.toLowerCase().includes(needle) ? 0.15 : 1);
 
       for (const [a, b] of links) {
@@ -237,7 +240,7 @@ export function StoryGraph({ notes, selected, query = "", onSelect }: Props) {
     const zoomAt = (sx: number, sy: number, factor: number) => {
       const before = toWorld(sx, sy);
       cam.k = Math.min(3.2, Math.max(0.2, cam.k * factor));
-      cam.x = sx - w / 2 - before.x * cam.k;
+      cam.x = sx - cx() - before.x * cam.k;
       cam.y = sy - h / 2 - before.y * cam.k;
       camGoal = null;
       dirty = true;

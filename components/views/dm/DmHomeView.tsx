@@ -1,4 +1,4 @@
-import { AudioLines, BookOpen, ChevronRight, Dices, Gem, Map as MapIcon, Plus, Swords, Users } from "lucide-react";
+import { AudioLines, BookOpen, ChevronRight, Dices, Gem, Map as MapIcon, Plus, ScrollText, Swords, Users } from "lucide-react";
 import { PortalLink } from "@/components/PortalLink";
 import { DmHeader, LinkButton } from "@/components/dm/DmHeader";
 import type { EncounterSummary } from "@/lib/dm/encounters";
@@ -22,16 +22,19 @@ export function DmHomeView({
   monsterCount,
   npcCount,
   areaCount,
+  storyCount,
 }: {
   encounters: EncounterSummary[];
   monsterCount: number;
   npcCount: number;
   areaCount: number;
+  storyCount?: number;
 }) {
   const tiles = [
     { href: "/dm/combat", icon: Swords, title: "Combat", body: "Initiative, turns, hit points and conditions.", stat: `${encounters.length} encounter${encounters.length === 1 ? "" : "s"}` },
     { href: "/dm/bestiary", icon: BookOpen, title: "Bestiary", body: "Every SRD monster plus the ones you add from your books.", stat: `${monsterCount} monsters` },
     { href: "/dm/areas", icon: MapIcon, title: "Areas", body: "The places of your campaign, with their battles and rewards.", stat: `${areaCount} area${areaCount === 1 ? "" : "s"}` },
+    { href: "/dm/story", icon: ScrollText, title: "Story", body: "Linked notes and a map of your plot, places, factions and secrets.", stat: storyCount === undefined ? "Notes and map" : `${storyCount} note${storyCount === 1 ? "" : "s"}` },
     { href: "/dm/items", icon: Gem, title: "Items", body: "SRD equipment and magic items, plus your own inventions.", stat: "SRD and custom" },
     { href: "/dm/npcs", icon: Users, title: "NPCs", body: "The people of your world, with stat blocks and secrets.", stat: `${npcCount} NPC${npcCount === 1 ? "" : "s"}` },
     { href: "/dm/dice", icon: Dices, title: "Dice", body: "Roll anything and send the result to Discord.", stat: "d4 to d100" },
