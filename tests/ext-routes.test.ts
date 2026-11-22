@@ -20,7 +20,9 @@ function setup() {
   users.upsert(ARIA, "Aria", null, []);
   const tokens = new ExtTokenRepo(db);
   const state = { plays: true };
+  const clock = { now: Date.parse(T1) + 1000 };
   const announced: Array<[unknown, string]> = [];
+  const names: Array<[string, string, string | null]> = [];
   const deps: ExtDeps = {
     tokens: () => tokens,
     links: () => new DdbLinkRepo(db),
@@ -29,13 +31,18 @@ function setup() {
     playsIn: async () => state.plays,
     limiter: new RateLimiter(),
     rollLimiter: new RateLimiter(),
+    now: () => clock.now,
+    syncName: async (campaignId, userId, name) => {
+      names.push([campaignId, userId, name]);
+      return true;
+    },
     announce: async (roll, userId) => {
       announced.push([roll, userId]);
       return true;
     },
   };
   const { token } = tokens.issue(ARIA, EMBER, "laptop");
-  return { db, deps, tokens, token, state, announced };
+  return { db, deps, tokens, token, state, announced, names, clock };
 }
 
 function post(token: string | null, body: unknown, path = "sheets/sync") {
@@ -111,7 +118,7 @@ describe("sheet sync", () => {
   it("keeps the last good sheet and records the error when D&D Beyond data is unreadable", async () => {
     const { deps, token } = setup();
     const { sheetId } = (await (await extSync(deps).POST(post(token, payload(caster)))).json()) as { sheetId: string };
-    const bad = await extSync(deps).POST(post(token, payload({ data: { name: "Aria Test", classes: [] } }, { capturedAt: T1 })));
+    const bad = await extSync(deps).POST(post(token, payload({ data: { name: "Aria Test", canEdit: true, classes: [] } }, { capturedAt: T1 })));
     expect(bad.status).toBe(422);
     expect(((await bad.json()) as { error: { code: string } }).error.code).toBe("unreadable");
     expect(deps.sheets().get(sheetId)!.vitals.hp).toBe(17);
@@ -163,5 +170,39 @@ describe("rolls", () => {
     expect((await extRolls(deps).POST(post(token, roll({ total: "many" }), "rolls"))).status).toBe(400);
     expect((await extRolls(deps).POST(post(token, roll({ label: "x".repeat(81) }), "rolls"))).status).toBe(400);
     expect((await extRolls(deps).POST(post(null, roll(), "rolls"))).status).toBe(401);
+  });
+});
+
+describe("trust", () => {
+  it("does not take the client's word that a page is editable", async () => {
+    const { deps, token, db } = setup();
+    const viewing = structuredClone(caster) as typeof caster & { data: { canEdit: boolean } };
+    viewing.data.canEdit = false;
+    const response = await extSync(deps).POST(post(token, payload(viewing)));
+    expect(response.status).toBe(422);
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe("read_only");
+    expect(Number((db.prepare("SELECT COUNT(*) AS n FROM characters").get() as { n: number }).n)).toBe(0);
+  });
+
+  it("never lets a clock that runs ahead freeze the sync", async () => {
+    const { deps, token, clock } = setup();
+    const first = (await (await extSync(deps).POST(post(token, payload(caster, { capturedAt: "2099-01-01T00:00:00.000Z" })))).json()) as { sheetId: string };
+    expect(deps.links().find(ARIA, "100000002")!.capturedAt <= new Date(Date.parse(T1) + 1000).toISOString()).toBe(true);
+    clock.now += 10_000;
+    const hurt = structuredClone(caster) as typeof caster & { data: { removedHitPoints: number } };
+    hurt.data.removedHitPoints = 7;
+    const next = await extSync(deps).POST(post(token, payload(hurt, { capturedAt: new Date(Date.parse(T1) + 5000).toISOString() })));
+    expect(((await next.json()) as { ignored?: boolean }).ignored).toBeUndefined();
+    expect(deps.sheets().get(first.sheetId)!.vitals.hp).toBe(10);
+  });
+
+  it("tells the bot the character name when a sheet is made and when it changes", async () => {
+    const { deps, token, names } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    expect(names).toEqual([[EMBER, ARIA, "Aria Test"]]);
+    const renamed = structuredClone(caster) as typeof caster & { data: { name: string } };
+    renamed.data.name = "Aria Moonwhisper";
+    await extSync(deps).POST(post(token, payload(renamed, { capturedAt: T1 })));
+    expect(names.at(-1)).toEqual([EMBER, ARIA, "Aria Moonwhisper"]);
   });
 });

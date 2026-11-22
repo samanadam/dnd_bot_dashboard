@@ -24,6 +24,9 @@ export type ExtDeps = {
   // Whether the user (by their last-seen roles) still plays in the campaign the token was made for.
   playsIn: (userId: string, campaignId: string) => Promise<boolean>;
   announce?: (roll: RollToAnnounce, userId: string) => Promise<boolean>;
+  // Tells the bot which character a player is in a campaign (null clears it). False on failure.
+  syncName?: (campaignId: string, userId: string, name: string | null) => Promise<boolean>;
+  now?: () => number;
   limiter?: RateLimiter;
   rollLimiter?: RateLimiter;
   log?: AuditLog;
@@ -32,6 +35,15 @@ export type ExtDeps = {
 export const MAX_SYNC_BYTES = 1024 * 1024;
 const REQUESTS: Limit = { max: 120, windowMs: 60_000 };
 const sharedLimiter = new RateLimiter();
+
+/** Keeps the bot's character name for this player in step with their active sheet, as the sheet routes do. */
+async function syncName(deps: ExtDeps, campaignId: string, userId: string): Promise<void> {
+  if (!deps.syncName) return;
+  const sheets = deps.sheets();
+  const active = sheets.activeFor(campaignId, userId);
+  const ok = await deps.syncName(campaignId, userId, active && active.status === "active" ? active.name : null).catch(() => false);
+  if (active) sheets.setNameSync(active.id, ok ? "ok" : "pending");
+}
 
 export type Bearer = { ok: true; tokenId: string; userId: string; campaignId: string } | { ok: false; response: Response };
 
@@ -73,10 +85,14 @@ export function extSync(deps: ExtDeps) {
       if (!body.ok) return body.response;
       const parsed = syncSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
-      const { ddbCharacterId, capturedAt, readOnly, character } = parsed.data;
+      const { ddbCharacterId, readOnly, character } = parsed.data;
+      // The page says whether it may be edited, and so does the data: believe neither alone.
+      const editable = (character as { data?: { canEdit?: unknown } } | null)?.data?.canEdit === true;
+      // A clock that runs ahead must not freeze the sync until the real time catches up.
+      const capturedAt = new Date(Math.min(Date.parse(parsed.data.capturedAt), deps.now?.() ?? Date.now())).toISOString();
 
       // A shared or read-only view is somebody else's character: never theirs to sync.
-      if (readOnly) return errorResponse(422, "read_only", "This D&D Beyond page is read-only. Open your own character.");
+      if (readOnly || !editable) return errorResponse(422, "read_only", "This D&D Beyond page is read-only. Open your own character.");
       if (!(await deps.playsIn(who.userId, who.campaignId))) return errorResponse(403, "not_in_campaign", "You no longer play in this campaign. Pair the extension again.");
 
       const links = deps.links();
@@ -93,9 +109,11 @@ export function extSync(deps: ExtDeps) {
       const { mapped } = result;
 
       if (link) {
+        const before = sheets.get(link.sheetId);
         const saved = sheets.saveSynced(link.sheetId, mapped.body, mapped.vitals, mapped.edition);
         if (!saved) return errorResponse(404, "not_found", "The synced sheet is gone.");
         links.touch(link.sheetId, capturedAt);
+        if (before && before.name !== saved.name) await syncName(deps, saved.campaignId, who.userId);
         deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
         return json({ sheetId: saved.id, created: false, warnings: mapped.warnings });
       }
@@ -116,6 +134,7 @@ export function extSync(deps: ExtDeps) {
         sheets.remove(created.id);
         return errorResponse(409, "conflict", "Another sync of this character is running. Try again.");
       }
+      await syncName(deps, who.campaignId, who.userId);
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
       return json({ sheetId: created.id, created: true, warnings: mapped.warnings });
     },

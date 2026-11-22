@@ -20,6 +20,12 @@ export function extDeps(): ExtDeps {
     sheets: () => new SheetRepo(getDatabase()),
     users: () => new UserRepo(getDatabase()),
     playsIn: async (userId, campaignId) => can(accessFor(userId, rolesOf(userId)), "play", campaignId),
+    syncName: async (campaignId, userId, name) => {
+      const result = name
+        ? await botServer("POST", `campaigns/${campaignId}/characters`, { body: { user_id: userId, character_name: name.slice(0, 40) }, userId })
+        : await botServer("POST", `campaigns/${campaignId}/characters/clear`, { body: { user_id: userId }, userId });
+      return result.ok;
+    },
     announce: async (roll, userId) => (await botServer("POST", "dice/announce", { body: { ...roll, origin: "sheet" }, userId })).ok,
     log: audit,
   };
