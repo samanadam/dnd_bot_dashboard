@@ -1,0 +1,269 @@
+{
+ "id": 100000003,
+ "success": true,
+ "message": "OK",
+ "data": {
+  "id": 100000003,
+  "name": "Vex Test",
+  "canEdit": true,
+  "inspiration": false,
+  "baseHitPoints": 30,
+  "bonusHitPoints": null,
+  "overrideHitPoints": null,
+  "removedHitPoints": 0,
+  "temporaryHitPoints": 0,
+  "currentXp": 0,
+  "alignmentId": 5,
+  "bonusStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": 2
+   }
+  ],
+  "overrideStats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": 10
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": null
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": null
+   }
+  ],
+  "deathSaves": {
+   "failCount": null,
+   "successCount": null,
+   "isStabilized": false
+  },
+  "conditions": [],
+  "spellSlots": [
+   {
+    "level": 1,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 6,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 7,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 8,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 9,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "pactMagic": [
+   {
+    "level": 1,
+    "used": 1,
+    "available": 0
+   },
+   {
+    "level": 2,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 3,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 4,
+    "used": 0,
+    "available": 0
+   },
+   {
+    "level": 5,
+    "used": 0,
+    "available": 0
+   }
+  ],
+  "race": {
+   "fullName": "Human",
+   "baseRaceName": "Human",
+   "sizeId": 4,
+   "isLegacy": false
+  },
+  "background": {
+   "definition": {
+    "name": "Soldier"
+   }
+  },
+  "modifiers": {
+   "race": [],
+   "class": [
+    {
+     "type": "proficiency",
+     "subType": "wisdom-saving-throws",
+     "isGranted": true,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "charisma-saving-throws",
+     "isGranted": true,
+     "value": null,
+     "fixedValue": null
+    },
+    {
+     "type": "proficiency",
+     "subType": "deception",
+     "isGranted": false,
+     "value": null,
+     "fixedValue": null
+    }
+   ],
+   "background": [],
+   "item": [],
+   "feat": [],
+   "condition": []
+  },
+  "inventory": [],
+  "preferences": {
+   "hitPointType": 1
+  },
+  "stats": [
+   {
+    "id": 1,
+    "name": null,
+    "value": 8
+   },
+   {
+    "id": 2,
+    "name": null,
+    "value": 14
+   },
+   {
+    "id": 3,
+    "name": null,
+    "value": 13
+   },
+   {
+    "id": 4,
+    "name": null,
+    "value": 10
+   },
+   {
+    "id": 5,
+    "name": null,
+    "value": 12
+   },
+   {
+    "id": 6,
+    "name": null,
+    "value": 16
+   }
+  ],
+  "classes": [
+   {
+    "level": 3,
+    "isStartingClass": true,
+    "definition": {
+     "name": "Warlock",
+     "hitDice": 8,
+     "canCastSpells": true,
+     "spellCastingAbilityId": 6,
+     "isLegacy": false
+    },
+    "subclassDefinition": {
+     "name": "Fiend"
+    }
+   },
+   {
+    "level": 2,
+    "isStartingClass": false,
+    "definition": {
+     "name": "Sorcerer",
+     "hitDice": 6,
+     "canCastSpells": true,
+     "spellCastingAbilityId": 6,
+     "isLegacy": false
+    },
+    "subclassDefinition": {
+     "name": "Draconic Bloodline"
+    }
+   }
+  ]
+ }
+}

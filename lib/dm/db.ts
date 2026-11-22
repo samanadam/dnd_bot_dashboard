@@ -301,6 +301,29 @@ const MIGRATIONS: readonly string[] = [
    );
    CREATE UNIQUE INDEX story_title ON story_notes (COALESCE(campaign_id, ''), title_key);
    CREATE INDEX story_campaign ON story_notes (campaign_id);`,
+  // D&D Beyond sync. ext_tokens: bearer tokens for the browser extension (only the
+  // sha256 is stored; a token is bound to one campaign). ddb_links: a sheet that
+  // is mirrored from D&D Beyond; deleting the sheet deletes its link, and a sheet
+  // with a link refuses edits in the portal.
+  `CREATE TABLE ext_tokens (
+     id TEXT PRIMARY KEY,
+     user_id TEXT NOT NULL,
+     campaign_id TEXT NOT NULL,
+     label TEXT NOT NULL,
+     token_hash TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL,
+     last_used_at TEXT
+   );
+   CREATE INDEX ext_tokens_user ON ext_tokens (user_id);
+   CREATE TABLE ddb_links (
+     sheet_id TEXT PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+     user_id TEXT NOT NULL,
+     ddb_character_id TEXT NOT NULL,
+     captured_at TEXT NOT NULL,
+     synced_at TEXT NOT NULL,
+     last_error TEXT,
+     UNIQUE (user_id, ddb_character_id)
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

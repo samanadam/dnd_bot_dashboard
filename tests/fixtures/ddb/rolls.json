@@ -1,0 +1,87 @@
+{
+ "id": "00000000-0000-0000-0000-000000000001",
+ "dateTime": "1700000000000",
+ "gameId": "1000001",
+ "userId": "1000002",
+ "source": "web",
+ "persist": true,
+ "messageScope": "gameId",
+ "messageTarget": "1000001",
+ "entityId": "100000002",
+ "entityType": "character",
+ "eventType": "dice/roll/fulfilled",
+ "connectionId": "x",
+ "data": {
+  "action": "Dagger",
+  "setId": "basic",
+  "rollId": "r1",
+  "critRange": 20,
+  "context": {
+   "entityId": "100000002",
+   "entityType": "character",
+   "name": "Aria Test"
+  },
+  "rolls": [
+   {
+    "diceNotationStr": "1d20+4",
+    "rollType": "to hit",
+    "rollKind": "",
+    "diceNotation": {
+     "set": [
+      {
+       "count": 1,
+       "dieType": "d20",
+       "operation": 0,
+       "dice": [
+        {
+         "dieType": "d20",
+         "dieValue": 14,
+         "useInTotal": true
+        }
+       ]
+      }
+     ],
+     "constant": 4
+    },
+    "result": {
+     "constant": 4,
+     "values": [
+      14
+     ],
+     "total": 18,
+     "text": "14+4"
+    }
+   },
+   {
+    "diceNotationStr": "1d4+2",
+    "rollType": "damage",
+    "rollKind": "",
+    "diceNotation": {
+     "set": [
+      {
+       "count": 1,
+       "dieType": "d4",
+       "operation": 0,
+       "dice": [
+        {
+         "dieType": "d4",
+         "dieValue": 3,
+         "useInTotal": true
+        }
+       ]
+      }
+     ],
+     "constant": 2
+    },
+    "result": {
+     "constant": 2,
+     "values": [
+      3
+     ],
+     "total": 5,
+     "text": "3+2"
+    }
+   }
+  ]
+ }
+}

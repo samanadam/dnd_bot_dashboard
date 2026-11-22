@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portal sync</title>
+    <style>
+      body { font: 13px/1.4 system-ui, sans-serif; width: 320px; margin: 0; padding: 14px; color: #1d1b20; }
+      h1 { font-size: 15px; margin: 0 0 10px; }
+      label { display: block; margin: 8px 0 2px; font-weight: 600; }
+      input[type="text"], input[type="password"] { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #79747e; border-radius: 6px; font: inherit; }
+      button { margin-top: 10px; margin-right: 6px; padding: 6px 12px; border-radius: 6px; border: 1px solid #79747e; background: #fff; font: inherit; cursor: pointer; }
+      button.primary { background: #4a3f8f; color: #fff; border-color: #4a3f8f; }
+      #status { margin-top: 10px; min-height: 18px; }
+      ul { list-style: none; margin: 10px 0 0; padding: 0; }
+      li { padding: 6px 0; border-top: 1px solid #e7e0ec; }
+      .err { color: #b3261e; }
+    </style>
+  </head>
+  <body>
+    <h1>Portal D&amp;D Beyond sync</h1>
+    <label for="url">Portal address</label>
+    <input id="url" type="text" placeholder="https://portal.example.com" autocomplete="off" />
+    <label for="token">Token</label>
+    <input id="token" type="password" placeholder="ptx_..." autocomplete="off" />
+    <button id="save" class="primary">Save</button>
+    <button id="test">Test</button>
+    <div id="status" role="status"></div>
+    <ul id="characters"></ul>
+    <script src="popup.js"></script>
+  </body>
+</html>

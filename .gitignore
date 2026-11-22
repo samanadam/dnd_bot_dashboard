@@ -56,3 +56,6 @@ plans/
 
 # Full-size originals of the theme art; the app serves the optimized copies in public/themes
 public/theme_assets/
+
+# built browser extension
+extension/dist/

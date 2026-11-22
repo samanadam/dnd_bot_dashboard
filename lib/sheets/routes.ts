@@ -51,6 +51,7 @@ export type SheetRouteDeps = DmGuardDeps & {
 };
 
 const missing = () => errorResponse(404, "not_found", "No such sheet.");
+const synced = () => errorResponse(409, "synced", "This sheet is synced from D&D Beyond. Change it there.");
 const SMALL_BODY = 16 * 1024;
 const sharedRollLimiter = new RateLimiter();
 
@@ -175,6 +176,7 @@ export function sheetItem(deps: SheetRouteDeps) {
     async PUT(request: Request, id: string): Promise<Response> {
       const found = await editable(request, deps, id);
       if (found instanceof Response) return found;
+      if (found.sheet.synced) return synced();
       const body = await readDmJson(request, MAX_BODY_BYTES);
       if (!body.ok) return body.response;
       const parsed = saveSchema.safeParse(body.json);
@@ -225,6 +227,7 @@ export function sheetOps(deps: SheetRouteDeps) {
     async POST(request: Request, id: string): Promise<Response> {
       const found = await editable(request, deps, id);
       if (found instanceof Response) return found;
+      if (found.sheet.synced) return synced();
       const body = await readDmJson(request, SMALL_BODY);
       if (!body.ok) return body.response;
       const parsed = opBatchSchema.safeParse(body.json);
