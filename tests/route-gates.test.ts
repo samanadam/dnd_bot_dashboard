@@ -31,7 +31,7 @@ describe("API routes", () => {
     const text = readFileSync(route, "utf8");
     const guarded =
       // Handler factories, each of which starts with a guard (checked below).
-      /from "@\/lib\/(dm|access|play|sheets|combat|availability|totp)\/[A-Za-z]*([Rr]outes|[Ss]earch)"/.test(text) ||
+      /from "@\/lib\/(dm|access|play|sheets|combat|availability|totp|ext)\/[A-Za-z]*([Rr]outes|[Ss]earch)"/.test(text) ||
       // The bot proxy and upload pipelines, which check the session and the rule's permission.
       (text.includes("handleBotRequest") && text.includes("allowsFor(access)")) ||
       // A route that calls a guard itself.
@@ -52,7 +52,7 @@ describe("route handler factories", () => {
     const handlers = [...text.matchAll(/async (GET|POST|PUT|PATCH|DELETE)\([^)]*\)[^{]*\{\r?\n([^\r\n]*)/g)];
     expect(handlers.length, source).toBeGreaterThan(0);
     for (const [, method, firstLine] of handlers) {
-      // Either the guard itself, or a helper whose first act is the guard (editable(), mine()).
+      // Either the guard itself, or a helper whose first act is the guard (editable(), mine()). /api/ext uses bearer(): a token, not a session.
       expect(firstLine, `${source} ${method}`).toMatch(/const (guard|found) = await (guard(Dm|Api)|editable|mine|allowed)\(request/);
     }
   });
