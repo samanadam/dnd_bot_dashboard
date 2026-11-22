@@ -29,13 +29,13 @@ export class DdbLinkRepo {
     this.db.prepare("UPDATE ddb_links SET last_error = ? WHERE sheet_id = ?").run(message.slice(0, 200), sheetId);
   }
 
-  status(userId: string): Array<{ sheetId: string; ddbCharacterId: string; syncedAt: string; lastError: string | null }> {
-    const rows = this.db.prepare("SELECT sheet_id, ddb_character_id, synced_at, last_error FROM ddb_links WHERE user_id = ? ORDER BY synced_at DESC").all(userId) as Array<{
-      sheet_id: string;
-      ddb_character_id: string;
-      synced_at: string;
-      last_error: string | null;
-    }>;
-    return rows.map((r) => ({ sheetId: r.sheet_id, ddbCharacterId: r.ddb_character_id, syncedAt: r.synced_at, lastError: r.last_error }));
+  status(userId: string): Array<{ sheetId: string; campaignId: string; name: string; ddbCharacterId: string; syncedAt: string; lastError: string | null }> {
+    const rows = this.db
+      .prepare(
+        `SELECT l.sheet_id, c.campaign_id, c.name, l.ddb_character_id, l.synced_at, l.last_error
+         FROM ddb_links l JOIN characters c ON c.id = l.sheet_id WHERE l.user_id = ? ORDER BY l.synced_at DESC`,
+      )
+      .all(userId) as Array<{ sheet_id: string; campaign_id: string; name: string; ddb_character_id: string; synced_at: string; last_error: string | null }>;
+    return rows.map((r) => ({ sheetId: r.sheet_id, campaignId: r.campaign_id, name: r.name, ddbCharacterId: r.ddb_character_id, syncedAt: r.synced_at, lastError: r.last_error }));
   }
 }

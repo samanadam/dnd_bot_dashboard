@@ -61,7 +61,7 @@ describe("route handler factories", () => {
 describe("portal pages", () => {
   const pages = files("app/(portal)", /^(page|layout)\.tsx$/).map(posix);
   // Pages any signed-in user may open: they show only what the user's access allows.
-  const SIGNED_IN = new Set(["app/(portal)/page.tsx", "app/(portal)/layout.tsx", "app/(portal)/settings/page.tsx", "app/(portal)/settings/security/page.tsx"]);
+  const SIGNED_IN = new Set(["app/(portal)/page.tsx", "app/(portal)/layout.tsx", "app/(portal)/settings/page.tsx", "app/(portal)/settings/security/page.tsx", "app/(portal)/settings/extension/page.tsx"]);
 
   it.each(pages)("%s checks access on the server", (page) => {
     const text = readFileSync(page, "utf8");
