@@ -106,6 +106,7 @@ function parseBody(body, ids, links, dropH1, titleOf) {
   // "(see [[Gaps]])" style asides leave nothing behind once Gaps is hidden.
   let text = body
     .replace(/\s*\((?:see\s+)?\[\[([^\]|]+)\]\]\)/gi, (m, t) => (isDropTarget(t) ? "" : m))
+    .replace(/,\s*see\s+\[\[([^\]|]+)\]\]/gi, (m, t) => (isDropTarget(t) ? "" : m))
     .replace(/\s*\bSee \[\[([^\]|]+)\]\]\.?/g, (m, t) => (isDropTarget(t) ? "" : m));
   const lines = text.split(/\r?\n/);
   const blocks = [];
