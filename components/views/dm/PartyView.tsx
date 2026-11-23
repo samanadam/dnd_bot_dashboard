@@ -3,6 +3,7 @@
 import { CampaignSwitcher } from "@/components/CampaignSelect";
 import { DmHeader } from "@/components/dm/DmHeader";
 import { SheetListView } from "@/components/views/play/PlayCampaignView";
+import { PartyNotesChannel } from "@/components/dm/PartyNotesChannel";
 import { TurnPings } from "@/components/dm/TurnPings";
 import { EmptyState } from "@/components/ui";
 import { useCampaigns } from "@/lib/bot/useBotState";
@@ -21,6 +22,7 @@ export function PartyView() {
         <>
           <SheetListView key={campaign.id} campaign={{ id: campaign.id, name: campaign.name }} manager base="/dm/party" />
           <TurnPings campaignId={campaign.id} />
+          <PartyNotesChannel campaignId={campaign.id} />
         </>
       ) : (
         <div className="rounded-3xl border border-dashed border-border py-6">
