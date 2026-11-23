@@ -67,7 +67,13 @@ export function StoryTab({ sheet, editing }: { sheet: SheetHandle; editing: bool
         {!editing && STORY.every(({ key }) => !body.backstory[key]) ? <p className="text-sm text-muted">Turn on editing to write who this character is.</p> : null}
       </Section>
       <Section title="Notes">
-        <TextArea label="Anything else" value={body.notes} max={50_000} rows={8} onChange={(notes) => update((b) => ({ ...b, notes }))} />
+        {editing ? (
+          <TextArea label="Anything else" value={body.notes} max={50_000} rows={8} onChange={(notes) => update((b) => ({ ...b, notes }))} />
+        ) : body.notes ? (
+          <RichText text={body.notes} className="text-sm" />
+        ) : (
+          <p className="text-sm text-muted">No notes.</p>
+        )}
       </Section>
     </div>
   );

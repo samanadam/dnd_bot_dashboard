@@ -422,8 +422,12 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
                 ["Tools", body.proficiencies.tools],
                 ["Languages", body.proficiencies.languages],
                 ["Resistances", body.combat.resistances],
+                ["Immunities", body.combat.immunities],
+                ["Vulnerabilities", body.combat.vulnerabilities],
               ] as const
-            ).map(([label, list]) => (
+            )
+              .filter(([label, list]) => list.length > 0 || !["Immunities", "Vulnerabilities"].includes(label))
+              .map(([label, list]) => (
               <div key={label}>
                 <dt className="text-xs text-muted">{label}</dt>
                 <dd>{list.length ? list.join(", ") : "—"}</dd>
