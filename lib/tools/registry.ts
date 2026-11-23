@@ -86,6 +86,8 @@ export const tools: Tool[] = [
       { href: "/play", label: "My characters", icon: "users", permission: "play" },
       { href: "/play", label: "Party sheets", icon: "users", permission: "sheets.manage" },
       { href: "/play/availability", label: "Availability", icon: "calendar", permission: "play" },
+      { href: "/play/notes", label: "Party notes", icon: "scroll", permission: "play" },
+      { href: "/play/notes", label: "Party notes", icon: "scroll", permission: "sheets.manage" },
     ],
   },
   {
