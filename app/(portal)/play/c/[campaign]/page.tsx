@@ -16,6 +16,7 @@ export default async function PlayCampaignPage(props: PageProps<"/play/c/[campai
       manager={canManage(access, id)}
       base={`/play/c/${id}/sheets`}
       battleHref={`/play/c/${id}/battle`}
+      partyNotesHref={`/play/c/${id}/party-notes`}
     />
   );
 }

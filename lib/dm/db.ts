@@ -345,6 +345,23 @@ const MIGRATIONS: readonly string[] = [
      seen_at TEXT NOT NULL,
      PRIMARY KEY (user_id, ddb_character_id)
    );`,
+  // Party notes: a campaign's shared notes, mirrored with a Discord text channel
+  // (one message per note). author_user_id is a Discord id either way.
+  `CREATE TABLE party_notes (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     author_user_id TEXT NOT NULL,
+     author_name TEXT NOT NULL,
+     text TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 1500),
+     discord_message_id TEXT UNIQUE,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX party_notes_campaign ON party_notes (campaign_id, created_at);
+   CREATE TABLE party_note_channels (
+     campaign_id TEXT PRIMARY KEY,
+     channel_id TEXT NOT NULL UNIQUE
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

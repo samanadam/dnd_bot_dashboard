@@ -23,6 +23,7 @@ const SERVER_PATHS: readonly RegExp[] = [
   /^initiative$/,
   /^initiative\/roster(\/clear)?$/,
   /^turn\/announce$/,
+  /^party-notes\/(post|edit|delete)$/,
 ];
 
 // botUrl is BOT_API_URL as configured, which already ends in /api/v1.

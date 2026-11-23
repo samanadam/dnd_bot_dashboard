@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart, Plus, Shield, Swords, UserRound } from "lucide-react";
+import { Heart, NotebookPen, Plus, Shield, Swords, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PortalLink } from "@/components/PortalLink";
@@ -25,12 +25,14 @@ export function SheetListView({
   manager,
   base,
   battleHref,
+  partyNotesHref,
 }: {
   campaign: { id: string; name: string };
   initial?: SheetSummary[];
   manager: boolean;
   base: string;
   battleHref?: string;
+  partyNotesHref?: string;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -71,6 +73,13 @@ export function SheetListView({
           <Swords className="size-5 text-accent" aria-hidden />
           <span className="font-medium">Battle</span>
           <span className="text-sm text-muted">Initiative, whose turn it is, and your notes</span>
+        </PortalLink>
+      ) : null}
+      {partyNotesHref ? (
+        <PortalLink href={partyNotesHref} className="flex items-center gap-3 rounded-3xl border border-border bg-surface p-4 transition hover:border-accent">
+          <NotebookPen className="size-5 text-accent" aria-hidden />
+          <span className="font-medium">Party notes</span>
+          <span className="text-sm text-muted">Shared with the campaign&apos;s Discord notes channel</span>
         </PortalLink>
       ) : null}
       {list.isError ? <Notice tone="danger">Could not load the sheets.</Notice> : null}

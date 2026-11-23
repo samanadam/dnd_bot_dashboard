@@ -118,6 +118,17 @@ export const combat = {
   keptNotes: (campaign: string) => sheetCall<(DmNote & { encounterName: string })[]>("GET", `play/notes?campaign=${enc(campaign)}`),
 };
 
+export type PartyNoteView = { id: string; author: string; text: string; createdAt: string; updatedAt: string; mine: boolean; canDelete: boolean };
+
+export const partyNotes = {
+  list: (campaign: string) => sheetCall<{ channelSet: boolean; notes: PartyNoteView[] }>("GET", `play/party-notes?campaign=${enc(campaign)}`),
+  add: (campaign: string, text: string) => sheetCall<PartyNoteView>("POST", `play/party-notes?campaign=${enc(campaign)}`, { text }),
+  update: (id: string, text: string) => sheetCall<PartyNoteView>("PUT", `play/party-notes/${enc(id)}`, { text }),
+  remove: (id: string) => sheetCall<void>("DELETE", `play/party-notes/${enc(id)}`),
+  channel: (campaign: string) => sheetCall<{ channelId: string | null; channels: BattleChannels }>("GET", `dm/campaigns/${enc(campaign)}/notes-channel`),
+  setChannel: (campaign: string, channelId: string | null) => sheetCall<{ channelId: string | null }>("PUT", `dm/campaigns/${enc(campaign)}/notes-channel`, { channelId }),
+};
+
 /** The battle view, or null when it has not changed since `etag` (the server answered 304). */
 export async function fetchBattle(id: string, etag: string | null): Promise<{ view: import("@/lib/combat/battleView").PlayerBattleView; etag: string | null } | null> {
   if (inDemo()) return { view: await sheetCall("GET", `play/battles/${enc(id)}`), etag: null };
