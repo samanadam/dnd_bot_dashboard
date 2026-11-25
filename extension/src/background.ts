@@ -14,8 +14,16 @@ async function load(): Promise<SyncState> {
 const save = (state: SyncState) => chrome.storage.local.set({ [KEY]: state });
 
 function badge(text: string) {
+  if (text === "") return void showLive();
   void chrome.action.setBadgeText({ text });
   void chrome.action.setBadgeBackgroundColor({ color: "#b3261e" });
+}
+
+/** No trouble to show: a green LIVE while live sync is on, nothing otherwise. */
+async function showLive() {
+  const { settings } = await load();
+  void chrome.action.setBadgeText({ text: settings.live ? "LIVE" : "" });
+  void chrome.action.setBadgeBackgroundColor({ color: "#1d7a46" });
 }
 
 const entryOf = (state: SyncState, id: string): CharacterState => (state.characters[id] ??= { ...BLANK_CHARACTER });
@@ -132,10 +140,19 @@ const deps: SyncDeps = {
   now: () => Date.now(),
 };
 
-/** Syncs the given characters, or every enabled one the player has opened. */
-async function round(only?: string): Promise<Record<string, string>> {
+/** Tells the portal whether live sync is on, so it can show the player as live (or not) to the table. */
+async function heartbeat(state: SyncState, live: boolean): Promise<void> {
+  if (!state.portalUrl || !state.token) return;
+  const answer = await callPortal(state, "live", { method: "PUT", body: JSON.stringify({ live }) }).catch(() => null);
+  if (answer?.status === 401) badge("AUTH");
+}
+
+/** Syncs the given characters, or every enabled one the player has opened. Automatic rounds only run while live sync is on. */
+async function round(only?: string, manual = false): Promise<Record<string, string>> {
   const state = await load();
   if (!state.portalUrl || !state.token) return {};
+  if (!manual && !state.settings.live) return {};
+  if (state.settings.live) await heartbeat(state, true);
   const ids = only ? [only] : Object.entries(state.characters).filter(([, entry]) => entry.enabled).map(([id]) => id);
   return syncAll(deps, ids);
 }
@@ -146,10 +163,25 @@ async function schedule() {
 }
 
 chrome.runtime.onInstalled.addListener(() => void schedule());
-chrome.runtime.onStartup.addListener(() => void schedule());
+// Live sync starts off after every browser start: the player starts it when they sit down to play.
+chrome.runtime.onStartup.addListener(() => {
+  void schedule();
+  void setLive(false);
+});
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) void round();
 });
+
+async function setLive(live: boolean): Promise<{ ok: boolean }> {
+  const state = await load();
+  state.settings.live = live;
+  note(state, live ? "Live sync started." : "Live sync stopped.");
+  await save(state);
+  await heartbeat(state, live);
+  void showLive();
+  if (live) await round(undefined, true);
+  return { ok: true };
+}
 // A change of the interval on the options page moves the timer.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[KEY]) return;
@@ -190,21 +222,23 @@ chrome.runtime.onMessage.addListener((message: { type: string; id?: string }, _s
       ? relayRoll((message as unknown as { roll: Parameters<typeof relayRoll>[0] }).roll)
       : message.type === "ping"
         ? ping()
-        : message.type === "seen" || message.type === "refresh"
-          ? message.id
-            ? (async () => {
-                // A character page that was opened is remembered, so it keeps syncing with the tab closed.
-                const state = await load();
-                if (!state.characters[message.id as string]) {
-                  entryOf(state, message.id as string);
-                  await save(state);
-                }
-                return round(message.id);
-              })()
-            : Promise.resolve({})
-          : message.type === "syncNow"
-            ? round(message.id)
-            : Promise.resolve({ ok: false });
+        : message.type === "setLive"
+          ? setLive((message as unknown as { live: boolean }).live === true)
+          : message.type === "seen" || message.type === "refresh"
+            ? message.id
+              ? (async () => {
+                  // A character page that was opened is remembered, so it syncs while live with the tab closed.
+                  const state = await load();
+                  if (!state.characters[message.id as string]) {
+                    entryOf(state, message.id as string);
+                    await save(state);
+                  }
+                  return round(message.id);
+                })()
+              : Promise.resolve({})
+            : message.type === "syncNow"
+              ? round(message.id, true)
+              : Promise.resolve({ ok: false });
   void work.then(respond);
   return true;
 });

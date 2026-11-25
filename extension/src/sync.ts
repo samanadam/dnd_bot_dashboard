@@ -1,13 +1,15 @@
 // Reading a character from D&D Beyond and handing it on, without any browser API, so it is
 // unit-tested in the portal's suite. The background script supplies the real pieces.
 
-export type Settings = { intervalSeconds: number; replayRolls: boolean; overlay: boolean };
-export const DEFAULT_SETTINGS: Settings = { intervalSeconds: 60, replayRolls: true, overlay: true };
+// `live` is the player's own Start/Stop: characters sync on their own only while it is on, and the
+// portal shows the player as live. It is off after every browser start, so it is started on purpose.
+export type Settings = { live: boolean; intervalSeconds: number; replayRolls: boolean; overlay: boolean };
+export const DEFAULT_SETTINGS: Settings = { live: false, intervalSeconds: 30, replayRolls: true, overlay: true };
 
-/** The sync interval in whole seconds, between 30 s (the smallest alarm Chrome allows) and 10 min. */
+/** The live sync interval in whole seconds: 30 s is the smallest alarm Chrome allows, and the portal calls a player offline after 150 s of silence. */
 export function clampInterval(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_SETTINGS.intervalSeconds;
-  return Math.min(600, Math.max(30, Math.trunc(value)));
+  return Math.min(60, Math.max(30, Math.trunc(value)));
 }
 
 export type PushMessage = { ddbCharacterId: string; capturedAt: string; readOnly: boolean; character: unknown };

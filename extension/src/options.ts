@@ -16,9 +16,6 @@ async function change(edit: (state: SyncState) => void) {
 const INTERVALS: Array<[number, string]> = [
   [30, "every 30 seconds"],
   [60, "every minute"],
-  [120, "every 2 minutes"],
-  [300, "every 5 minutes"],
-  [600, "every 10 minutes"],
 ];
 
 function connection(state: SyncState): HTMLElement {
@@ -68,8 +65,8 @@ function behaviour(state: SyncState): HTMLElement {
     "section",
     { class: "card" },
     el("h2", { textContent: "Syncing" }),
-    el("p", { class: "muted", textContent: "Characters sync in the background, with no D&D Beyond tab needed, as long as you are signed in to D&D Beyond in this browser. An edit on an open page syncs within seconds." }),
-    el("label", { class: "field", textContent: "How often" }, interval),
+    el("p", { class: "muted", textContent: "Characters sync only while live sync is on. Start it from the extension's popup when you sit down to play. It needs no D&D Beyond tab, only a D&D Beyond sign-in in this browser, and it turns itself off when the browser starts. While it is on the portal shows you as live." }),
+    el("label", { class: "field", textContent: "While live, sync" }, interval),
     toggle("replayRolls", "Send my rolls to the portal", "Rolls you make on D&D Beyond appear in the portal's roll feed."),
     toggle("overlay", "Show the 3D dice on D&D Beyond", "The portal's dice roll over the page when you roll."),
   );
@@ -117,7 +114,7 @@ function activity(state: SyncState, redraw: () => void): HTMLElement {
 async function render() {
   const state = await load();
   const header = el("header", { class: "row" }, el("img", { src: "icons/icon-48.png", alt: "" }), el("div", {}, el("h1", { textContent: "Portal D&D Beyond Sync" }), el("div", { class: "muted", textContent: `Version ${chrome.runtime.getManifest().version}` })));
-  const syncAll = el("button", { textContent: "Sync all now" });
+  const syncAll = el("button", { textContent: "Sync all once" });
   syncAll.addEventListener("click", () => void chrome.runtime.sendMessage({ type: "syncNow" }));
   app.replaceChildren(header, connection(state), behaviour(state), characters(state, () => void render()), activity(state, () => void render()), el("div", {}, syncAll));
 }

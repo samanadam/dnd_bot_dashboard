@@ -28,7 +28,8 @@ async function render(busy = new Set<string>()) {
   const redraw = () => void render(busy);
   const paired = Boolean(state.portalUrl && state.token);
   const problems = Object.values(state.characters).filter((c) => c.enabled && c.lastError).length;
-  const pill = el("span", { class: `pill ${!paired ? "muted" : problems ? "bad" : "ok"}`, textContent: !paired ? "Not connected" : problems ? `${problems} problem${problems > 1 ? "s" : ""}` : "Syncing" });
+  const live = state.settings.live;
+  const pill = el("span", { class: `pill ${!paired ? "muted" : problems ? "bad" : live ? "ok" : "warn"}`, textContent: !paired ? "Not connected" : problems ? `${problems} problem${problems > 1 ? "s" : ""}` : live ? "Live" : "Off" });
 
   const header = el("header", { class: "row" }, el("img", { src: "icons/icon-48.png", alt: "" }), el("div", { class: "grow" }, el("h1", { textContent: "Portal sync" }), el("div", { class: "muted", textContent: paired ? new URL(state.portalUrl as string).host : "D&D Beyond to your portal" })), pill);
   const settings = el("button", { class: "small", textContent: "Settings" });
@@ -36,6 +37,23 @@ async function render(busy = new Set<string>()) {
 
   const body: HTMLElement[] = [];
   const ids = Object.keys(state.characters);
+  if (paired) {
+    const toggle = el("button", { class: live ? "" : "primary", textContent: live ? "Stop live sync" : "Start live sync" });
+    toggle.addEventListener("click", async () => {
+      toggle.disabled = true;
+      await ask({ type: "setLive", live: !live }).catch(() => undefined);
+      redraw();
+    });
+    body.push(
+      el(
+        "div",
+        { class: "card", style: "margin-bottom:8px" },
+        el("strong", { textContent: live ? "Live sync is on" : "Live sync is off" }),
+        el("p", { class: "muted", textContent: live ? "Your characters update in the portal every 30 s, and the table sees you as live. Stop when you are done." : "Nothing syncs on its own. Start it when you sit down to play, so the table sees you as live." }),
+        el("div", { class: "actions", style: "margin-top:8px" }, toggle),
+      ),
+    );
+  }
   if (!paired) {
     const connect = el("button", { class: "primary", textContent: "Connect to your portal" });
     connect.addEventListener("click", () => void chrome.runtime.openOptionsPage());
@@ -46,7 +64,7 @@ async function render(busy = new Set<string>()) {
     body.push(el("ul", { class: "plain" }, ...ids.map((id) => card(id, state.characters[id], state, busy, redraw))));
   }
 
-  const all = el("button", { class: "small", textContent: "Sync all now", disabled: !paired || ids.length === 0 });
+  const all = el("button", { class: "small", textContent: "Sync all once", disabled: !paired || ids.length === 0 });
   all.addEventListener("click", async () => {
     all.disabled = true;
     all.textContent = "Syncing...";

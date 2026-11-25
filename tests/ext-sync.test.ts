@@ -128,12 +128,16 @@ describe("syncAll", () => {
 });
 
 describe("settings", () => {
-  it("keeps the interval between 30 seconds and 10 minutes and falls back to the default", () => {
+  it("keeps the live interval between 30 and 60 seconds and falls back to the default", () => {
     expect(clampInterval(5)).toBe(30);
     expect(clampInterval(45)).toBe(45);
-    expect(clampInterval(9999)).toBe(600);
+    expect(clampInterval(9999)).toBe(60);
     expect(clampInterval("abc")).toBe(DEFAULT_SETTINGS.intervalSeconds);
-    expect(clampInterval(undefined)).toBe(60);
-    expect(clampInterval(61.7)).toBe(61);
+    expect(clampInterval(undefined)).toBe(30);
+    expect(clampInterval(41.7)).toBe(41);
+  });
+
+  it("starts with live sync off, so the player starts it on purpose", () => {
+    expect(DEFAULT_SETTINGS.live).toBe(false);
   });
 });
