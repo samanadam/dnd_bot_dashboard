@@ -196,3 +196,36 @@ describe("live sync state", () => {
     expect(sheets.get(sheet.id)?.sync?.live).toBe(false);
   });
 });
+
+describe("HP changes waiting for the extension", () => {
+  const want = { hp: 9, tempHp: 2, removed: 3, successes: 0, failures: 1 };
+  const NOW = "2026-11-26T12:00:00.000Z";
+
+  it("keeps the latest change per sheet and lists it for the sheet's owner with the D&D Beyond id", () => {
+    const { links, sheet } = setup();
+    links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
+    links.queueWrite(sheet.id, { ...want, hp: 5, removed: 7 }, NOW);
+    links.queueWrite(sheet.id, want, NOW);
+    expect(links.writeFor(sheet.id, Date.parse(NOW))).toEqual(want);
+    expect(links.pendingWrites(ARIA, Date.parse(NOW))).toEqual([{ ddbCharacterId: "42", ...want }]);
+    expect(links.pendingWrites(BRAM, Date.parse(NOW))).toEqual([]);
+  });
+
+  it("forgets a change once saved, and ignores one older than ten minutes", () => {
+    const { links, sheet } = setup();
+    links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
+    links.queueWrite(sheet.id, want, NOW);
+    links.clearWrite(sheet.id);
+    expect(links.writeFor(sheet.id, Date.parse(NOW))).toBeNull();
+    links.queueWrite(sheet.id, want, NOW);
+    const later = Date.parse(NOW) + 11 * 60_000;
+    expect(links.writeFor(sheet.id, later)).toBeNull();
+    expect(links.pendingWrites(ARIA, later)).toEqual([]);
+  });
+
+  it("does nothing for a sheet that is not synced", () => {
+    const { links, sheet } = setup();
+    links.queueWrite(sheet.id, want, NOW);
+    expect(links.pendingWrites(ARIA, Date.parse(NOW))).toEqual([]);
+  });
+});

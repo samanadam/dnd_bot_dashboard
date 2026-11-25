@@ -106,6 +106,7 @@ function liveSection(state: SyncState, keys: string): HTMLElement {
     el("div", { class: "row", style: "margin-top:10px;flex-wrap:wrap" }, toggle, now),
     keys ? el("p", { class: "faint", style: "margin-top:8px" }, "Keyboard shortcut ", el("kbd", { textContent: keys }), ". Change it at chrome://extensions/shortcuts.") : el("p", { class: "faint", style: "margin-top:8px", textContent: "Set a keyboard shortcut at chrome://extensions/shortcuts." }),
     el("label", { class: "field", textContent: "While live" }, interval),
+    check("Let the portal change my HP on D&D Beyond", "Damage, healing, temp HP and death saves from the portal (the DM's or yours) are saved on D&D Beyond while live sync is on. Everything else stays D&D Beyond's.", state.settings.writeBack, (value) => void change((s) => void (s.settings.writeBack = value))),
     check("Start live sync when I open a character", "Opening one of your characters on D&D Beyond turns live sync on, so you never forget.", state.settings.autoStart, (value) => void change((s) => void (s.settings.autoStart = value))),
   );
 }

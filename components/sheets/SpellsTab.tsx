@@ -211,6 +211,7 @@ export function SpellsTab({ sheet, editing, campaignId }: { sheet: SheetHandle; 
                     label={`level ${index + 1} slot`}
                     onSpend={() => void apply([{ op: "spendSlot", level: index + 1 }])}
                     onRestore={() => void apply([{ op: "restoreSlot", level: index + 1 }])}
+                    disabled={view.synced}
                   />
                 </li>
               ) : null,
@@ -218,7 +219,7 @@ export function SpellsTab({ sheet, editing, campaignId }: { sheet: SheetHandle; 
             {derived.pact.count > 0 ? (
               <li className="flex items-center gap-3 text-sm">
                 <span className="w-16 text-muted">Pact {derived.pact.level}</span>
-                <Pips total={derived.pact.count} left={derived.pact.left} label="Pact Magic slot" onSpend={() => void apply([{ op: "spendPact" }])} onRestore={() => void apply([{ op: "restorePact" }])} />
+                <Pips total={derived.pact.count} left={derived.pact.left} label="Pact Magic slot" onSpend={() => void apply([{ op: "spendPact" }])} onRestore={() => void apply([{ op: "restorePact" }])} disabled={view.synced} />
               </li>
             ) : null}
           </ul>
@@ -288,7 +289,7 @@ export function SpellsTab({ sheet, editing, campaignId }: { sheet: SheetHandle; 
                               <option value="always">Always prepared</option>
                             </select>
                           ) : null}
-                          {spell ? (
+                          {spell && !view.synced ? (
                             <Button size="sm" variant="primary" icon={Wand2} onClick={() => setCasting(casting === entry.id ? null : entry.id)}>
                               Cast
                             </Button>

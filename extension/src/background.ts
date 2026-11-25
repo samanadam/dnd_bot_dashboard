@@ -1,6 +1,6 @@
 import { originAllowed } from "./bridge";
 import { asOthers, badgeFor, BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
-import { clampInterval, syncAll, type PushMessage, type SyncDeps } from "./sync";
+import { applyWrite, clampInterval, syncAll, type HpWrite, type PushMessage, type SyncDeps } from "./sync";
 
 // The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
 // character the player has opened (a tab does not have to be open or visible), pushes the
@@ -159,12 +159,33 @@ async function heartbeat(state: SyncState, live: boolean): Promise<void> {
   }
 }
 
+const putCharacter = async (path: string, body: unknown, token: string) =>
+  fetch(`https://character-service.dndbeyond.com/character/v5/${path}`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body), credentials: "omit" });
+
+/** Two-way HP: saves on D&D Beyond the HP changes made in the portal for the player's own characters. */
+async function applyPortalWrites(state: SyncState): Promise<void> {
+  if (!state.settings.writeBack) return;
+  const answer = await callPortal(state, "writes").catch(() => null);
+  if (!answer?.ok) return;
+  const writes = ((await answer.json().catch(() => null)) as { writes?: HpWrite[] } | null)?.writes ?? [];
+  for (const write of writes) {
+    const entry = state.characters[write.ddbCharacterId];
+    if (!entry || entry.mine === false || !entry.enabled) continue;
+    const result = await applyWrite({ ...deps, putCharacter }, write);
+    if (result !== "ok") continue;
+    const fresh = await load();
+    note(fresh, `${entry.name ?? `Character ${write.ddbCharacterId}`}: HP ${write.hp}${write.tempHp ? ` (+${write.tempHp} temp)` : ""} saved to D&D Beyond from the portal.`);
+    await save(fresh);
+  }
+}
+
 /** Syncs the given characters, or every enabled one the player has opened. Automatic rounds only run while live sync is on. */
 async function round(only?: string, manual = false): Promise<Record<string, string>> {
   const state = await load();
   if (!state.portalUrl || !state.token) return {};
   if (!manual && !state.settings.live) return {};
   if (state.settings.live) await heartbeat(state, true);
+  await applyPortalWrites(state);
   // Another player's character is never synced; one not read yet is, once, to find out whose it is.
   const ids = only ? [only] : Object.entries(state.characters).filter(([, entry]) => entry.enabled && entry.mine !== false).map(([id]) => id);
   return syncAll(deps, ids);

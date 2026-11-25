@@ -20,7 +20,8 @@ Shows your D&D Beyond character in the portal, live, and replays your D&D Beyond
 - **The portal knows the extension is there:** the extension has a small script on the portal's own pages that answers "installed? connected? live?" and accepts a token only from that portal site (checked against the manifest).
 - **Other players' characters**: a character you open but cannot edit on D&D Beyond (a friend's, through a shared campaign) is kept under "Other players", hidden from the popup by default and never sent. Every character has a "Show in popup" switch in Settings, and a Hide button in the popup.
 - **Open sheet** goes straight to that character's sheet in the portal, yours or (in a campaign you play in) a friend's (`GET /api/ext/sheet`).
-- A synced sheet is read-only in the portal, for everyone. Change it in D&D Beyond.
+- **Two-way HP**: on a synced sheet the portal takes damage, healing, temp HP and death saves (the sheet page and the battle screen). The portal keeps the change as what D&D Beyond should hold; the owner's extension, while live sync is on, saves it with D&D Beyond's own calls (`character/v5/life/hp/damage-taken` and `life/death-saves`) and syncs again, and the portal forgets it once D&D Beyond holds it. A change not saved within 10 minutes is dropped and D&D Beyond wins. Off switch in Settings ("Let the portal change my HP on D&D Beyond").
+- Everything else on a synced sheet is read-only in the portal, for everyone (conditions, inspiration, slots, resources, the sheet itself). Change it in D&D Beyond.
 - Rolls made in a campaign game are thrown again over the page with the portal's dice, and posted to the bot's roll feed. Rolls made outside a campaign are not sent anywhere by D&D Beyond, so they are not seen.
 
 ## Not in this version

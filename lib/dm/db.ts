@@ -369,6 +369,17 @@ const MIGRATIONS: readonly string[] = [
      live INTEGER NOT NULL,
      seen_at TEXT NOT NULL
    );`,
+  // Two-way HP: what a synced character's HP, temp HP and death saves should be on D&D Beyond after
+  // a change in the portal, until the owner's extension saves it there (lib/ddb/writeBack.ts).
+  `CREATE TABLE ddb_writes (
+     sheet_id TEXT PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+     hp INTEGER NOT NULL,
+     temp_hp INTEGER NOT NULL,
+     removed INTEGER NOT NULL,
+     successes INTEGER NOT NULL,
+     failures INTEGER NOT NULL,
+     queued_at TEXT NOT NULL
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

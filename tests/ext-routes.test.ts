@@ -5,7 +5,7 @@ import { UserRepo } from "@/lib/access/grants";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { openDatabase } from "@/lib/dm/db";
 import { ExtTokenRepo } from "@/lib/ext/tokens";
-import { extLive, extPing, extRolls, extSheetLocation, extSync, type ExtDeps } from "@/lib/ext/routes";
+import { extLive, extPing, extRolls, extSheetLocation, extSync, extWrites, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
 
@@ -385,5 +385,50 @@ describe("where a D&D Beyond character's sheet is", () => {
     const { deps, token } = setup();
     expect((await extSheetLocation(deps).GET(new Request("https://portal.example/api/ext/sheet?ddbCharacterId=1"))).status).toBe(401);
     expect((await extSheetLocation(deps).GET(ask(token, "abc"))).status).toBe(400);
+  });
+});
+
+describe("two-way HP", () => {
+  const T2 = "2026-11-22T10:00:30.000Z";
+  const want = { hp: 5, tempHp: 0, removed: 12, successes: 0, failures: 0 };
+  const listing = (token: string) => new Request("https://portal.example/api/ext/writes", { headers: { authorization: `Bearer ${token}` } });
+
+  async function synced() {
+    const ctx = setup();
+    const { sheetId } = (await (await extSync(ctx.deps).POST(post(ctx.token, payload(caster)))).json()) as { sheetId: string };
+    ctx.deps.links().queueWrite(sheetId, want, new Date(ctx.clock.now).toISOString());
+    return { ...ctx, sheetId };
+  }
+
+  it("lists the HP changes the player's extension should save on D&D Beyond", async () => {
+    const { deps, token } = await synced();
+    const response = await extWrites(deps).GET(listing(token));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ writes: [{ ddbCharacterId: "100000002", ...want }] });
+  });
+
+  it("keeps the portal's HP while D&D Beyond does not have it yet", async () => {
+    const { deps, token, sheetId, clock } = await synced();
+    clock.now = Date.parse(T2) + 1000;
+    const answer = (await (await extSync(deps).POST(post(token, payload(caster, { capturedAt: T2 })))).json()) as { hp: number };
+    expect(deps.sheets().get(sheetId)!.vitals.hp).toBe(5);
+    expect(answer.hp).toBe(5);
+    expect(deps.links().writeFor(sheetId, clock.now)).not.toBeNull();
+  });
+
+  it("forgets the change once D&D Beyond holds it", async () => {
+    const { deps, token, sheetId, clock } = await synced();
+    clock.now = Date.parse(T2) + 1000;
+    const saved = structuredClone(caster) as typeof caster & { data: { removedHitPoints: number } };
+    saved.data.removedHitPoints = 12;
+    await extSync(deps).POST(post(token, payload(saved, { capturedAt: T2 })));
+    expect(deps.sheets().get(sheetId)!.vitals.hp).toBe(5);
+    expect(deps.links().writeFor(sheetId, clock.now)).toBeNull();
+    expect(await (await extWrites(deps).GET(listing(token))).json()).toEqual({ writes: [] });
+  });
+
+  it("needs a token", async () => {
+    const { deps } = setup();
+    expect((await extWrites(deps).GET(new Request("https://portal.example/api/ext/writes"))).status).toBe(401);
   });
 });

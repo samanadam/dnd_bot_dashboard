@@ -3,6 +3,7 @@ import type { UserRepo } from "@/lib/access/grants";
 import { campaignOf, NO_DDB_CAMPAIGN, resolveCampaign, type CampaignRef } from "@/lib/ddb/campaign";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
 import { mapCharacter, type Mapped } from "@/lib/ddb/map";
+import { matches } from "@/lib/ddb/writeBack";
 import { invalidBody, readDmJson } from "@/lib/dm/guard";
 import { json, noContent } from "@/lib/dm/http";
 import type { AuditLog } from "@/lib/dm/http";
@@ -173,7 +174,12 @@ export function extSync(deps: ExtDeps) {
 
       if (link) {
         const before = sheets.get(link.sheetId);
-        let saved = sheets.saveSynced(link.sheetId, mapped.body, mapped.vitals, mapped.edition);
+        // Two-way HP: a change made in the portal stands until D&D Beyond holds it too.
+        let vitals = mapped.vitals;
+        const pending = links.writeFor(link.sheetId, deps.now?.() ?? Date.now());
+        if (pending && matches(pending, mapped.vitals)) links.clearWrite(link.sheetId);
+        else if (pending) vitals = { ...vitals, hp: pending.hp, tempHp: pending.tempHp, deathSaves: { successes: pending.successes, failures: pending.failures } };
+        let saved = sheets.saveSynced(link.sheetId, mapped.body, vitals, mapped.edition);
         if (!saved) return errorResponse(404, "not_found", "The synced sheet is gone.");
         links.touch(link.sheetId, capturedAt);
         links.setDdbCampaign(link.sheetId, ddb);
@@ -208,6 +214,17 @@ export function extSync(deps: ExtDeps) {
       await syncName(deps, campaignId, who.userId);
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
       return json({ sheetId: created.id, campaignId, created: true, hp: created.vitals.hp, maxHp, warnings: mapped.warnings });
+    },
+  };
+}
+
+export function extWrites(deps: ExtDeps) {
+  return {
+    /** The HP changes made in the portal that this player's extension should save on D&D Beyond. */
+    async GET(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      return json({ writes: deps.links().pendingWrites(who.userId, deps.now?.() ?? Date.now()) });
     },
   };
 }

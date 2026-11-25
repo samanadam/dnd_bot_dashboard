@@ -80,7 +80,7 @@ export function StoryTab({ sheet, editing }: { sheet: SheetHandle; editing: bool
 }
 
 export function CompanionsTab({ sheet, editing }: { sheet: SheetHandle; editing: boolean }) {
-  const { body, vitals, update, apply } = sheet;
+  const { body, vitals, update, apply, view } = sheet;
   return (
     <Section
       title="Companions"
@@ -142,7 +142,7 @@ export function CompanionsTab({ sheet, editing }: { sheet: SheetHandle; editing:
                       AC {companion.ac} · HP {state.hp}/{companion.maxHp}
                       {state.tempHp ? ` (+${state.tempHp})` : ""} · {companion.speed}
                     </p>
-                    <div className="flex gap-2">
+                    <div className={view.synced ? "hidden" : "flex gap-2"}>
                       <Button size="sm" variant="danger" onClick={() => void apply([{ op: "companion", id: companion.id, change: { op: "damage", amount: 1 } }])}>
                         −1 HP
                       </Button>
