@@ -162,6 +162,12 @@ async function heartbeat(state: SyncState, live: boolean): Promise<void> {
 const putCharacter = async (path: string, body: unknown, token: string) =>
   fetch(`https://character-service.dndbeyond.com/character/v5/${path}`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body), credentials: "omit" });
 
+/** An open D&D Beyond page of the character does not see a change made elsewhere until it reloads: tell it. */
+async function tellOpenPages(write: HpWrite): Promise<void> {
+  const tabs = await chrome.tabs.query({ url: `https://www.dndbeyond.com/characters/${write.ddbCharacterId}*` }).catch(() => []);
+  for (const tab of tabs) if (tab.id !== undefined) void chrome.tabs.sendMessage(tab.id, { type: "hpSaved", write }).catch(() => undefined);
+}
+
 /** Two-way HP: saves on D&D Beyond the HP changes made in the portal for the player's own characters. */
 async function applyPortalWrites(state: SyncState): Promise<void> {
   if (!state.settings.writeBack) return;
@@ -173,6 +179,7 @@ async function applyPortalWrites(state: SyncState): Promise<void> {
     if (!entry || entry.mine === false || !entry.enabled) continue;
     const result = await applyWrite({ ...deps, putCharacter }, write);
     if (result !== "ok") continue;
+    await tellOpenPages(write);
     const fresh = await load();
     note(fresh, `${entry.name ?? `Character ${write.ddbCharacterId}`}: HP ${write.hp}${write.tempHp ? ` (+${write.tempHp} temp)` : ""} saved to D&D Beyond from the portal.`);
     await save(fresh);

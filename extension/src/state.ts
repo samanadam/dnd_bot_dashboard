@@ -177,3 +177,10 @@ export function badgeFor(state: SyncState): { text: string; color: string } {
   if (errors.length > 0) return { text: "?", color: "#f7c04a" };
   return { text: state.settings.live ? "LIVE" : "", ...ok };
 }
+
+/** What an open D&D Beyond page says after the portal's HP change was saved (the page only shows it after a reload). */
+export function hpNotice(write: { hp: number; tempHp: number; removed: number; successes: number; failures: number }): string {
+  const temp = write.tempHp ? ` (+${write.tempHp} temp)` : "";
+  const saves = write.successes || write.failures ? `, death saves ${write.successes} / ${write.failures}` : "";
+  return `The portal set HP to ${write.hp} / ${write.hp + write.removed}${temp}${saves}. Reload to see it here.`;
+}
