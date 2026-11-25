@@ -7,6 +7,7 @@ import { accessFor, rolesOf } from "@/lib/access/store";
 import { audit } from "@/lib/audit";
 import { botServer } from "@/lib/bot/server";
 import { DdbLinkRepo } from "@/lib/ddb/links";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 import { getDatabase } from "@/lib/dm/database";
 import { SheetRepo } from "@/lib/sheets/repo";
 import { ExtTokenRepo } from "./tokens";
@@ -24,6 +25,7 @@ export function extDeps(): ExtDeps {
   return {
     tokens: () => new ExtTokenRepo(getDatabase()),
     links: () => new DdbLinkRepo(getDatabase()),
+    tableRolls: () => new TableRollRepo(getDatabase()),
     sheets: () => new SheetRepo(getDatabase()),
     users: () => new UserRepo(getDatabase()),
     campaignsOf: async (userId) => {

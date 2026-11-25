@@ -8,6 +8,7 @@ import { ExtTokenRepo } from "@/lib/ext/tokens";
 import { extLive, extPing, extRolls, extSheetLocation, extSync, extWrites, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 
 const ARIA = "100000000000000002";
 const EMBER = "aaaaaaaaaaaa";
@@ -30,6 +31,7 @@ function setup() {
     users: () => users,
     campaignsOf: async () => state.campaigns,
     limiter: new RateLimiter(),
+    tableRolls: () => new TableRollRepo(db),
     rollLimiter: new RateLimiter(),
     syncLimiter: new RateLimiter(),
     badTokenLimiter: new RateLimiter(),
@@ -188,6 +190,18 @@ describe("rolls", () => {
     await extSync(deps).POST(post(token, payload(caster)));
     for (let i = 0; i < 30; i++) expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(204);
     expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(429);
+  });
+
+  it("keeps a D&D Beyond roll in the table's rolls with its visibility: a DM-only one never goes to Discord, a self one goes nowhere", async () => {
+    const { deps, token, announced } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Open" }), "rolls"))).status).toBe(204);
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Hidden", visibility: "dm" }), "rolls"))).status).toBe(204);
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Mine", visibility: "self" }), "rolls"))).status).toBe(204);
+    expect(announced.map(([r]) => (r as { label: string }).label)).toEqual(["Open"]);
+    const everyone = deps.tableRolls!().list(EMBER, { userId: "x", seesAll: false });
+    expect(everyone.map((r) => [r.label, r.who, r.source, r.visibility])).toEqual([["Open", "Aria Test", "ddb", "everyone"]]);
+    expect(deps.tableRolls!().list(EMBER, { userId: "dm", seesAll: true }).map((r) => r.label)).toEqual(["Hidden", "Open"]);
   });
 
   it("validates the roll", async () => {

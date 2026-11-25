@@ -19,6 +19,7 @@ import { InventoryTab } from "./InventoryTab";
 import { MainTab } from "./MainTab";
 import { Portrait } from "./Portrait";
 import { RollProvider } from "./Roller";
+import { TableRolls } from "@/components/play/TableRolls";
 import { SpellsTab } from "./SpellsTab";
 import { CompanionsTab, StoryTab } from "./StoryTab";
 import { useSheet, type SheetHandle } from "./useSheet";
@@ -190,7 +191,7 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
   const back = withBase(backHref, inDemo());
 
   return (
-    <RollProvider sheetId={view.id}>
+    <RollProvider sheetId={view.id} defaultShare={view.owner?.you ? "everyone" : "dm"}>
       <div className="space-y-4">
         <PortalLink href={backHref} className="inline-flex items-center gap-1 text-sm text-muted hover:text-text">
           <ChevronLeft className="size-4" aria-hidden /> Back
@@ -299,6 +300,7 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
           {tab === "companions" ? <CompanionsTab sheet={sheet} editing={editing} /> : null}
           {tab === "story" ? <StoryTab sheet={sheet} editing={editing} /> : null}
         </div>
+        <TableRolls campaignId={view.campaignId} limit={8} />
       </div>
     </RollProvider>
   );

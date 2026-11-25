@@ -15,6 +15,7 @@ import { diskPortraits } from "./portraitStore";
 import { EncounterRepo } from "@/lib/dm/encounters";
 import { SheetRepo, type StoredSheet } from "./repo";
 import { DdbLinkRepo } from "@/lib/ddb/links";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 import type { RollToAnnounce } from "./routes";
 
 /** Tells the bot which character a player is in a campaign, so transcripts use the sheet's name. */
@@ -35,6 +36,7 @@ export function sheetDeps() {
     getAccess,
     sheets: () => new SheetRepo(getDatabase()),
     links: () => new DdbLinkRepo(getDatabase()),
+    tableRolls: () => new TableRollRepo(getDatabase()),
     users: () => new UserRepo(getDatabase()),
     spells: () => new SpellRepo(getDatabase()),
     feats: () => new FeatRepo(getDatabase()),

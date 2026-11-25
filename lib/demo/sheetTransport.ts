@@ -296,6 +296,8 @@ const routes: Array<[string, RegExp, Handler]> = [
         state.play.notes = state.play.notes.filter((n) => n.id !== id);
       }),
   ],
+  // The demo keeps no table rolls; each roll still shows in the roll bar.
+  ["GET", /^play\/rolls$/, () => ({ rolls: [] })],
   ["GET", /^play\/notes$/, (_m, _b, q) => readDemo().play.notes.filter((n) => n.campaignId === q.get("campaign") && n.keep).map((n) => ({ ...demoNote(n), encounterName: n.encounterName }))],
   ["GET", new RegExp(`^dm/encounters/${ID}/notes$`), ([id]) => readDemo().play.notes.filter((n) => n.encounterId === id).map(demoNote)],
   ["GET", new RegExp(`^dm/encounters/${ID}/initiative$`), ([id]) => readDemo().play.rolls.filter((r) => r.encounterId === id)],

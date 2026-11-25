@@ -9,6 +9,7 @@ import { Badge, Button, EmptyState, Notice, inputBaseClass } from "@/components/
 import type { BattleNote, HealthBand, PlayerBattleEntry, PlayerBattleView } from "@/lib/combat/battleView";
 import { inDemo } from "@/lib/demo/base";
 import { DmError } from "@/lib/dm/client";
+import { TableRolls } from "@/components/play/TableRolls";
 import { combat, fetchBattle, sheets } from "@/lib/sheets/client";
 
 const BAND_TEXT: Record<HealthBand, string> = { max: "Healthy", mid: "Hurt", low: "Badly hurt", down: "Down" };
@@ -325,6 +326,7 @@ export function BattleView({ campaign }: { campaign: { id: string; name: string 
           </EmptyState>
         </div>
       )}
+      <TableRolls campaignId={campaign.id} />
     </div>
   );
 }
