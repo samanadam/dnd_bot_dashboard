@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, asOthers, badgeFor, BLANK_CHARACTER, characterIdFromPath, groups, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
+import { ago, asOthers, badgeFor, hpNotice, BLANK_CHARACTER, characterIdFromPath, groups, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
 
 describe("rollFromFrame", () => {
   const socket = "wss://game-log-api-live.dndbeyond.com/v1";
@@ -134,5 +134,12 @@ describe("badgeFor", () => {
 
   it("shows nothing before the extension is connected (the popup says what to do)", () => {
     expect(badgeFor(normalize({})).text).toBe("");
+  });
+});
+
+describe("hpNotice", () => {
+  it("says what the portal saved, with the maximum worked out from the damage taken", () => {
+    expect(hpNotice({ hp: 9, tempHp: 0, removed: 3, successes: 0, failures: 0 })).toBe("The portal set HP to 9 / 12. Reload to see it here.");
+    expect(hpNotice({ hp: 0, tempHp: 4, removed: 12, successes: 1, failures: 2 })).toBe("The portal set HP to 0 / 12 (+4 temp), death saves 1 / 2. Reload to see it here.");
   });
 });
