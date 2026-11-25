@@ -82,6 +82,24 @@ export function extPing(deps: ExtDeps) {
   };
 }
 
+const liveSchema = z.object({ live: z.boolean() }).strict();
+
+export function extLive(deps: ExtDeps) {
+  return {
+    /** `{ live }`: the player's switch in the extension. It reports in again every 30-60 s while on. */
+    async PUT(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const body = await readDmJson(request, 256);
+      if (!body.ok) return body.response;
+      const parsed = liveSchema.safeParse(body.json);
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      deps.links().setLive(who.userId, parsed.data.live, new Date(deps.now?.() ?? Date.now()).toISOString());
+      return noContent();
+    },
+  };
+}
+
 const syncSchema = z
   .object({
     ddbCharacterId: z.string().regex(/^\d{1,20}$/, "expected digits"),

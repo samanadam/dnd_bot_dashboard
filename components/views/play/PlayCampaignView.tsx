@@ -109,6 +109,7 @@ export function SheetListView({
                 <PortalLink href={`${base}/${sheet.id}`} className="block rounded-3xl border border-border bg-surface p-4 shadow-card transition hover:border-border-strong">
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
+                    {sheet.sync ? <Badge tone={sheet.sync.live ? "ok" : "warn"}>{sheet.sync.live ? "Live" : "Offline"}</Badge> : null}
                     {sheet.active ? <Badge tone="ok">In play</Badge> : null}
                     {sheet.status !== "active" ? <Badge tone="warn">{sheet.status === "dead" ? "Dead" : "Retired"}</Badge> : null}
                     {manager && sheet.nameSync === "pending" ? <Badge tone="warn">Bot name pending</Badge> : null}

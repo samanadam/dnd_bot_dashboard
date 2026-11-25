@@ -362,6 +362,13 @@ const MIGRATIONS: readonly string[] = [
      campaign_id TEXT PRIMARY KEY,
      channel_id TEXT NOT NULL UNIQUE
    );`,
+  // Live sync: whether a player's extension says it is syncing right now (the player's own switch),
+  // and when it last said so. A sheet shows "live" only while that is recent (lib/ddb/live.ts).
+  `CREATE TABLE ext_live (
+     user_id TEXT PRIMARY KEY,
+     live INTEGER NOT NULL,
+     seen_at TEXT NOT NULL
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

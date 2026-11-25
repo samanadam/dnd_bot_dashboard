@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { NO_DDB_CAMPAIGN, type DdbCampaign } from "./campaign";
+import { isLiveRow } from "./live";
 
 // Which portal sheet mirrors which D&D Beyond character. A sheet with a row here
 // is "synced": the sync endpoint writes it and the portal refuses other edits.
@@ -25,6 +26,17 @@ export class DdbLinkRepo {
     private readonly db: DatabaseSync,
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  /** The player's extension reports that live sync is on (or off), now. */
+  setLive(userId: string, live: boolean, nowIso: string): void {
+    this.db
+      .prepare("INSERT INTO ext_live (user_id, live, seen_at) VALUES (?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET live = excluded.live, seen_at = excluded.seen_at")
+      .run(userId, live ? 1 : 0, nowIso);
+  }
+
+  isLive(userId: string, nowIso: string): boolean {
+    return isLiveRow(this.db.prepare("SELECT live, seen_at FROM ext_live WHERE user_id = ?").get(userId) as { live: number; seen_at: string } | undefined, nowIso);
+  }
 
   find(userId: string, ddbCharacterId: string): { sheetId: string; capturedAt: string } | null {
     const row = this.db.prepare("SELECT sheet_id, captured_at FROM ddb_links WHERE user_id = ? AND ddb_character_id = ?").get(userId, ddbCharacterId) as { sheet_id: string; captured_at: string } | undefined;

@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { campaignClause, CAMPAIGN_ID, type ScopedSelection } from "@/lib/campaign/selection";
+import { isLiveRow } from "@/lib/ddb/live";
 import { newBody, sheetBodySchema, type SheetBody } from "./body";
 import { derive } from "./derive";
 import { applyOps, type Op, type OpContext, type OpResult } from "./ops";
@@ -32,6 +33,8 @@ export type StoredSheet = {
   nameSync: "ok" | "pending";
   /** Mirrored from D&D Beyond: written only by the sync (see lib/ddb). */
   synced: boolean;
+  /** For a synced sheet: whether its player's extension is live right now, and when it last synced. */
+  sync: { live: boolean; syncedAt: string | null } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -94,6 +97,7 @@ export class SheetRepo {
       portrait: row.portrait,
       nameSync: row.name_sync === "pending" ? "pending" : "ok",
       synced: this.isSynced(row.id),
+      sync: this.syncInfo(row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -175,6 +179,14 @@ export class SheetRepo {
       .run(JSON.stringify(value), value.identity.name, edition ?? null, at, id, expectedVersion);
     if (Number(result.changes) === 0) return this.get(id) ? "conflict" : null;
     return this.get(id);
+  }
+
+  private syncInfo(id: string): StoredSheet["sync"] {
+    const row = this.db
+      .prepare("SELECT l.synced_at AS synced_at, e.live AS live, e.seen_at AS seen_at FROM ddb_links l LEFT JOIN ext_live e ON e.user_id = l.user_id WHERE l.sheet_id = ?")
+      .get(id) as { synced_at: string; live: number | null; seen_at: string | null } | undefined;
+    if (!row) return null;
+    return { live: row.live === null || row.seen_at === null ? false : isLiveRow({ live: row.live, seen_at: row.seen_at }, this.now().toISOString()), syncedAt: row.synced_at };
   }
 
   /** True when the sheet mirrors a D&D Beyond character (see lib/ddb/links.ts). */

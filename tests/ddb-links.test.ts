@@ -166,3 +166,33 @@ describe("waiting characters are bounded", () => {
     expect(links.pending(ARIA)).toHaveLength(50);
   });
 });
+
+describe("live sync state", () => {
+  it("is live while the extension says so and keeps reporting, offline once it goes quiet or says stop", () => {
+    const { sheets, links, sheet } = setup();
+    links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
+    const at = (s: number) => new Date(Date.parse("2026-11-25T10:00:00.000Z") + s * 1000).toISOString();
+    expect(links.isLive(ARIA, at(0))).toBe(false);
+    links.setLive(ARIA, true, at(0));
+    expect(links.isLive(ARIA, at(100))).toBe(true);
+    expect(links.isLive(ARIA, at(151))).toBe(false);
+    links.setLive(ARIA, true, at(200));
+    expect(links.isLive(ARIA, at(210))).toBe(true);
+    links.setLive(ARIA, false, at(220));
+    expect(links.isLive(ARIA, at(221))).toBe(false);
+    expect(sheets.get(sheet.id)?.sync).toMatchObject({ live: false });
+  });
+
+  it("shows on the sheet: nothing for a sheet that is not synced, live or offline plus the last sync for one that is", () => {
+    const { db, sheets, links, sheet } = setup();
+    expect(sheets.get(sheet.id)?.sync).toBeNull();
+    links.create(sheet.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
+    expect(sheets.get(sheet.id)?.sync).toEqual({ live: false, syncedAt: expect.any(String) });
+    links.setLive(ARIA, true, new Date().toISOString());
+    expect(sheets.get(sheet.id)?.sync?.live).toBe(true);
+    // Another player's live state does not leak onto this sheet.
+    db.prepare("DELETE FROM ext_live WHERE user_id = ?").run(ARIA);
+    links.setLive(BRAM, true, new Date().toISOString());
+    expect(sheets.get(sheet.id)?.sync?.live).toBe(false);
+  });
+});

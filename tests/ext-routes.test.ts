@@ -5,7 +5,7 @@ import { UserRepo } from "@/lib/access/grants";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { openDatabase } from "@/lib/dm/db";
 import { ExtTokenRepo } from "@/lib/ext/tokens";
-import { extPing, extRolls, extSync, type ExtDeps } from "@/lib/ext/routes";
+import { extLive, extPing, extRolls, extSync, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
 
@@ -322,5 +322,33 @@ describe("which campaign a synced character lands in", () => {
     state.campaigns = campaigns;
     const { sheetId } = (await (await extSync(deps).POST(post(token, payload(inCampaign("Tyranny of Dragons"))))).json()) as { sheetId: string };
     expect(deps.sheets().get(sheetId)!.campaignId).toBe(EMBER);
+  });
+});
+
+describe("live switch", () => {
+  const put = (token: string | null, body: unknown) =>
+    new Request("https://portal.example/api/ext/live", {
+      method: "PUT",
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    });
+
+  it("needs a token", async () => {
+    const { deps } = setup();
+    expect((await extLive(deps).PUT(put(null, { live: true }))).status).toBe(401);
+  });
+
+  it("marks the token's owner live, and not live", async () => {
+    const { deps, token } = setup();
+    expect((await extLive(deps).PUT(put(token, { live: true }))).status).toBe(204);
+    expect(deps.links().isLive(ARIA, new Date(deps.now?.() ?? Date.now()).toISOString())).toBe(true);
+    expect((await extLive(deps).PUT(put(token, { live: false }))).status).toBe(204);
+    expect(deps.links().isLive(ARIA, new Date(deps.now?.() ?? Date.now()).toISOString())).toBe(false);
+  });
+
+  it("refuses anything but { live: boolean }", async () => {
+    const { deps, token } = setup();
+    expect((await extLive(deps).PUT(put(token, { live: "yes" }))).status).toBe(400);
+    expect((await extLive(deps).PUT(put(token, { live: true, extra: 1 }))).status).toBe(400);
   });
 });
