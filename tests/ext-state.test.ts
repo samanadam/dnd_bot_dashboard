@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, asOthers, BLANK_CHARACTER, characterIdFromPath, groups, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
+import { ago, asOthers, badgeFor, BLANK_CHARACTER, characterIdFromPath, groups, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
 
 describe("rollFromFrame", () => {
   const socket = "wss://game-log-api-live.dndbeyond.com/v1";
@@ -107,5 +107,32 @@ describe("other players' characters", () => {
     const c = (over: object) => ({ ...BLANK_CHARACTER, ...over });
     const result = groups({ "1": c({ mine: true }), "2": c({ mine: null }), "3": c({ mine: false, hidden: false }), "4": c({ mine: false, hidden: true }), "5": c({ mine: true, hidden: true }) });
     expect(result).toEqual({ mine: ["1", "2"], others: ["3"], hidden: 2 });
+  });
+});
+
+describe("badgeFor", () => {
+  const c = (over: object) => ({ ...BLANK_CHARACTER, mine: true, ...over });
+  const state = (characters: object, live = false) => normalize({ portalUrl: "https://p.example", token: "ptx_x", characters: characters as never, settings: { live } as never });
+
+  it("shows nothing when all is well and live sync is off, LIVE when it is on", () => {
+    expect(badgeFor(state({ "1": c({}) }))).toEqual({ text: "", color: "#3ddc97" });
+    expect(badgeFor(state({ "1": c({}) }, true))).toEqual({ text: "LIVE", color: "#3ddc97" });
+  });
+
+  it("never counts other players' characters, paused or hidden ones, or an old read-only refusal", () => {
+    const quiet = state({ "1": c({ mine: false, lastError: "This D&D Beyond page is read-only." }), "2": c({ enabled: false, lastError: "D&D Beyond answered 500." }), "3": c({ hidden: true, lastError: "Cannot reach the portal." }) }, true);
+    expect(badgeFor(quiet).text).toBe("LIVE");
+  });
+
+  it("shows the most urgent problem of the player's own characters", () => {
+    expect(badgeFor(state({ "1": c({ lastError: "Cannot reach the portal." }) })).text).toBe("!");
+    expect(badgeFor(state({ "1": c({ lastError: "Choose this character's campaign.", needsCampaign: true }) })).text).toBe("?");
+    expect(badgeFor(state({ "1": c({ lastError: "Sign in to D&D Beyond in this browser." }) })).text).toBe("IN");
+    expect(badgeFor(state({ "1": c({ lastError: "Cannot reach the portal." }), "2": c({ lastError: "The token is no longer valid. Pair the extension again." }) })).text).toBe("AUTH");
+    expect(badgeFor(state({ "1": c({ lastError: "x" }) })).color).toBe("#ff6b81");
+  });
+
+  it("shows nothing before the extension is connected (the popup says what to do)", () => {
+    expect(badgeFor(normalize({})).text).toBe("");
   });
 });

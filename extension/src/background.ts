@@ -1,5 +1,5 @@
 import { originAllowed } from "./bridge";
-import { asOthers, BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
+import { asOthers, badgeFor, BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
 import { clampInterval, syncAll, type PushMessage, type SyncDeps } from "./sync";
 
 // The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
@@ -14,17 +14,11 @@ async function load(): Promise<SyncState> {
 }
 const save = (state: SyncState) => chrome.storage.local.set({ [KEY]: state });
 
-function badge(text: string) {
-  if (text === "") return void showLive();
-  void chrome.action.setBadgeText({ text });
-  void chrome.action.setBadgeBackgroundColor({ color: "#b3261e" });
-}
-
-/** No trouble to show: a green LIVE while live sync is on, nothing otherwise. */
-async function showLive() {
-  const { settings } = await load();
-  void chrome.action.setBadgeText({ text: settings.live ? "LIVE" : "" });
-  void chrome.action.setBadgeBackgroundColor({ color: "#1d7a46" });
+/** The toolbar badge, from the state as it is now (see badgeFor). Run after every change of the state. */
+async function updateBadge() {
+  const { text, color } = badgeFor(await load());
+  await chrome.action.setBadgeText({ text });
+  await chrome.action.setBadgeBackgroundColor({ color });
 }
 
 const entryOf = (state: SyncState, id: string): CharacterState => (state.characters[id] ??= { ...BLANK_CHARACTER });
@@ -48,7 +42,6 @@ function explain(status: number, body: { error?: { code?: string; message?: stri
 async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
   const state = await load();
   if (!state.portalUrl || !state.token) {
-    badge("!");
     return { ok: false };
   }
   const id = message.ddbCharacterId;
@@ -72,7 +65,6 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
       const answer = await callPortal(state, "ping").catch(() => null);
       if (answer?.status === 401) {
         entry.lastError = explain(401, null);
-        badge("AUTH");
         await save(state);
         return { ok: false };
       }
@@ -102,19 +94,16 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
       }
       if (!body?.ignored && state.settings.live) state.session.syncs += 1;
       if (!body?.ignored) note(state, `${entry.name ?? `Character ${id}`}: ${body?.created ? "created in the portal" : "synced"}.`);
-      badge("");
     } else {
       entry.lastError = explain(response.status, body);
       entry.needsCampaign = response.status === 409 && body?.error?.code === "needs_campaign";
       note(state, `${entry.name ?? `Character ${id}`}: ${entry.lastError}`, true);
-      badge(response.status === 401 ? "AUTH" : entry.needsCampaign ? "?" : "!");
     }
     await save(state);
     return { ok: response.ok };
   } catch {
     entry.lastError = "Cannot reach the portal.";
     note(state, entry.lastError, true);
-    badge("!");
     await save(state);
     return { ok: false };
   }
@@ -145,7 +134,6 @@ const deps: SyncDeps = {
     entry.lastError = error;
     if (error) note(state, `${entry.name ?? `Character ${id}`}: ${error}`, true);
     await save(state);
-    if (error) badge(/Sign in/.test(error) ? "IN" : "!");
   },
   notMine: async (id, character) => {
     const state = await load();
@@ -155,7 +143,6 @@ const deps: SyncDeps = {
     state.characters[id] = after;
     if (before.mine !== false) note(state, `${after.name ?? `Character ${id}`} belongs to another player: kept under Other players and never sent.`);
     await save(state);
-    badge("");
   },
   now: () => Date.now(),
 };
@@ -164,7 +151,12 @@ const deps: SyncDeps = {
 async function heartbeat(state: SyncState, live: boolean): Promise<void> {
   if (!state.portalUrl || !state.token) return;
   const answer = await callPortal(state, "live", { method: "PUT", body: JSON.stringify({ live }) }).catch(() => null);
-  if (answer?.status === 401) badge("AUTH");
+  if (answer?.status === 401) {
+    // Shown on the player's own characters, where the popup and the badge pick it up.
+    const fresh = await load();
+    for (const entry of Object.values(fresh.characters)) if (entry.mine !== false && entry.enabled) entry.lastError = explain(401, null);
+    await save(fresh);
+  }
 }
 
 /** Syncs the given characters, or every enabled one the player has opened. Automatic rounds only run while live sync is on. */
@@ -185,6 +177,7 @@ async function schedule() {
 
 chrome.runtime.onInstalled.addListener(async () => {
   void schedule();
+  void updateBadge();
   // Characters older versions tried to sync and the portal refused as read-only are other players'.
   const state = await load();
   let moved = false;
@@ -197,7 +190,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (moved) {
     note(state, "Moved characters that belong to other players under Other players.");
     await save(state);
-    badge("");
   }
 });
 // Live sync starts off after every browser start: the player starts it when they sit down to play.
@@ -216,13 +208,13 @@ async function setLive(live: boolean): Promise<{ ok: boolean }> {
   note(state, live ? "Live sync started." : "Live sync stopped.");
   await save(state);
   await heartbeat(state, live);
-  void showLive();
-  if (live) await round(undefined, true);
+    if (live) await round(undefined, true);
   return { ok: true };
 }
-// A change of the interval on the options page moves the timer.
+// A change of the interval on the options page moves the timer; any change can change the badge.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes[KEY]) return;
+  void updateBadge();
   const before = clampInterval((changes[KEY].oldValue as Partial<SyncState> | undefined)?.settings?.intervalSeconds);
   const after = clampInterval((changes[KEY].newValue as Partial<SyncState> | undefined)?.settings?.intervalSeconds);
   if (before !== after) void schedule();
@@ -284,8 +276,7 @@ async function pairFromPortal(token: unknown, sender: chrome.runtime.MessageSend
   await chrome.storage.session.remove("checked");
   const answer = await ping();
   if (answer.ok) void round(undefined, true);
-  void showLive();
-  return answer;
+    return answer;
 }
 
 /** Whether this browser is paired with the asking portal page, and live. */

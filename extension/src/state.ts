@@ -159,3 +159,21 @@ export function portalOrigin(input: string): string | null {
     return null;
   }
 }
+
+/**
+ * The toolbar badge, worked out from the state as it is now, so an old error never lingers. Only the
+ * player's own characters that sync and show in the popup count; another player's is never a problem.
+ */
+export function badgeFor(state: SyncState): { text: string; color: string } {
+  const ok = { color: "#3ddc97" };
+  if (!state.portalUrl || !state.token) return { text: "", ...ok };
+  const errors = Object.values(state.characters)
+    .filter((c) => c.mine !== false && c.enabled && !c.hidden && c.lastError && !/read-only/i.test(c.lastError))
+    .map((c) => ({ text: c.lastError as string, campaign: c.needsCampaign }));
+  const bad = (text: string) => ({ text, color: "#ff6b81" });
+  if (errors.some((e) => /token is no longer valid|does not accept this token/i.test(e.text))) return bad("AUTH");
+  if (errors.some((e) => /sign in/i.test(e.text))) return bad("IN");
+  if (errors.some((e) => !e.campaign)) return bad("!");
+  if (errors.length > 0) return { text: "?", color: "#f7c04a" };
+  return { text: state.settings.live ? "LIVE" : "", ...ok };
+}
