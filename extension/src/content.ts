@@ -1,65 +1,22 @@
 import { playRoll } from "./overlay";
 import { parseRolls } from "./rolls";
-import { characterIdFromPath, nextBackoff } from "./state";
+import { characterIdFromPath, normalize } from "./state";
 
-// Runs on a D&D Beyond character page. Reads the character the way the page does
-// (the page's own login gives a short-lived token, kept in memory only) and hands it
-// to the background script. Nothing here talks to the portal.
+// Runs on a D&D Beyond character page. It no longer reads the character itself: the
+// background script does that on a timer, tab or no tab. This script tells it which
+// character the player opened, asks for a refresh right after an edit (and every 15 s
+// while the tab is in front), and replays the rolls it sees on this page.
 
 const id = characterIdFromPath(location.pathname);
-let token: { value: string; expires: number } | null = null;
-let failures = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let running = false;
 
-async function cobaltToken(): Promise<string> {
-  if (token && token.expires > Date.now()) return token.value;
-  const response = await fetch("https://auth-service.dndbeyond.com/v1/cobalt-token", { method: "POST", credentials: "include" });
-  if (!response.ok) throw new Error(`token ${response.status}`);
-  const body = (await response.json()) as { token?: string; ttl?: number };
-  if (!body.token) throw new Error("no token");
-  token = { value: body.token, expires: Date.now() + Math.max(30, (body.ttl ?? 300) - 30) * 1000 };
-  return body.token;
-}
-
-async function capture(characterId: string): Promise<void> {
-  const bearer = await cobaltToken();
-  const response = await fetch(`https://character-service.dndbeyond.com/character/v5/character/${characterId}?includeCustomItems=true`, {
-    headers: { Authorization: `Bearer ${bearer}` },
-  });
-  if (response.status === 401 || response.status === 403) token = null;
-  if (!response.ok) throw new Error(`character ${response.status}`);
-  const character = (await response.json()) as { data?: { canEdit?: boolean } };
-  const answer = (await chrome.runtime.sendMessage({
-    type: "character",
-    ddbCharacterId: characterId,
-    capturedAt: new Date().toISOString(),
-    readOnly: character.data?.canEdit !== true,
-    character,
-  })) as { ok: boolean } | undefined;
-  if (!answer?.ok) throw new Error("portal refused");
-}
-
-async function tick(): Promise<void> {
-  if (!id || running) return;
-  running = true;
-  try {
-    await capture(id);
-    failures = 0;
-  } catch {
-    failures += 1;
-  } finally {
-    running = false;
-    schedule(nextBackoff(failures));
-  }
-}
+const refresh = () => void chrome.runtime.sendMessage({ type: "refresh", id }).catch(() => undefined);
 
 function schedule(delay: number) {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    // A hidden tab waits; it refreshes the moment it is shown again.
-    if (document.visibilityState === "visible") void tick();
-    else schedule(nextBackoff(0));
+    if (document.visibilityState === "visible") refresh();
+    schedule(15_000);
   }, delay);
 }
 
@@ -72,17 +29,19 @@ async function handleRoll(message: { id?: string }): Promise<void> {
     seen.push(message.id);
     if (seen.length > 50) seen.shift();
   }
+  const settings = normalize((await chrome.storage.local.get("sync")).sync as never).settings;
   for (const roll of parseRolls(message)) {
     if (roll.ddbCharacterId !== id) continue;
-    void chrome.runtime.sendMessage({ type: "roll", roll: { ...roll, dice: undefined } });
-    await playRoll(roll.dice);
+    if (settings.replayRolls) void chrome.runtime.sendMessage({ type: "roll", roll: { ...roll, dice: undefined } });
+    if (settings.overlay) await playRoll(roll.dice);
   }
 }
 
 if (id) {
-  void tick();
+  void chrome.runtime.sendMessage({ type: "seen", id }).catch(() => undefined);
+  schedule(15_000);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void tick();
+    if (document.visibilityState === "visible") refresh();
   });
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.data?.source !== "portal-ddb") return;

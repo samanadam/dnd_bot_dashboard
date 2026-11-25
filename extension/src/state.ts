@@ -1,9 +1,94 @@
 // Small pure helpers shared by the extension scripts (and unit-tested in the portal's suite).
 
-export type CharacterState = { lastSyncAt: string | null; lastError: string | null; enabled: boolean };
-export type SyncState = { portalUrl: string | null; token: string | null; characters: Record<string, CharacterState> };
+import { DEFAULT_SETTINGS, type Settings } from "./sync";
 
-export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {} };
+export type CharacterState = {
+  lastSyncAt: string | null;
+  lastError: string | null;
+  enabled: boolean;
+  name: string | null;
+  sheetId: string | null;
+  // The portal could not tell which campaign this character belongs to and waits for a choice.
+  needsCampaign: boolean;
+  // Where the sheet lives in the portal, and what the popup shows about the character.
+  campaignId: string | null;
+  summary: string;
+  avatarUrl: string | null;
+  hp: number | null;
+  maxHp: number | null;
+};
+export type Session = { startedAt: string | null; syncs: number; rolls: number };
+export type RecentRoll = { at: string; label: string; total: number };
+export type LogEntry = { at: string; text: string; bad: boolean };
+export type SyncState = {
+  portalUrl: string | null;
+  token: string | null;
+  characters: Record<string, CharacterState>;
+  settings: Settings;
+  log: LogEntry[];
+  session: Session;
+  rolls: RecentRoll[];
+};
+
+export const EMPTY_SESSION: Session = { startedAt: null, syncs: 0, rolls: 0 };
+export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {}, settings: DEFAULT_SETTINGS, log: [], session: EMPTY_SESSION, rolls: [] };
+export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null };
+export const MAX_LOG = 40;
+export const MAX_ROLLS = 5;
+
+/** The stored state with every field present, whatever an older version saved. */
+export function normalize(stored: Partial<SyncState> | undefined): SyncState {
+  const characters: Record<string, CharacterState> = {};
+  for (const [id, entry] of Object.entries(stored?.characters ?? {})) characters[id] = { ...BLANK_CHARACTER, ...entry };
+  return {
+    portalUrl: stored?.portalUrl ?? null,
+    token: stored?.token ?? null,
+    characters,
+    settings: { ...DEFAULT_SETTINGS, ...stored?.settings },
+    log: Array.isArray(stored?.log) ? stored.log.slice(-MAX_LOG) : [],
+    session: { ...EMPTY_SESSION, ...stored?.session },
+    rolls: Array.isArray(stored?.rolls) ? stored.rolls.slice(0, MAX_ROLLS) : [],
+  };
+}
+
+/** The recent rolls with one more, newest first. */
+export const withRoll = (rolls: RecentRoll[], roll: RecentRoll): RecentRoll[] => [roll, ...rolls].slice(0, MAX_ROLLS);
+
+/** How long live sync has been on: "under a minute", "12 min", "1 h 12 min"; "" when it is off. */
+export function duration(startedAt: string | null, now: number): string {
+  if (!startedAt) return "";
+  const minutes = Math.floor(Math.max(0, now - Date.parse(startedAt)) / 60_000);
+  if (minutes < 1) return "under a minute";
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+/** What the popup shows about a raw D&D Beyond character: name, "High Elf · Wizard 2", and an https portrait. */
+export function characterSummary(raw: unknown): { name: string | null; summary: string; avatarUrl: string | null } {
+  const data = ((raw as { data?: unknown } | null)?.data ?? {}) as Record<string, unknown>;
+  const name = typeof data.name === "string" && data.name.trim() ? data.name.trim().slice(0, 120) : null;
+  const species = typeof (data.race as { fullName?: unknown } | undefined)?.fullName === "string" ? ((data.race as { fullName: string }).fullName.slice(0, 60)) : "";
+  const classes = (Array.isArray(data.classes) ? data.classes : [])
+    .map((c) => c as { level?: unknown; definition?: { name?: unknown } })
+    .filter((c) => typeof c.definition?.name === "string")
+    .map((c) => `${String(c.definition?.name).slice(0, 40)} ${typeof c.level === "number" ? c.level : ""}`.trim())
+    .join(" / ");
+  const avatar = (data.decorations as { avatarUrl?: unknown } | undefined)?.avatarUrl;
+  return { name, summary: [species, classes].filter(Boolean).join(" · "), avatarUrl: typeof avatar === "string" && /^https:\/\/[^\s"'<>]+$/.test(avatar) ? avatar.slice(0, 500) : null };
+}
+
+/** The log with one more line, newest last, at most MAX_LOG long. */
+export const withLog = (log: LogEntry[], text: string, bad: boolean, at: string): LogEntry[] => [...log, { at, text, bad }].slice(-MAX_LOG);
+
+/** "just now", "3 min ago"... for a time shown in the popup. */
+export function ago(iso: string | null, now: number): string {
+  if (!iso) return "never";
+  const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds} s ago`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`;
+  return `${Math.round(seconds / 86_400)} d ago`;
+}
 
 /** Whether a character needs pushing: false when it is identical to the last one pushed. */
 export const shouldPush = (previous: string | null, next: string): boolean => previous !== next;

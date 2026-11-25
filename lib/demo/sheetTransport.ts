@@ -75,6 +75,7 @@ const routes: Array<[string, RegExp, Handler]> = [
           portrait: null,
           nameSync: "ok",
           synced: false,
+          sync: null,
           createdAt: at,
           updatedAt: at,
         };

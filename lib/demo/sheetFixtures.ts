@@ -98,6 +98,7 @@ export function demoSheets(now: number, campaignId: string): StoredSheet[] {
       portrait: null,
       nameSync: "ok",
       synced: false,
+      sync: null,
       createdAt: at,
       updatedAt: at,
     };

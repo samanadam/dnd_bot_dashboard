@@ -1,16 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Portal D&D Beyond Sync",
-  "version": "0.1.1",
-  "description": "Shows your D&D Beyond character in the party portal, live, and replays your rolls with the portal dice.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://www.dndbeyond.com/*"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "version": "0.3.0",
+  "description": "Keeps your D&D Beyond characters live in the party portal while you play, and replays your rolls with the portal dice.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://www.dndbeyond.com/*", "https://auth-service.dndbeyond.com/*", "https://character-service.dndbeyond.com/*", "https://dcdashboard.yangil.net/*", "http://localhost/*"],
+  "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js" },
   "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "action": { "default_title": "Portal sync", "default_popup": "popup.html", "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" } },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "commands": {
+    "toggle-live": { "suggested_key": { "default": "Alt+Shift+L" }, "description": "Start or stop live sync" }
+  },
   "content_scripts": [
     { "matches": ["https://www.dndbeyond.com/characters/*"], "js": ["page.js"], "run_at": "document_start", "world": "MAIN" },
-    { "matches": ["https://www.dndbeyond.com/characters/*"], "js": ["content.js"], "run_at": "document_idle" }
+    { "matches": ["https://www.dndbeyond.com/characters/*"], "js": ["content.js"], "run_at": "document_idle" },
+    { "matches": ["https://dcdashboard.yangil.net/*", "http://localhost/*"], "js": ["portal.js"], "run_at": "document_idle" }
   ]
 }

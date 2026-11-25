@@ -206,6 +206,7 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
             <div className="mt-1 flex flex-wrap gap-1.5">
               <Badge>SRD {view.edition}</Badge>
               {view.synced ? <Badge tone="ok">Synced from D&D Beyond</Badge> : null}
+              {view.sync ? <Badge tone={view.sync.live ? "ok" : "warn"}>{view.sync.live ? "Live" : "Offline"}</Badge> : null}
               {view.status !== "active" ? <Badge tone="warn">{view.status === "dead" ? "Dead" : "Retired"}</Badge> : null}
               {view.active ? <Badge tone="ok">In play</Badge> : null}
               {view.owner && !view.owner.you ? <Badge>{view.owner.name}</Badge> : null}
@@ -247,7 +248,13 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
           </div>
         </header>
 
-        {view.synced ? <Notice tone="neutral">This character is synced live from D&amp;D Beyond. Change it there; this page updates by itself.</Notice> : null}
+        {view.synced ? (
+          <Notice tone={view.sync?.live === false ? "warn" : "neutral"}>
+            {view.sync?.live === false
+              ? `${view.owner?.you ? "Live sync is off." : `${view.owner?.name ?? "The player"} is offline.`} ${view.owner?.you ? "Open the extension and press Start to see changes here as they happen." : "Ask them to open the extension and press Start."}${view.sync.syncedAt ? ` Last synced ${new Date(view.sync.syncedAt).toLocaleString()}.` : ""} Change the character in D&D Beyond.`
+              : "This character is synced live from D&D Beyond. Change it there; this page updates by itself."}
+          </Notice>
+        ) : null}
 
         {conflict ? (
           <Notice tone="warn" title="Someone else changed this sheet">

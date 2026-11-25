@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { UserRepo } from "@/lib/access/grants";
 import { campaignOf, NO_DDB_CAMPAIGN, resolveCampaign, type CampaignRef } from "@/lib/ddb/campaign";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
-import { mapCharacter } from "@/lib/ddb/map";
+import { mapCharacter, type Mapped } from "@/lib/ddb/map";
 import { invalidBody, readDmJson } from "@/lib/dm/guard";
 import { json, noContent } from "@/lib/dm/http";
 import type { AuditLog } from "@/lib/dm/http";
@@ -55,6 +55,9 @@ export async function syncName(deps: Pick<ExtDeps, "sheets" | "syncName">, campa
   if (active) sheets.setNameSync(active.id, ok ? "ok" : "pending");
 }
 
+// The maximum HP the extension shows (a synced sheet always has it set by hand).
+const maxHpOf = (mapped: Mapped): number => (mapped.body.combat.hp.mode === "manual" ? mapped.body.combat.hp.max : 1);
+
 export type Bearer = { ok: true; tokenId: string; userId: string; campaignId: string } | { ok: false; response: Response };
 
 export function bearer(request: Request, deps: ExtDeps): Bearer {
@@ -78,6 +81,24 @@ export function extPing(deps: ExtDeps) {
       const who = bearer(request, deps);
       if (!who.ok) return who.response;
       return json({ user: deps.users().get(who.userId)?.displayName ?? "Player", campaignId: who.campaignId || null });
+    },
+  };
+}
+
+const liveSchema = z.object({ live: z.boolean() }).strict();
+
+export function extLive(deps: ExtDeps) {
+  return {
+    /** `{ live }`: the player's switch in the extension. It reports in again every 30-60 s while on. */
+    async PUT(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const body = await readDmJson(request, 256);
+      if (!body.ok) return body.response;
+      const parsed = liveSchema.safeParse(body.json);
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      deps.links().setLive(who.userId, parsed.data.live, new Date(deps.now?.() ?? Date.now()).toISOString());
+      return noContent();
     },
   };
 }
@@ -164,10 +185,10 @@ export function extSync(deps: ExtDeps) {
           await syncName(deps, campaignId, who.userId);
         } else if (before && before.name !== saved.name) await syncName(deps, saved.campaignId, who.userId);
         deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
-        return json({ sheetId: saved.id, created: false, warnings: mapped.warnings });
+        return json({ sheetId: saved.id, campaignId: saved.campaignId, created: false, hp: saved.vitals.hp, maxHp: maxHpOf(mapped), warnings: mapped.warnings });
       }
 
-      const maxHp = mapped.body.combat.hp.mode === "manual" ? mapped.body.combat.hp.max : 1;
+      const maxHp = maxHpOf(mapped);
       const created = sheets.create({
         campaignId,
         ownerUserId: who.userId,
@@ -186,7 +207,7 @@ export function extSync(deps: ExtDeps) {
       links.clearPending(who.userId, ddbCharacterId);
       await syncName(deps, campaignId, who.userId);
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: "ext/sheets/sync", status: 200 });
-      return json({ sheetId: created.id, created: true, warnings: mapped.warnings });
+      return json({ sheetId: created.id, campaignId, created: true, hp: created.vitals.hp, maxHp, warnings: mapped.warnings });
     },
   };
 }
