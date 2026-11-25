@@ -93,6 +93,8 @@ describe("sheet sync", () => {
     expect(first.status).toBe(200);
     const created = (await first.json()) as { sheetId: string; created: boolean; warnings: string[] };
     expect(created.created).toBe(true);
+    // The extension links straight to the sheet and shows the HP.
+    expect(created).toMatchObject({ campaignId: EMBER, hp: 17, maxHp: 17 });
     const sheets = deps.sheets();
     expect(sheets.isSynced(created.sheetId)).toBe(true);
     const sheet = sheets.get(created.sheetId)!;
@@ -104,6 +106,7 @@ describe("sheet sync", () => {
     const second = await extSync(deps).POST(post(token, payload(hurt, { capturedAt: T1 })));
     const updated = (await second.json()) as { sheetId: string; created: boolean };
     expect(updated).toMatchObject({ sheetId: created.sheetId, created: false });
+    expect(updated).toMatchObject({ campaignId: EMBER, hp: 12, maxHp: 17 });
     const after = sheets.get(created.sheetId)!;
     expect(after.vitals.hp).toBe(12);
     expect(after.vitalsVersion).toBe(sheet.vitalsVersion + 1);

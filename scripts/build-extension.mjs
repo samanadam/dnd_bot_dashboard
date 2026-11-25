@@ -14,6 +14,7 @@ await build({
     page: "extension/src/page.ts",
     popup: "extension/src/popup.ts",
     options: "extension/src/options.ts",
+    portal: "extension/src/portal.ts",
   },
   outdir: out,
   bundle: true,
@@ -29,11 +30,16 @@ await build({
 });
 
 const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
-// STORE_PORTAL=https://your.portal builds the store version: it may only ask for that one site,
-// instead of any https site (which store review would question).
+// The portal the extension pairs with in one click (its script runs on that site's pages).
+// STORE_PORTAL=https://your.portal sets it, and builds the store version: no localhost and no
+// optional access to other sites (which store review would question).
+const DEFAULT_PORTAL = "https://dcdashboard.yangil.net/*";
 if (process.env.STORE_PORTAL) {
-  const origin = new URL(process.env.STORE_PORTAL).origin;
-  manifest.optional_host_permissions = [`${origin}/*`];
+  const site = `${new URL(process.env.STORE_PORTAL).origin}/*`;
+  const swap = (list) => [...new Set(list.filter((m) => m !== "http://localhost/*").map((m) => (m === DEFAULT_PORTAL ? site : m)))];
+  manifest.host_permissions = swap(manifest.host_permissions);
+  manifest.optional_host_permissions = [];
+  for (const script of manifest.content_scripts) if (script.js.includes("portal.js")) script.matches = swap(script.matches);
 }
 writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2));
 copyFileSync("extension/src/popup.html", `${out}/popup.html`);

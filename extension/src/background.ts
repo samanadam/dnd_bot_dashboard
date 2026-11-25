@@ -1,4 +1,5 @@
-import { BLANK_CHARACTER, needsCheck, normalize, shouldPush, signature, withLog, type CharacterState, type SyncState } from "./state";
+import { originAllowed } from "./bridge";
+import { BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
 import { clampInterval, syncAll, type PushMessage, type SyncDeps } from "./sync";
 
 // The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
@@ -52,8 +53,10 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
   }
   const id = message.ddbCharacterId;
   const entry = entryOf(state, id);
-  const name = (message.character as { data?: { name?: unknown } } | null)?.data?.name;
-  if (typeof name === "string" && name) entry.name = name.slice(0, 120);
+  const about = characterSummary(message.character);
+  if (about.name) entry.name = about.name;
+  entry.summary = about.summary;
+  entry.avatarUrl = about.avatarUrl;
   if (!entry.enabled) {
     await save(state);
     return { ok: true };
@@ -84,13 +87,19 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
       method: "POST",
       body: JSON.stringify({ ddbCharacterId: id, capturedAt: message.capturedAt, readOnly: message.readOnly, character: message.character }),
     });
-    const body = (await response.json().catch(() => null)) as { sheetId?: string; created?: boolean; ignored?: boolean; error?: { code?: string; message?: string } } | null;
+    const body = (await response.json().catch(() => null)) as { sheetId?: string; campaignId?: string; created?: boolean; ignored?: boolean; hp?: number; maxHp?: number; error?: { code?: string; message?: string } } | null;
     if (response.ok) {
       await chrome.storage.session.set({ [sessionKey]: current });
       entry.lastSyncAt = new Date().toISOString();
       entry.lastError = null;
       entry.needsCampaign = false;
       if (body?.sheetId) entry.sheetId = body.sheetId;
+      if (typeof body?.campaignId === "string") entry.campaignId = body.campaignId;
+      if (typeof body?.hp === "number" && typeof body?.maxHp === "number") {
+        entry.hp = body.hp;
+        entry.maxHp = body.maxHp;
+      }
+      if (!body?.ignored && state.settings.live) state.session.syncs += 1;
       if (!body?.ignored) note(state, `${entry.name ?? `Character ${id}`}: ${body?.created ? "created in the portal" : "synced"}.`);
       badge("");
     } else {
@@ -175,6 +184,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 async function setLive(live: boolean): Promise<{ ok: boolean }> {
   const state = await load();
   state.settings.live = live;
+  state.session = live ? { startedAt: new Date().toISOString(), syncs: 0, rolls: 0 } : { ...EMPTY_SESSION };
   note(state, live ? "Live sync started." : "Live sync stopped.");
   await save(state);
   await heartbeat(state, live);
@@ -195,7 +205,14 @@ async function relayRoll(roll: { ddbCharacterId: string; label: string; expressi
   if (!state.portalUrl || !state.token || !state.settings.replayRolls || state.characters[roll.ddbCharacterId]?.enabled === false) return { ok: false };
   const { ddbCharacterId, label, expression, total, breakdown } = roll;
   try {
-    return { ok: (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown }) })).ok };
+    const ok = (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown }) })).ok;
+    if (ok) {
+      const fresh = await load();
+      fresh.rolls = withRoll(fresh.rolls, { at: new Date().toISOString(), label: label.slice(0, 80), total });
+      if (fresh.settings.live) fresh.session.rolls += 1;
+      await save(fresh);
+    }
+    return { ok };
   } catch {
     // The dice already showed on the page; a missed relay is not worth a warning.
     return { ok: false };
@@ -216,29 +233,74 @@ async function ping(): Promise<{ ok: boolean; text: string; user?: string }> {
   }
 }
 
-chrome.runtime.onMessage.addListener((message: { type: string; id?: string }, _sender, respond) => {
-  const work: Promise<unknown> =
-    message.type === "roll"
-      ? relayRoll((message as unknown as { roll: Parameters<typeof relayRoll>[0] }).roll)
-      : message.type === "ping"
-        ? ping()
-        : message.type === "setLive"
-          ? setLive((message as unknown as { live: boolean }).live === true)
-          : message.type === "seen" || message.type === "refresh"
-            ? message.id
-              ? (async () => {
-                  // A character page that was opened is remembered, so it syncs while live with the tab closed.
-                  const state = await load();
-                  if (!state.characters[message.id as string]) {
-                    entryOf(state, message.id as string);
-                    await save(state);
-                  }
-                  return round(message.id);
-                })()
-              : Promise.resolve({})
-            : message.type === "syncNow"
-              ? round(message.id, true)
-              : Promise.resolve({ ok: false });
-  void work.then(respond);
+// The portal sites whose pages may pair the extension: the ones its portal script runs on.
+const portalPatterns = (): string[] => (chrome.runtime.getManifest().content_scripts ?? []).filter((c) => c.js?.includes("portal.js")).flatMap((c) => c.matches ?? []);
+const senderOrigin = (sender: chrome.runtime.MessageSender): string | undefined => {
+  if (sender.origin) return sender.origin;
+  try {
+    return sender.url ? new URL(sender.url).origin : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** A token handed over by the portal page itself. The address is that page's origin, checked against the manifest. */
+async function pairFromPortal(token: unknown, sender: chrome.runtime.MessageSender): Promise<{ ok: boolean; text: string }> {
+  const origin = senderOrigin(sender);
+  if (sender.id !== chrome.runtime.id || !originAllowed(origin, portalPatterns()) || typeof token !== "string" || !/^ptx_[A-Za-z0-9_-]{20,100}$/.test(token)) return { ok: false, text: "This page may not pair the extension." };
+  const state = await load();
+  state.portalUrl = origin as string;
+  state.token = token;
+  note(state, `Connected to ${new URL(origin as string).host} from the portal.`);
+  await save(state);
+  await chrome.storage.session.remove("checked");
+  const answer = await ping();
+  if (answer.ok) void round(undefined, true);
+  void showLive();
+  return answer;
+}
+
+/** Whether this browser is paired with the asking portal page, and live. */
+async function statusFor(sender: chrome.runtime.MessageSender): Promise<{ paired: boolean; live: boolean }> {
+  const state = await load();
+  const origin = senderOrigin(sender);
+  return { paired: Boolean(state.token && state.portalUrl && state.portalUrl === origin), live: state.settings.live };
+}
+
+chrome.commands?.onCommand.addListener(async (command) => {
+  if (command !== "toggle-live") return;
+  const state = await load();
+  if (state.portalUrl && state.token) await setLive(!state.settings.live);
+});
+
+type Message = { type: string; id?: string; token?: unknown; live?: unknown; roll?: Parameters<typeof relayRoll>[0] };
+
+/** A character page was opened (or asks for a refresh): remember it, so it syncs while live with the tab closed. */
+async function opened(message: Message): Promise<unknown> {
+  if (!message.id) return {};
+  const state = await load();
+  if (!state.characters[message.id]) {
+    entryOf(state, message.id);
+    await save(state);
+  }
+  // "Start live sync when I open a character": opening one of theirs starts it.
+  if (message.type === "seen" && state.settings.autoStart && !state.settings.live && state.portalUrl && state.token) return setLive(true);
+  return round(message.id);
+}
+
+const handlers: Record<string, (message: Message, sender: chrome.runtime.MessageSender) => Promise<unknown>> = {
+  pair: (message, sender) => pairFromPortal(message.token, sender),
+  status: (_message, sender) => statusFor(sender),
+  roll: (message) => (message.roll ? relayRoll(message.roll) : Promise.resolve({ ok: false })),
+  ping: () => ping(),
+  setLive: (message) => setLive(message.live === true),
+  seen: opened,
+  refresh: opened,
+  syncNow: (message) => round(message.id, true),
+};
+
+chrome.runtime.onMessage.addListener((message: Message, sender, respond) => {
+  const handler = handlers[message?.type];
+  void (handler ? handler(message, sender) : Promise.resolve({ ok: false })).then(respond);
   return true;
 });

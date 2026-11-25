@@ -1,5 +1,5 @@
 import { el } from "./ui";
-import { ago, normalize, portalOrigin, type SyncState } from "./state";
+import { ago, duration, normalize, portalOrigin, type SyncState } from "./state";
 import { clampInterval } from "./sync";
 
 const KEY = "sync";
@@ -15,12 +15,31 @@ async function change(edit: (state: SyncState) => void) {
 
 const INTERVALS: Array<[number, string]> = [
   [30, "every 30 seconds"],
+  [45, "every 45 seconds"],
   [60, "every minute"],
 ];
 
+const SECTIONS: Array<[string, string]> = [
+  ["connection", "Connection"],
+  ["live", "Live sync"],
+  ["characters", "Characters"],
+  ["rolls", "Rolls and dice"],
+  ["activity", "Activity"],
+  ["about", "How it works"],
+];
+
+const section = (id: string, title: string, subtitle: string, ...children: Array<Node | string>) =>
+  el("section", { class: "card", id }, el("h2", { textContent: title }), el("p", { class: "muted", style: "margin-top:2px", textContent: subtitle }), ...children);
+
+function check(title: string, hint: string, checked: boolean, onChange: (value: boolean) => void): HTMLElement {
+  const box = el("input", { type: "checkbox", checked });
+  box.addEventListener("change", () => onChange(box.checked));
+  return el("label", { class: "check" }, box, el("span", {}, el("strong", { textContent: title }), el("div", { class: "muted", textContent: hint })));
+}
+
 function connection(state: SyncState): HTMLElement {
   const url = el("input", { type: "text", placeholder: "https://portal.example.com", autocomplete: "off", value: state.portalUrl ?? "" });
-  const token = el("input", { type: "password", placeholder: "ptx_...", autocomplete: "off", value: state.token ? "••••••••" : "" });
+  const token = el("input", { type: "password", placeholder: "ptx_…", autocomplete: "off", value: state.token ? "••••••••" : "" });
   const status = el("p", { class: "muted", role: "status" });
   const say = (text: string, tone: "ok" | "bad" | "muted") => {
     status.textContent = text;
@@ -31,7 +50,7 @@ function connection(state: SyncState): HTMLElement {
     const origin = portalOrigin(url.value);
     if (!origin) return say("Enter the portal address, starting with https://", "bad");
     // The permission prompt needs this click, so it comes first.
-    if (!(await chrome.permissions.request({ origins: [`${origin}/*`] }))) return say("The extension needs permission to reach the portal.", "bad");
+    if (!(await chrome.permissions.request({ origins: [`${origin}/*`] }).catch(() => false))) return say("The extension needs permission to reach the portal.", "bad");
     const typed = token.value.trim();
     await change((s) => {
       s.portalUrl = origin;
@@ -40,87 +59,129 @@ function connection(state: SyncState): HTMLElement {
     void chrome.action.setBadgeText({ text: "" });
     const answer = (await chrome.runtime.sendMessage({ type: "ping" })) as { ok: boolean; text: string };
     say(answer.text, answer.ok ? "ok" : "bad");
-    if (answer.ok) void chrome.runtime.sendMessage({ type: "syncNow" });
   });
-  return el(
-    "section",
-    { class: "card" },
-    el("h2", { textContent: "Connection" }),
-    el("p", { class: "muted", textContent: "Make a token in the portal under Settings, D&D Beyond sync. One token works for every campaign." }),
+  const test = el("button", { textContent: "Test" });
+  test.addEventListener("click", async () => {
+    const answer = (await chrome.runtime.sendMessage({ type: "ping" })) as { ok: boolean; text: string };
+    say(answer.text, answer.ok ? "ok" : "bad");
+  });
+  const disconnect = el("button", { class: "ghost", textContent: "Disconnect" });
+  disconnect.addEventListener("click", async () => {
+    await chrome.runtime.sendMessage({ type: "setLive", live: false }).catch(() => undefined);
+    await change((s) => {
+      s.token = null;
+    });
+    say("Disconnected. Revoke the token in the portal too if this browser is not yours.", "muted");
+  });
+  const quick = state.token
+    ? el("p", { class: "ok", textContent: `Connected to ${state.portalUrl ? new URL(state.portalUrl).host : "the portal"}.` })
+    : el("div", { class: "card", style: "margin-top:10px;background:var(--accent-soft);border-color:var(--accent)" }, el("strong", { textContent: "Fastest way: " }), "open the portal, go to Settings, D&D Beyond sync, and press Connect this browser. Nothing to copy.");
+  return section(
+    "connection",
+    "Connection",
+    "Which portal this browser sends your characters to.",
+    quick,
     el("label", { class: "field", textContent: "Portal address" }, url),
     el("label", { class: "field", textContent: "Token" }, token),
-    el("div", { class: "row", style: "margin-top:10px" }, save, status),
+    el("div", { class: "row", style: "margin-top:12px;flex-wrap:wrap" }, save, test, ...(state.token ? [disconnect] : []), status),
   );
 }
 
-function behaviour(state: SyncState): HTMLElement {
+function liveSection(state: SyncState, keys: string): HTMLElement {
   const interval = el("select", {}, ...INTERVALS.map(([value, label]) => el("option", { value: String(value), textContent: `Sync ${label}`, selected: value === clampInterval(state.settings.intervalSeconds) })));
   interval.addEventListener("change", () => void change((s) => void (s.settings.intervalSeconds = clampInterval(Number(interval.value)))));
-  const toggle = (key: "replayRolls" | "overlay", title: string, hint: string) => {
-    const box = el("input", { type: "checkbox", checked: state.settings[key] });
-    box.addEventListener("change", () => void change((s) => void (s.settings[key] = box.checked)));
-    return el("label", { class: "switch" }, box, el("span", {}, el("strong", { textContent: title }), el("div", { class: "muted", textContent: hint })));
-  };
-  return el(
-    "section",
-    { class: "card" },
-    el("h2", { textContent: "Syncing" }),
-    el("p", { class: "muted", textContent: "Characters sync only while live sync is on. Start it from the extension's popup when you sit down to play. It needs no D&D Beyond tab, only a D&D Beyond sign-in in this browser, and it turns itself off when the browser starts. While it is on the portal shows you as live." }),
-    el("label", { class: "field", textContent: "While live, sync" }, interval),
-    toggle("replayRolls", "Send my rolls to the portal", "Rolls you make on D&D Beyond appear in the portal's roll feed."),
-    toggle("overlay", "Show the 3D dice on D&D Beyond", "The portal's dice roll over the page when you roll."),
+  const toggle = el("button", { class: state.settings.live ? "" : "primary", textContent: state.settings.live ? "Stop live sync" : "Start live sync", disabled: !state.token });
+  toggle.addEventListener("click", async () => {
+    toggle.disabled = true;
+    await chrome.runtime.sendMessage({ type: "setLive", live: !state.settings.live }).catch(() => undefined);
+    void render();
+  });
+  const now = state.settings.live
+    ? el("p", { class: "ok", textContent: `On for ${duration(state.session.startedAt, Date.now())}: ${state.session.syncs} update${state.session.syncs === 1 ? "" : "s"} and ${state.session.rolls} roll${state.session.rolls === 1 ? "" : "s"} so far.` })
+    : el("p", { class: "muted", textContent: "Off. The portal shows you as offline." });
+  return section(
+    "live",
+    "Live sync",
+    "Your characters sync on their own only while this is on, and the table sees you as live. It turns itself off when the browser starts.",
+    el("div", { class: "row", style: "margin-top:10px;flex-wrap:wrap" }, toggle, now),
+    keys ? el("p", { class: "faint", style: "margin-top:8px" }, "Keyboard shortcut ", el("kbd", { textContent: keys }), ". Change it at chrome://extensions/shortcuts.") : el("p", { class: "faint", style: "margin-top:8px", textContent: "Set a keyboard shortcut at chrome://extensions/shortcuts." }),
+    el("label", { class: "field", textContent: "While live" }, interval),
+    check("Start live sync when I open a character", "Opening one of your characters on D&D Beyond turns live sync on, so you never forget.", state.settings.autoStart, (value) => void change((s) => void (s.settings.autoStart = value))),
   );
 }
 
-function characters(state: SyncState, redraw: () => void): HTMLElement {
+function characters(state: SyncState): HTMLElement {
   const entries = Object.entries(state.characters);
-  if (entries.length === 0) return el("section", { class: "card" }, el("h2", { textContent: "Characters" }), el("p", { class: "muted", textContent: "None yet. Open a character on D&D Beyond once and it appears here." }));
+  if (entries.length === 0) return section("characters", "Characters", "None yet. Open one of your characters on D&D Beyond once and it appears here.");
   const rows = entries.map(([id, entry]) => {
-    const on = el("input", { type: "checkbox", checked: entry.enabled, title: "Sync this character" });
+    const on = el("input", { type: "checkbox", checked: entry.enabled, ariaLabel: `Sync ${entry.name ?? id}` });
     on.addEventListener("change", () => void change((s) => void (s.characters[id] && (s.characters[id].enabled = on.checked))));
-    const remove = el("button", { class: "small", textContent: "Forget" });
-    remove.addEventListener("click", async () => {
-      await change((s) => void delete s.characters[id]);
-      redraw();
-    });
-    const status = !entry.enabled ? "Paused" : (entry.lastError ?? (entry.lastSyncAt ? `Synced ${ago(entry.lastSyncAt, Date.now())}` : "Waiting"));
+    const remove = el("button", { class: "ghost small", textContent: "Forget" });
+    remove.addEventListener("click", () => void change((s) => void delete s.characters[id]));
+    const status = !entry.enabled ? "Paused" : (entry.lastError ?? (entry.lastSyncAt ? `Synced ${ago(entry.lastSyncAt, Date.now())}` : "Not synced yet"));
+    const picture = entry.avatarUrl ? el("img", { class: "avatar", src: entry.avatarUrl, alt: "", referrerPolicy: "no-referrer" }) : el("div", { class: "avatar", textContent: (entry.name ?? id).slice(0, 1).toUpperCase() });
     return el(
-      "tr",
-      {},
-      el("td", {}, on),
-      el("td", {}, el("strong", { textContent: entry.name ?? `Character ${id}` }), el("div", { class: "muted", textContent: `D&D Beyond id ${id}` })),
-      el("td", { class: entry.lastError ? (entry.needsCampaign ? "warn" : "bad") : "", textContent: status }),
-      el("td", {}, remove),
+      "li",
+      { class: "row", style: "padding:10px 0;border-top:1px solid var(--border)" },
+      on,
+      picture,
+      el("div", { class: "grow" }, el("div", { style: "font-weight:650", textContent: entry.name ?? `Character ${id}` }), el("div", { class: "muted", style: "font-size:12px", textContent: entry.summary || `D&D Beyond ${id}` }), el("div", { class: !entry.enabled ? "faint" : entry.lastError ? (entry.needsCampaign ? "warn" : "bad") : "ok", style: "font-size:12px", textContent: status })),
+      remove,
     );
   });
-  return el(
-    "section",
-    { class: "card" },
-    el("h2", { textContent: "Characters" }),
-    el("table", {}, el("thead", {}, el("tr", {}, el("th", { textContent: "On" }), el("th", { textContent: "Character" }), el("th", { textContent: "Status" }), el("th", {}))), el("tbody", {}, ...rows)),
+  return section("characters", "Characters", "Every character you have opened on D&D Beyond. Untick one to stop syncing it; Forget removes it until you open it again.", el("ul", { class: "plain", style: "gap:0;margin-top:6px" }, ...rows));
+}
+
+function rolls(state: SyncState): HTMLElement {
+  return section(
+    "rolls",
+    "Rolls and dice",
+    "What happens when you roll on D&D Beyond (in a campaign game).",
+    check("Send my rolls to the portal", "They appear in the portal's roll feed for the table.", state.settings.replayRolls, (value) => void change((s) => void (s.settings.replayRolls = value))),
+    check("Show the 3D dice on D&D Beyond", "The portal's dice roll over the page when you roll.", state.settings.overlay, (value) => void change((s) => void (s.settings.overlay = value))),
   );
 }
 
-function activity(state: SyncState, redraw: () => void): HTMLElement {
-  const clear = el("button", { class: "small", textContent: "Clear" });
-  clear.addEventListener("click", async () => {
-    await change((s) => void (s.log = []));
-    redraw();
-  });
-  const lines = [...state.log].reverse().map((line) => el("div", { class: line.bad ? "bad" : "" }, el("span", { class: "muted", textContent: `${new Date(line.at).toLocaleTimeString()}  ` }), line.text));
-  return el("section", { class: "card" }, el("div", { class: "row" }, el("h2", { class: "grow", textContent: "Recent activity" }), clear), lines.length ? el("div", { class: "log" }, ...lines) : el("p", { class: "muted", textContent: "Nothing yet." }));
+function activity(state: SyncState): HTMLElement {
+  const clear = el("button", { class: "ghost small", textContent: "Clear" });
+  clear.addEventListener("click", () => void change((s) => void (s.log = [])));
+  const lines = [...state.log].reverse().map((line) => el("div", { class: line.bad ? "bad" : "" }, el("span", { class: "faint", textContent: `${new Date(line.at).toLocaleTimeString()}  ` }), line.text));
+  return el(
+    "section",
+    { class: "card", id: "activity" },
+    el("div", { class: "row" }, el("h2", { class: "grow", textContent: "Activity" }), clear),
+    el("p", { class: "muted", style: "margin-top:2px", textContent: "The last 40 things the extension did. Nothing here leaves your browser." }),
+    lines.length ? el("div", { class: "log" }, ...lines) : el("p", { class: "faint", style: "margin-top:8px", textContent: "Nothing yet." }),
+  );
+}
+
+function about(): HTMLElement {
+  const steps = [
+    "Connect once: the portal's Settings, D&D Beyond sync, Connect this browser.",
+    "Open each of your characters on D&D Beyond once, so the extension knows them.",
+    "When you sit down to play, start live sync (popup, the shortcut, or automatically).",
+    "The extension reads your characters with your own D&D Beyond sign-in and sends them to the portal. Your D&D Beyond login never leaves this browser.",
+    "The table sees your sheet change as you play, and sees you as live. Stop when you are done, or just close the browser.",
+  ];
+  return section("about", "How it works", `Version ${chrome.runtime.getManifest().version}.`, el("ol", { style: "margin:8px 0 0;padding-left:18px;display:grid;gap:4px" }, ...steps.map((text) => el("li", { textContent: text }))));
 }
 
 async function render() {
   const state = await load();
-  const header = el("header", { class: "row" }, el("img", { src: "icons/icon-48.png", alt: "" }), el("div", {}, el("h1", { textContent: "Portal D&D Beyond Sync" }), el("div", { class: "muted", textContent: `Version ${chrome.runtime.getManifest().version}` })));
-  const syncAll = el("button", { textContent: "Sync all once" });
-  syncAll.addEventListener("click", () => void chrome.runtime.sendMessage({ type: "syncNow" }));
-  app.replaceChildren(header, connection(state), behaviour(state), characters(state, () => void render()), activity(state, () => void render()), el("div", {}, syncAll));
+  const keys = (await chrome.commands.getAll().catch(() => [])).find((c) => c.name === "toggle-live")?.shortcut ?? "";
+  const nav = el("nav", { ariaLabel: "Settings sections" }, ...SECTIONS.map(([id, label]) => el("a", { href: `#${id}`, textContent: label })));
+  const header = el(
+    "header",
+    { class: "row" },
+    el("img", { src: "icons/icon-48.png", alt: "" }),
+    el("div", { class: "grow" }, el("h1", { textContent: "Portal D&D Beyond Sync" }), el("div", { class: "muted", textContent: "Settings" })),
+    el("span", { class: `pill ${state.token ? (state.settings.live ? "ok" : "faint") : "faint"}` }, el("span", { class: `dot ${state.settings.live ? "pulse" : ""}` }), state.token ? (state.settings.live ? "Live" : "Off") : "Not connected"),
+  );
+  app.replaceChildren(header, el("div", { class: "layout" }, nav, el("div", { class: "stack", style: "gap:14px" }, connection(state), liveSection(state, keys), characters(state), rolls(state), activity(state), about())));
 }
 
 void render();
-// Keep the lists current while this page is open, but not while the player is typing in a field.
+// Keep the page current while it is open, but not while the player is typing in a field.
 chrome.storage.onChanged.addListener((_changes, area) => {
-  if (area === "local" && !(document.activeElement instanceof HTMLInputElement)) void render();
+  if (area === "local" && !(document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLSelectElement)) void render();
 });

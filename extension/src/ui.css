@@ -1,26 +1,85 @@
+/* The portal's own "Arcane" palette (app/globals.css), so the extension looks like part of it. */
 :root {
-  color-scheme: light dark;
-  --bg: #f6f4fb; --surface: #ffffff; --line: #e2dcee; --text: #1d1b25; --muted: #655f78;
-  --accent: #5b46c4; --accent-text: #ffffff; --ok: #1d7a46; --warn: #8a5a00; --bad: #b3261e;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #15131c; --surface: #1f1c2a; --line: #332f44; --text: #ece9f5; --muted: #a39db8; --accent: #8f7cff; --accent-text: #15131c; --ok: #5fd08e; --warn: #f0b84a; --bad: #ff8a80; }
+  color-scheme: dark;
+  --bg: #080912;
+  --surface: #10121f;
+  --surface-2: #171a2b;
+  --surface-3: #1f2338;
+  --border: #252a42;
+  --border-strong: #353b5c;
+  --text: #eceefb;
+  --muted: #959bba;
+  --faint: #636a8c;
+  --accent: #a394ff;
+  --accent-strong: #8b7aff;
+  --accent-fg: #0d0a24;
+  --accent-soft: rgb(163 148 255 / 0.14);
+  --accent-2: #3dd6f5;
+  --ok: #3ddc97;
+  --warn: #f7c04a;
+  --danger: #ff6b81;
+  --radius: 12px;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, "Segoe UI", sans-serif; }
+body {
+  margin: 0;
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: radial-gradient(40rem 24rem at 0% -20%, rgb(124 108 255 / 0.16), transparent 60%), radial-gradient(30rem 20rem at 120% 0%, rgb(34 211 238 / 0.08), transparent 60%);
+  font: 13px/1.45 "Geist", "Segoe UI", system-ui, sans-serif;
+}
 h1, h2, h3, p { margin: 0; }
-h1 { font-size: 16px; } h2 { font-size: 14px; margin-bottom: 8px; }
-.muted { color: var(--muted); } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+h1 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 650; }
+.eyebrow { font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 14px 0 6px; }
+.muted { color: var(--muted); } .faint { color: var(--faint); }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--danger); }
 .row { display: flex; align-items: center; gap: 10px; } .grow { flex: 1; min-width: 0; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-button, .button { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; text-decoration: none; display: inline-block; }
-button:hover, .button:hover { border-color: var(--accent); }
+.stack { display: grid; gap: 8px; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.card.raised { background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+
+button, .button {
+  font: inherit; font-weight: 550; display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  border-radius: 9px; padding: 6px 12px; cursor: pointer; text-decoration: none;
+  transition: border-color 120ms, background 120ms;
+}
+button:hover, .button:hover { border-color: var(--accent); background: var(--surface-3); }
 button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-button.small { padding: 3px 9px; font-size: 12px; }
-button:disabled { opacity: 0.55; cursor: default; }
-label.field { display: block; margin-top: 10px; font-weight: 600; }
-input[type="text"], input[type="password"], select { display: block; width: 100%; margin-top: 3px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
-.pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.primary:hover { background: var(--accent-strong); }
+button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+button.ghost:hover { color: var(--text); background: var(--surface-2); }
+button.small, .button.small { padding: 4px 9px; font-size: 12px; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+label.field { display: block; margin-top: 12px; font-weight: 600; }
+input[type="text"], input[type="password"], select {
+  display: block; width: 100%; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--border-strong);
+  border-radius: 9px; background: var(--bg); color: var(--text); font: inherit;
+}
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid currentColor; background: rgb(255 255 255 / 0.02); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.dot.pulse { box-shadow: 0 0 0 0 currentColor; animation: pulse 1.8s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(61 220 151 / 0.55); } 100% { box-shadow: 0 0 0 9px rgb(61 220 151 / 0); } }
+@media (prefers-reduced-motion: reduce) { .dot.pulse { animation: none; } }
 ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.switch { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; } .switch input { margin-top: 3px; }
+
+/* A large on/off switch. */
+.switch-lg { all: unset; cursor: pointer; width: 46px; height: 26px; border-radius: 99px; background: var(--surface-3); border: 1px solid var(--border-strong); position: relative; flex: none; transition: background 150ms; }
+.switch-lg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform 150ms, background 150ms; }
+.switch-lg[aria-checked="true"] { background: rgb(61 220 151 / 0.25); border-color: var(--ok); }
+.switch-lg[aria-checked="true"]::after { transform: translateX(20px); background: var(--ok); }
+.switch-lg:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.switch-lg:disabled { opacity: 0.5; cursor: default; }
+
+/* A small checkbox row with a title and a hint. */
+.check { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; cursor: pointer; } .check input { margin-top: 3px; accent-color: var(--accent); }
+
+.avatar { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; background: var(--surface-3); border: 1px solid var(--border); flex: none; display: grid; place-items: center; font-weight: 700; color: var(--accent); }
+.hp { height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.hp > span { display: block; height: 100%; border-radius: 99px; background: var(--ok); }
+.hp.low > span { background: var(--warn); } .hp.crit > span { background: var(--danger); }
+kbd { font: 11px/1 "Geist Mono", ui-monospace, monospace; padding: 2px 5px; border-radius: 5px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--muted); }

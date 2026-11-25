@@ -62,14 +62,14 @@ describe("extension state helpers", () => {
 describe("normalize", () => {
   it("fills every field for state saved by an older version", () => {
     const state = normalize({ portalUrl: "https://p.example", token: "ptx_x", characters: { "1": { lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false } as never } });
-    expect(state.settings).toEqual({ live: false, intervalSeconds: 30, replayRolls: true, overlay: true });
+    expect(state.settings).toEqual({ live: false, autoStart: false, intervalSeconds: 30, replayRolls: true, overlay: true });
     expect(state.log).toEqual([]);
-    expect(state.characters["1"]).toEqual({ lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false, name: null, sheetId: null, needsCampaign: false });
+    expect(state.characters["1"]).toEqual({ lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null });
   });
 
   it("starts empty and keeps stored settings over the defaults", () => {
     expect(normalize(undefined).characters).toEqual({});
-    expect(normalize({ settings: { intervalSeconds: 120, replayRolls: false } as never }).settings).toEqual({ live: false, intervalSeconds: 120, replayRolls: false, overlay: true });
+    expect(normalize({ settings: { intervalSeconds: 120, replayRolls: false } as never }).settings).toEqual({ live: false, autoStart: false, intervalSeconds: 120, replayRolls: false, overlay: true });
   });
 });
 

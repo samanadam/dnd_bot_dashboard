@@ -6,12 +6,15 @@
     <title>Portal sync</title>
     <link rel="stylesheet" href="ui.css" />
     <style>
-      body { width: 360px; padding: 12px; }
-      header { margin-bottom: 10px; }
-      header img { width: 28px; height: 28px; border-radius: 6px; }
-      .char { display: grid; gap: 6px; }
-      .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-      footer { display: flex; justify-content: space-between; margin-top: 10px; }
+      body { width: 372px; padding: 14px; }
+      header img { width: 30px; height: 30px; border-radius: 8px; }
+      .live { display: grid; gap: 6px; margin-top: 12px; }
+      .live.on { border-color: rgb(61 220 151 / 0.45); }
+      .char-actions { display: flex; gap: 6px; margin-top: 8px; }
+      .roll { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid var(--border); }
+      .roll:first-child { border-top: 0; }
+      .total { font-weight: 700; font-variant-numeric: tabular-nums; }
+      footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
     </style>
   </head>
   <body>

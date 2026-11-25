@@ -3,8 +3,9 @@
 
 // `live` is the player's own Start/Stop: characters sync on their own only while it is on, and the
 // portal shows the player as live. It is off after every browser start, so it is started on purpose.
-export type Settings = { live: boolean; intervalSeconds: number; replayRolls: boolean; overlay: boolean };
-export const DEFAULT_SETTINGS: Settings = { live: false, intervalSeconds: 30, replayRolls: true, overlay: true };
+// `autoStart` turns live sync on when the player opens one of their characters on D&D Beyond.
+export type Settings = { live: boolean; autoStart: boolean; intervalSeconds: number; replayRolls: boolean; overlay: boolean };
+export const DEFAULT_SETTINGS: Settings = { live: false, autoStart: false, intervalSeconds: 30, replayRolls: true, overlay: true };
 
 /** The live sync interval in whole seconds: 30 s is the smallest alarm Chrome allows, and the portal calls a player offline after 150 s of silence. */
 export function clampInterval(value: unknown): number {
