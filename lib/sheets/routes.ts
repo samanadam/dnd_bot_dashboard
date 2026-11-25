@@ -12,6 +12,8 @@ import { json, noContent, type AuditLog } from "@/lib/dm/http";
 import type { SrdFeats, SrdSpells } from "@/lib/dm/spellRoutes";
 import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, spellRow, srdFeatRow, srdSpellRow } from "@/lib/dm/spellSearch";
 import type { SpellRepo } from "@/lib/dm/spells";
+import type { DdbLinkRepo } from "@/lib/ddb/links";
+import { desiredWrite, onlyWriteBack } from "@/lib/ddb/writeBack";
 import { RateLimiter } from "@/lib/rateLimit";
 import { errorResponse } from "@/lib/requestGuard";
 import { canEdit, canManage, sheetView, summaryOf, type SheetSummary } from "./access";
@@ -31,6 +33,8 @@ export type RollToAnnounce = { expression: string; total: number; breakdown: str
 
 export type SheetRouteDeps = DmGuardDeps & {
   sheets: () => SheetRepo;
+  // Two-way HP on synced sheets: changes waiting for the owner's extension (lib/ddb/writeBack.ts).
+  links?: () => DdbLinkRepo;
   users: () => UserRepo;
   spells: () => SpellRepo;
   feats: () => FeatRepo;
@@ -227,11 +231,13 @@ export function sheetOps(deps: SheetRouteDeps) {
     async POST(request: Request, id: string): Promise<Response> {
       const found = await editable(request, deps, id);
       if (found instanceof Response) return found;
-      if (found.sheet.synced) return synced();
       const body = await readDmJson(request, SMALL_BODY);
       if (!body.ok) return body.response;
       const parsed = opBatchSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
+      // A synced sheet takes only what goes back to D&D Beyond: HP, temp HP and death saves.
+      const writeBack = found.sheet.synced && deps.links !== undefined;
+      if (found.sheet.synced && (!writeBack || !onlyWriteBack(parsed.data.ops))) return synced();
       const outcome = deps.sheets().applyOps(id, parsed.data.ops, (sheet) => ({
         body: sheet.body,
         edition: sheet.edition,
@@ -240,6 +246,10 @@ export function sheetOps(deps: SheetRouteDeps) {
       }));
       if (outcome === null) return missing();
       if (!outcome.ok) return errorResponse(422, "refused", outcome.reason);
+      if (writeBack) {
+        const done = outcome.sheet;
+        deps.links!().queueWrite(id, desiredWrite(done.vitals, derive(done.body, done.vitals, done.edition).maxHp), new Date().toISOString());
+      }
       audit(deps, found.guard, "POST", "sheets/:id/ops", 200);
       return json({ vitalsVersion: outcome.sheet.vitalsVersion, vitals: outcome.sheet.vitals, results: outcome.results });
     },

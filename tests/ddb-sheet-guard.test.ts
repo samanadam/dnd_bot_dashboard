@@ -33,13 +33,14 @@ function setup() {
     srdSpells: () => ({ list: () => [], get: () => null }),
     srdFeats: () => ({ list: () => [], get: () => null }),
     campaignIds: async () => new Set([EMBER]),
+    links: () => new DdbLinkRepo(db),
   };
   const repo = new SheetRepo(db);
   const plain = repo.create({ campaignId: EMBER, ownerUserId: ARIA, edition: "2024", name: "Plain" });
   const synced = repo.create({ campaignId: EMBER, ownerUserId: ARIA, edition: "2024", name: "Synced" });
   if (plain === "limit" || synced === "limit") throw new Error("limit");
   new DdbLinkRepo(db).create(synced.id, ARIA, "42", "2026-11-22T10:00:00.000Z");
-  return { deps, plain, synced, as: (user: string) => (as = user) };
+  return { deps, plain, synced, links: new DdbLinkRepo(db), as: (user: string) => (as = user) };
 }
 
 const req = (method: string, body?: unknown) =>
@@ -57,14 +58,25 @@ describe("synced sheets", () => {
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe("synced");
   });
 
-  it("refuses vitals operations, for the owner and for the portal owner", async () => {
-    const { deps, synced, as } = setup();
-    const damage = { ops: [{ op: "damage", amount: 3 }] };
-    expect((await sheetOps(deps).POST(req("POST", damage), synced.id)).status).toBe(409);
+  it("takes HP changes and keeps them for the owner's extension to save on D&D Beyond", async () => {
+    const { deps, synced, links, as } = setup();
     as(OWNER);
-    const response = await sheetOps(deps).POST(req("POST", damage), synced.id);
-    expect(response.status).toBe(409);
-    expect(((await response.json()) as { error: { code: string } }).error.code).toBe("synced");
+    const response = await sheetOps(deps).POST(req("POST", { ops: [{ op: "damage", amount: 3 }] }), synced.id);
+    expect(response.status).toBe(200);
+    const { vitals } = (await response.json()) as { vitals: { hp: number } };
+    const want = links.writeFor(synced.id, Date.now())!;
+    expect(want).toMatchObject({ hp: vitals.hp, tempHp: 0, removed: 3, successes: 0, failures: 0 });
+    expect(links.pendingWrites(ARIA, Date.now())).toHaveLength(1);
+  });
+
+  it("refuses every other live change with 409 synced, and queues nothing", async () => {
+    const { deps, synced, links } = setup();
+    for (const ops of [[{ op: "addCondition", name: "Prone", rounds: null }], [{ op: "damage", amount: 1 }, { op: "inspiration", value: true }], [{ op: "spendSlot", level: 1 }]]) {
+      const response = await sheetOps(deps).POST(req("POST", { ops }), synced.id);
+      expect(response.status).toBe(409);
+      expect(((await response.json()) as { error: { code: string } }).error.code).toBe("synced");
+    }
+    expect(links.writeFor(synced.id, Date.now())).toBeNull();
   });
 
   it("still lets the DM keep notes on a synced sheet", async () => {

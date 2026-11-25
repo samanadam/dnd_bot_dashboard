@@ -90,7 +90,7 @@ function ClassRow({ entry, onChange, onRemove, canRemove }: { entry: ClassEntry;
 }
 
 export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boolean }) {
-  const { body, derived, vitals, update, apply } = sheet;
+  const { body, derived, vitals, update, apply, view } = sheet;
   const total = body.classes.reduce((n, c) => n + c.level, 0);
 
   return (
@@ -225,7 +225,7 @@ export function MainTab({ sheet, editing }: { sheet: SheetHandle; editing: boole
               <Button
                 key={pool.die}
                 size="sm"
-                disabled={pool.left < 1}
+                disabled={pool.left < 1 || view.synced}
                 onClick={() => void apply([{ op: "spendHitDie", die: pool.die, roll: true }])}
                 title="Spend one and heal: roll it plus your Constitution modifier"
               >

@@ -8,6 +8,7 @@ import type { SheetView } from "@/lib/sheets/access";
 import type { SheetBody } from "@/lib/sheets/body";
 import { SheetConflictError, sheets } from "@/lib/sheets/client";
 import { derive, type Derived } from "@/lib/sheets/derive";
+import { onlyWriteBack } from "@/lib/ddb/writeBack";
 import { applyOps, type Op, type OpResult } from "@/lib/sheets/ops";
 import type { Vitals } from "@/lib/sheets/vitals";
 
@@ -102,7 +103,8 @@ export function useSheet(initial: SheetView) {
 
   const apply = useCallback(
     async (ops: Op[]): Promise<OpResult[] | null> => {
-      if (view.synced) {
+      // A synced sheet takes HP, temp HP and death saves (they go back to D&D Beyond); nothing else.
+      if (view.synced && !onlyWriteBack(ops)) {
         toast("danger", "This sheet is synced from D&D Beyond. Change it there.");
         return null;
       }

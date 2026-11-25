@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { NO_DDB_CAMPAIGN, type DdbCampaign } from "./campaign";
 import { isLiveRow } from "./live";
+import { isFresh, type HpWrite } from "./writeBack";
 
 // Which portal sheet mirrors which D&D Beyond character. A sheet with a row here
 // is "synced": the sync endpoint writes it and the portal refuses other edits.
@@ -41,6 +42,40 @@ export class DdbLinkRepo {
   find(userId: string, ddbCharacterId: string): { sheetId: string; capturedAt: string } | null {
     const row = this.db.prepare("SELECT sheet_id, captured_at FROM ddb_links WHERE user_id = ? AND ddb_character_id = ?").get(userId, ddbCharacterId) as { sheet_id: string; captured_at: string } | undefined;
     return row ? { sheetId: row.sheet_id, capturedAt: row.captured_at } : null;
+  }
+
+  /** A change made in the portal for D&D Beyond to hold; only the latest per sheet counts. */
+  queueWrite(sheetId: string, want: HpWrite, nowIso: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO ddb_writes (sheet_id, hp, temp_hp, removed, successes, failures, queued_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (sheet_id) DO UPDATE SET hp = excluded.hp, temp_hp = excluded.temp_hp, removed = excluded.removed, successes = excluded.successes, failures = excluded.failures, queued_at = excluded.queued_at`,
+      )
+      .run(sheetId, want.hp, want.tempHp, want.removed, want.successes, want.failures, nowIso);
+  }
+
+  /** The change still waiting for this sheet, or null (none, or older than the time limit). */
+  writeFor(sheetId: string, now: number): HpWrite | null {
+    const row = this.db.prepare("SELECT hp, temp_hp, removed, successes, failures, queued_at FROM ddb_writes WHERE sheet_id = ?").get(sheetId) as WriteRow | undefined;
+    return row && isFresh(row.queued_at, now) ? toWrite(row) : null;
+  }
+
+  /** The changes the player's extension should save on D&D Beyond: their own synced sheets only. */
+  pendingWrites(userId: string, now: number): Array<HpWrite & { ddbCharacterId: string }> {
+    const rows = this.db
+      .prepare("SELECT w.hp, w.temp_hp, w.removed, w.successes, w.failures, w.queued_at, l.ddb_character_id FROM ddb_writes w JOIN ddb_links l ON l.sheet_id = w.sheet_id WHERE l.user_id = ? ORDER BY w.queued_at")
+      .all(userId) as Array<WriteRow & { ddb_character_id: string }>;
+    return rows.filter((r) => isFresh(r.queued_at, now)).map((r) => ({ ddbCharacterId: r.ddb_character_id, ...toWrite(r) }));
+  }
+
+  clearWrite(sheetId: string): void {
+    this.db.prepare("DELETE FROM ddb_writes WHERE sheet_id = ?").run(sheetId);
+  }
+
+  /** Every portal sheet that mirrors this D&D Beyond character, whoever synced it. */
+  byDdbCharacter(ddbCharacterId: string): Array<{ sheetId: string; userId: string }> {
+    const rows = this.db.prepare("SELECT sheet_id, user_id FROM ddb_links WHERE ddb_character_id = ? ORDER BY synced_at DESC").all(ddbCharacterId) as Array<{ sheet_id: string; user_id: string }>;
+    return rows.map((r) => ({ sheetId: r.sheet_id, userId: r.user_id }));
   }
 
   create(sheetId: string, userId: string, ddbCharacterId: string, capturedAt: string, ddbCampaign: DdbCampaign | null = null): void {
@@ -136,3 +171,6 @@ export class DdbLinkRepo {
     }));
   }
 }
+
+type WriteRow = { hp: number; temp_hp: number; removed: number; successes: number; failures: number; queued_at: string };
+const toWrite = (r: WriteRow): HpWrite => ({ hp: r.hp, tempHp: r.temp_hp, removed: r.removed, successes: r.successes, failures: r.failures });

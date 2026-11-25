@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { clampInterval, DEFAULT_SETTINGS, syncAll, syncCharacter, type SyncDeps } from "../extension/src/sync";
+import { applyWrite, clampInterval, DEFAULT_SETTINGS, syncAll, syncCharacter, type SyncDeps } from "../extension/src/sync";
 
 type Pushed = { ddbCharacterId: string; capturedAt: string; readOnly: boolean; character: unknown };
 
 function setup(over: Partial<SyncDeps> = {}) {
   const pushed: Pushed[] = [];
   const failed: Array<[string, string | null]> = [];
-  const calls = { tokens: 0, invalidated: 0, fetched: [] as string[] };
+  const calls = { tokens: 0, invalidated: 0, fetched: [] as string[], notMine: [] as Array<[string, unknown]> };
   const deps: SyncDeps = {
     getToken: async () => {
       calls.tokens += 1;
@@ -24,6 +24,7 @@ function setup(over: Partial<SyncDeps> = {}) {
       return { ok: true };
     },
     report: (id, error) => void failed.push([id, error]),
+    notMine: (id, character) => void calls.notMine.push([id, character]),
     now: () => Date.parse("2026-11-25T10:00:00.000Z"),
     ...over,
   };
@@ -37,10 +38,13 @@ describe("syncCharacter", () => {
     expect(pushed).toEqual([{ ddbCharacterId: "42", capturedAt: "2026-11-25T10:00:00.000Z", readOnly: false, character: { data: { name: "Auren", canEdit: true } } }]);
   });
 
-  it("marks a view you cannot edit as read-only", async () => {
-    const { deps, pushed } = setup({ fetchCharacter: async () => ({ status: 200, json: { data: { canEdit: false } } }) });
-    await syncCharacter(deps, "42");
-    expect(pushed[0].readOnly).toBe(true);
+  it("keeps another player's character (one you cannot edit) to itself: nothing is pushed and no error is shown", async () => {
+    const friend = { data: { name: "Bongo", canEdit: false } };
+    const { deps, pushed, failed, calls } = setup({ fetchCharacter: async () => ({ status: 200, json: friend }) });
+    expect(await syncCharacter(deps, "42")).toBe("notmine");
+    expect(pushed).toEqual([]);
+    expect(failed).toEqual([]);
+    expect(calls.notMine).toEqual([["42", friend]]);
   });
 
   it("says to sign in to D&D Beyond when no token can be had, and pushes nothing", async () => {
@@ -139,5 +143,41 @@ describe("settings", () => {
 
   it("starts with live sync off, so the player starts it on purpose", () => {
     expect(DEFAULT_SETTINGS.live).toBe(false);
+  });
+});
+
+describe("applyWrite (portal HP to D&D Beyond)", () => {
+  const write = { ddbCharacterId: "173706203", hp: 9, tempHp: 2, removed: 3, successes: 1, failures: 0 };
+  const writer = (statuses: number[]) => {
+    const sent: Array<[string, unknown, string]> = [];
+    let i = 0;
+    return { sent, put: async (path: string, body: unknown, token: string) => (sent.push([path, body, token]), { status: statuses[Math.min(i++, statuses.length - 1)] }) };
+  };
+
+  it("saves damage taken, temp HP and death saves with D&D Beyond's own calls", async () => {
+    const { deps } = setup();
+    const w = writer([200]);
+    expect(await applyWrite({ ...deps, putCharacter: w.put }, write)).toBe("ok");
+    expect(w.sent).toEqual([
+      ["life/hp/damage-taken", { characterId: 173706203, removedHitPoints: 3, temporaryHitPoints: 2 }, "tok"],
+      ["life/death-saves", { characterId: 173706203, successCount: 1, failCount: 0 }, "tok"],
+    ]);
+  });
+
+  it("refreshes the token once when refused, and reports a failure without throwing", async () => {
+    const { deps, calls, failed } = setup();
+    const retried = writer([401, 200]);
+    expect(await applyWrite({ ...deps, putCharacter: retried.put }, write)).toBe("ok");
+    expect(calls.invalidated).toBe(1);
+    const broken = writer([500]);
+    expect(await applyWrite({ ...deps, putCharacter: broken.put }, write)).toBe("error");
+    expect(failed.at(-1)).toEqual(["173706203", "D&D Beyond did not take the HP change from the portal (500)."]);
+    const offline = { ...deps, putCharacter: async () => Promise.reject(new Error("net")) };
+    expect(await applyWrite(offline, write)).toBe("error");
+  });
+
+  it("says to sign in when there is no D&D Beyond token", async () => {
+    const { deps } = setup({ getToken: async () => Promise.reject(new Error("no")) });
+    expect(await applyWrite({ ...deps, putCharacter: writer([200]).put }, write)).toBe("signin");
   });
 });

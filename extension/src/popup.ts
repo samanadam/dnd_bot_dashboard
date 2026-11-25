@@ -1,5 +1,5 @@
 import { el } from "./ui";
-import { ago, duration, normalize, type CharacterState, type SyncState } from "./state";
+import { ago, duration, groups, normalize, type CharacterState, type SyncState } from "./state";
 
 const KEY = "sync";
 const app = document.getElementById("app") as HTMLElement;
@@ -13,8 +13,22 @@ async function shortcut(): Promise<string> {
   return commands.find((c) => c.name === "toggle-live")?.shortcut ?? "";
 }
 
-/** Where the character's sheet is in the portal, or the portal's character list. */
-const sheetUrl = (state: SyncState, entry: CharacterState): string => (entry.campaignId && entry.sheetId ? `${state.portalUrl}/play/c/${entry.campaignId}/sheets/${entry.sheetId}` : `${state.portalUrl}/play`);
+// Hiding is kept with the character, so it stays hidden; Settings shows it again.
+async function hide(id: string) {
+  const state = await load();
+  if (state.characters[id]) state.characters[id].hidden = true;
+  await chrome.storage.local.set({ [KEY]: state });
+}
+
+/** Opens the character's own sheet in the portal (the background finds it when the popup does not know it). */
+function openButton(id: string): HTMLElement {
+  const open = el("button", { class: "small", textContent: "Open sheet" });
+  open.addEventListener("click", () => {
+    open.disabled = true;
+    void ask({ type: "open", id }).finally(() => window.close());
+  });
+  return open;
+}
 
 function avatar(entry: CharacterState, id: string): HTMLElement {
   if (entry.avatarUrl) return el("img", { class: "avatar", src: entry.avatarUrl, alt: "", referrerPolicy: "no-referrer" });
@@ -28,7 +42,24 @@ function hpBar(entry: CharacterState): HTMLElement | null {
   return el("div", { class: "row", style: "margin-top:6px" }, el("div", { class: "grow" }, bar), el("span", { class: "faint", style: "font-size:11px", textContent: `${entry.hp}/${entry.maxHp} HP` }));
 }
 
-function characterCard(id: string, entry: CharacterState, state: SyncState, busy: Set<string>, redraw: () => void): HTMLElement {
+function hideButton(id: string): HTMLElement {
+  const button = el("button", { class: "ghost small", textContent: "Hide", title: "Leave it out of this popup (Settings shows it again)" });
+  button.addEventListener("click", () => void hide(id));
+  return button;
+}
+
+/** Another player's character: shown for reference and a link to their sheet, never synced. */
+function othersCard(id: string, entry: CharacterState): HTMLElement {
+  const head = el(
+    "div",
+    { class: "row" },
+    avatar(entry, id),
+    el("div", { class: "grow" }, el("div", { class: "truncate", style: "font-weight:650", textContent: entry.name ?? `Character ${id}` }), el("div", { class: "muted truncate", style: "font-size:12px", textContent: entry.summary || `D&D Beyond ${id}` })),
+  );
+  return el("li", { class: "card" }, head, el("div", { class: "char-actions" }, openButton(id), hideButton(id)));
+}
+
+function characterCard(id: string, entry: CharacterState, busy: Set<string>, redraw: () => void): HTMLElement {
   const tone = !entry.enabled ? "faint" : entry.lastError ? (entry.needsCampaign ? "warn" : "bad") : entry.lastSyncAt ? "ok" : "faint";
   const status = !entry.enabled ? "Paused in Settings" : (entry.lastError ?? (entry.lastSyncAt ? `Synced ${ago(entry.lastSyncAt, Date.now())}` : "Not synced yet"));
   const sync = el("button", { class: "small", textContent: busy.has(id) ? "Syncing…" : "Sync now", disabled: busy.has(id) || !entry.enabled });
@@ -39,7 +70,6 @@ function characterCard(id: string, entry: CharacterState, state: SyncState, busy
     busy.delete(id);
     redraw();
   });
-  const open = el("a", { class: "button small", href: sheetUrl(state, entry), target: "_blank", rel: "noreferrer", textContent: entry.sheetId ? "Open sheet" : "Open portal" });
   const head = el(
     "div",
     { class: "row" },
@@ -49,7 +79,7 @@ function characterCard(id: string, entry: CharacterState, state: SyncState, busy
   const parts: HTMLElement[] = [head];
   const hp = hpBar(entry);
   if (hp) parts.push(hp);
-  parts.push(el("div", { class: tone, style: "font-size:12px;margin-top:6px", textContent: status }), el("div", { class: "char-actions" }, sync, open));
+  parts.push(el("div", { class: tone, style: "font-size:12px;margin-top:6px", textContent: status }), el("div", { class: "char-actions" }, sync, openButton(id), hideButton(id)));
   return el("li", { class: "card" }, ...parts);
 }
 
@@ -59,7 +89,8 @@ async function render(busy = new Set<string>()) {
   const paired = Boolean(state.portalUrl && state.token);
   const live = paired && state.settings.live;
   const ids = Object.keys(state.characters);
-  const problems = ids.filter((id) => state.characters[id].enabled && state.characters[id].lastError).length;
+  const shown = groups(state.characters);
+  const problems = shown.mine.filter((id) => state.characters[id].enabled && state.characters[id].lastError).length;
 
   const pill = !paired
     ? el("span", { class: "pill faint", textContent: "Not connected" })
@@ -109,9 +140,25 @@ async function render(busy = new Set<string>()) {
       ),
     );
 
-    body.push(el("div", { class: "eyebrow", textContent: "Characters" }));
-    if (ids.length === 0) body.push(el("div", { class: "card muted", textContent: "Open one of your characters on D&D Beyond once. It shows up here, and syncs while live sync is on, even with the tab closed." }));
-    else body.push(el("ul", { class: "plain" }, ...ids.map((id) => characterCard(id, state.characters[id], state, busy, redraw))));
+    body.push(el("div", { class: "eyebrow", textContent: "Your characters" }));
+    if (shown.mine.length === 0) body.push(el("div", { class: "card muted", textContent: ids.length === 0 ? "Open one of your characters on D&D Beyond once. It shows up here, and syncs while live sync is on, even with the tab closed." : "None to show. Hidden ones are in Settings." }));
+    else body.push(el("ul", { class: "plain" }, ...shown.mine.map((id) => characterCard(id, state.characters[id], busy, redraw))));
+    if (shown.others.length > 0) {
+      body.push(
+        el(
+          "details",
+          { class: "others" },
+          el("summary", { class: "eyebrow", textContent: `Other players (${shown.others.length})` }),
+          el("p", { class: "faint", style: "font-size:12px;margin:0 0 6px", textContent: "Characters you opened that belong to someone else. They are never sent from here." }),
+          el("ul", { class: "plain" }, ...shown.others.map((id) => othersCard(id, state.characters[id]))),
+        ),
+      );
+    }
+    if (shown.hidden > 0) {
+      const more = el("button", { class: "ghost small", textContent: `${shown.hidden} hidden, show in Settings` });
+      more.addEventListener("click", openSettings);
+      body.push(el("div", { style: "margin-top:6px" }, more));
+    }
 
     if (state.rolls.length > 0) {
       body.push(el("div", { class: "eyebrow", textContent: "Recent rolls" }));

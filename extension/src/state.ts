@@ -16,6 +16,10 @@ export type CharacterState = {
   avatarUrl: string | null;
   hp: number | null;
   maxHp: number | null;
+  // Whether the player can edit it on D&D Beyond (their own), null until it was read once.
+  mine: boolean | null;
+  // Left out of the popup (it still shows in Settings).
+  hidden: boolean;
 };
 export type Session = { startedAt: string | null; syncs: number; rolls: number };
 export type RecentRoll = { at: string; label: string; total: number };
@@ -32,7 +36,7 @@ export type SyncState = {
 
 export const EMPTY_SESSION: Session = { startedAt: null, syncs: 0, rolls: 0 };
 export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {}, settings: DEFAULT_SETTINGS, log: [], session: EMPTY_SESSION, rolls: [] };
-export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null };
+export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null, mine: null, hidden: false };
 export const MAX_LOG = 40;
 export const MAX_ROLLS = 5;
 
@@ -48,6 +52,24 @@ export function normalize(stored: Partial<SyncState> | undefined): SyncState {
     log: Array.isArray(stored?.log) ? stored.log.slice(-MAX_LOG) : [],
     session: { ...EMPTY_SESSION, ...stored?.session },
     rolls: Array.isArray(stored?.rolls) ? stored.rolls.slice(0, MAX_ROLLS) : [],
+  };
+}
+
+/**
+ * A character the player cannot edit: another player's, opened through a shared campaign. It is kept, so
+ * it does not come back as new, but never synced; the first time it is also hidden from the popup.
+ */
+export function asOthers(entry: CharacterState): CharacterState {
+  return { ...entry, mine: false, enabled: false, lastError: null, needsCampaign: false, hidden: entry.mine === false ? entry.hidden : true };
+}
+
+/** The ids the popup shows, the player's own first and other players' apart, and how many are hidden. */
+export function groups(characters: Record<string, CharacterState>): { mine: string[]; others: string[]; hidden: number } {
+  const ids = Object.keys(characters);
+  return {
+    mine: ids.filter((id) => characters[id].mine !== false && !characters[id].hidden),
+    others: ids.filter((id) => characters[id].mine === false && !characters[id].hidden),
+    hidden: ids.filter((id) => characters[id].hidden).length,
   };
 }
 
@@ -136,4 +158,22 @@ export function portalOrigin(input: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The toolbar badge, worked out from the state as it is now, so an old error never lingers. Only the
+ * player's own characters that sync and show in the popup count; another player's is never a problem.
+ */
+export function badgeFor(state: SyncState): { text: string; color: string } {
+  const ok = { color: "#3ddc97" };
+  if (!state.portalUrl || !state.token) return { text: "", ...ok };
+  const errors = Object.values(state.characters)
+    .filter((c) => c.mine !== false && c.enabled && !c.hidden && c.lastError && !/read-only/i.test(c.lastError))
+    .map((c) => ({ text: c.lastError as string, campaign: c.needsCampaign }));
+  const bad = (text: string) => ({ text, color: "#ff6b81" });
+  if (errors.some((e) => /token is no longer valid|does not accept this token/i.test(e.text))) return bad("AUTH");
+  if (errors.some((e) => /sign in/i.test(e.text))) return bad("IN");
+  if (errors.some((e) => !e.campaign)) return bad("!");
+  if (errors.length > 0) return { text: "?", color: "#f7c04a" };
+  return { text: state.settings.live ? "LIVE" : "", ...ok };
 }

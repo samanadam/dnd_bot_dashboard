@@ -251,8 +251,8 @@ export function SheetPage({ initial, backHref, otherCampaigns = [] }: { initial:
         {view.synced ? (
           <Notice tone={view.sync?.live === false ? "warn" : "neutral"}>
             {view.sync?.live === false
-              ? `${view.owner?.you ? "Live sync is off." : `${view.owner?.name ?? "The player"} is offline.`} ${view.owner?.you ? "Open the extension and press Start to see changes here as they happen." : "Ask them to open the extension and press Start."}${view.sync.syncedAt ? ` Last synced ${new Date(view.sync.syncedAt).toLocaleString()}.` : ""} Change the character in D&D Beyond.`
-              : "This character is synced live from D&D Beyond. Change it there; this page updates by itself."}
+              ? `${view.owner?.you ? "Live sync is off." : `${view.owner?.name ?? "The player"} is offline.`} ${view.owner?.you ? "Open the extension and press Start to see changes here as they happen." : "Ask them to open the extension and press Start."}${view.sync.syncedAt ? ` Last synced ${new Date(view.sync.syncedAt).toLocaleString()}.` : ""} Change the character in D&D Beyond; HP changes made here wait until live sync is on.`
+              : "This character is synced live from D&D Beyond and updates by itself. HP, temp HP and death saves changed here go back to D&D Beyond; change everything else there."}
           </Notice>
         ) : null}
 

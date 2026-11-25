@@ -113,7 +113,7 @@ function ResourceEditor({ resource, onChange, onRemove }: { resource: Resource; 
 }
 
 export function ActionsTab({ sheet, editing }: { sheet: SheetHandle; editing: boolean }) {
-  const { body, derived, update, apply } = sheet;
+  const { body, derived, update, apply, view } = sheet;
   const { roll } = useRoller();
 
   return (
@@ -222,6 +222,7 @@ export function ActionsTab({ sheet, editing }: { sheet: SheetHandle; editing: bo
                   label={resource.name}
                   onSpend={() => void apply([{ op: "useResource", id: resource.id, amount: 1 }])}
                   onRestore={() => void apply([{ op: "restoreResource", id: resource.id, amount: 1 }])}
+                  disabled={view.synced}
                 />
               </li>
             ))}
