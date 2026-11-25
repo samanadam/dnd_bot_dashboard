@@ -13,6 +13,7 @@ await build({
     content: "extension/src/content.ts",
     page: "extension/src/page.ts",
     popup: "extension/src/popup.ts",
+    options: "extension/src/options.ts",
   },
   outdir: out,
   bundle: true,
@@ -36,4 +37,6 @@ if (process.env.STORE_PORTAL) {
 }
 writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2));
 copyFileSync("extension/src/popup.html", `${out}/popup.html`);
+copyFileSync("extension/src/options.html", `${out}/options.html`);
+copyFileSync("extension/src/ui.css", `${out}/ui.css`);
 cpSync("extension/icons", `${out}/icons`, { recursive: true, filter: (src) => !src.endsWith(".svg") });

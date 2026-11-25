@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { characterIdFromPath, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
+import { ago, characterIdFromPath, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
 
 describe("rollFromFrame", () => {
   const socket = "wss://game-log-api-live.dndbeyond.com/v1";
@@ -56,5 +56,38 @@ describe("extension state helpers", () => {
     expect(portalOrigin("http://portal.example.com")).toBeNull();
     expect(portalOrigin("javascript:alert(1)")).toBeNull();
     expect(portalOrigin("not a url")).toBeNull();
+  });
+});
+
+describe("normalize", () => {
+  it("fills every field for state saved by an older version", () => {
+    const state = normalize({ portalUrl: "https://p.example", token: "ptx_x", characters: { "1": { lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false } as never } });
+    expect(state.settings).toEqual({ intervalSeconds: 60, replayRolls: true, overlay: true });
+    expect(state.log).toEqual([]);
+    expect(state.characters["1"]).toEqual({ lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false, name: null, sheetId: null, needsCampaign: false });
+  });
+
+  it("starts empty and keeps stored settings over the defaults", () => {
+    expect(normalize(undefined).characters).toEqual({});
+    expect(normalize({ settings: { intervalSeconds: 120, replayRolls: false } as never }).settings).toEqual({ intervalSeconds: 120, replayRolls: false, overlay: true });
+  });
+});
+
+describe("withLog and ago", () => {
+  it("keeps the newest lines and no more than the limit", () => {
+    let log: ReturnType<typeof withLog> = [];
+    for (let i = 0; i < MAX_LOG + 5; i++) log = withLog(log, "n" + i, false, "2026-11-25T10:00:00.000Z");
+    expect(log).toHaveLength(MAX_LOG);
+    expect(log.at(-1)?.text).toBe("n" + (MAX_LOG + 4));
+  });
+
+  it("says how long ago in short words", () => {
+    const now = Date.parse("2026-11-25T12:00:00.000Z");
+    expect(ago(null, now)).toBe("never");
+    expect(ago("2026-11-25T11:59:58.000Z", now)).toBe("just now");
+    expect(ago("2026-11-25T11:59:30.000Z", now)).toBe("30 s ago");
+    expect(ago("2026-11-25T11:57:00.000Z", now)).toBe("3 min ago");
+    expect(ago("2026-11-25T09:00:00.000Z", now)).toBe("3 h ago");
+    expect(ago("2026-11-23T12:00:00.000Z", now)).toBe("2 d ago");
   });
 });

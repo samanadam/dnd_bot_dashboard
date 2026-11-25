@@ -1,16 +1,16 @@
-import { EMPTY_STATE, needsCheck, shouldPush, signature, type SyncState } from "./state";
+import { BLANK_CHARACTER, needsCheck, normalize, shouldPush, signature, withLog, type CharacterState, type SyncState } from "./state";
+import { clampInterval, syncAll, type PushMessage, type SyncDeps } from "./sync";
 
-// The only script that talks to the portal. Content scripts send it what they read
-// from D&D Beyond; it keeps the pairing, remembers how each character is doing, and
-// shows trouble on the toolbar badge.
+// The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
+// character the player has opened (a tab does not have to be open or visible), pushes the
+// ones that changed, keeps the pairing and the activity log, and shows trouble on the badge.
 
 const KEY = "sync";
+const ALARM = "portal-sync";
 
 async function load(): Promise<SyncState> {
-  const stored = (await chrome.storage.local.get(KEY))[KEY] as Partial<SyncState> | undefined;
-  return { ...EMPTY_STATE, ...stored, characters: { ...(stored?.characters ?? {}) } };
+  return normalize((await chrome.storage.local.get(KEY))[KEY] as Partial<SyncState> | undefined);
 }
-
 const save = (state: SyncState) => chrome.storage.local.set({ [KEY]: state });
 
 function badge(text: string) {
@@ -18,8 +18,8 @@ function badge(text: string) {
   void chrome.action.setBadgeBackgroundColor({ color: "#b3261e" });
 }
 
-type Character = { lastSyncAt: string | null; lastError: string | null; enabled: boolean };
-const blank = (): Character => ({ lastSyncAt: null, lastError: null, enabled: true });
+const entryOf = (state: SyncState, id: string): CharacterState => (state.characters[id] ??= { ...BLANK_CHARACTER });
+const note = (state: SyncState, text: string, bad = false) => void (state.log = withLog(state.log, text, bad, new Date().toISOString()));
 
 async function callPortal(state: SyncState, path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${state.portalUrl}/api/ext/${path}`, {
@@ -28,16 +28,28 @@ async function callPortal(state: SyncState, path: string, init: RequestInit = {}
   });
 }
 
-async function pushCharacter(message: { ddbCharacterId: string; capturedAt: string; readOnly: boolean; character: unknown }): Promise<{ ok: boolean }> {
+// What the portal says when a push does not go through.
+function explain(status: number, body: { error?: { code?: string; message?: string } } | null): string {
+  if (status === 401) return "The token is no longer valid. Pair the extension again.";
+  if (status === 409 && body?.error?.code === "needs_campaign") return "Choose this character's campaign in the portal (Settings, D&D Beyond sync).";
+  if (status === 429) return "The portal asked the extension to slow down. It will try again.";
+  return body?.error?.message ?? `The portal answered ${status}.`;
+}
+
+async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
   const state = await load();
   if (!state.portalUrl || !state.token) {
     badge("!");
     return { ok: false };
   }
   const id = message.ddbCharacterId;
-  const entry = state.characters[id] ?? blank();
-  state.characters[id] = entry;
-  if (!entry.enabled) return { ok: true };
+  const entry = entryOf(state, id);
+  const name = (message.character as { data?: { name?: unknown } } | null)?.data?.name;
+  if (typeof name === "string" && name) entry.name = name.slice(0, 120);
+  if (!entry.enabled) {
+    await save(state);
+    return { ok: true };
+  }
 
   const sessionKey = `sig:${id}`;
   const previous = ((await chrome.storage.session.get(sessionKey))[sessionKey] as string | undefined) ?? null;
@@ -47,7 +59,7 @@ async function pushCharacter(message: { ddbCharacterId: string; capturedAt: stri
     if (needsCheck(checked, Date.now())) {
       const answer = await callPortal(state, "ping").catch(() => null);
       if (answer?.status === 401) {
-        entry.lastError = "The token is no longer valid. Pair the extension again.";
+        entry.lastError = explain(401, null);
         badge("AUTH");
         await save(state);
         return { ok: false };
@@ -64,29 +76,91 @@ async function pushCharacter(message: { ddbCharacterId: string; capturedAt: stri
       method: "POST",
       body: JSON.stringify({ ddbCharacterId: id, capturedAt: message.capturedAt, readOnly: message.readOnly, character: message.character }),
     });
+    const body = (await response.json().catch(() => null)) as { sheetId?: string; created?: boolean; ignored?: boolean; error?: { code?: string; message?: string } } | null;
     if (response.ok) {
       await chrome.storage.session.set({ [sessionKey]: current });
       entry.lastSyncAt = new Date().toISOString();
       entry.lastError = null;
+      entry.needsCampaign = false;
+      if (body?.sheetId) entry.sheetId = body.sheetId;
+      if (!body?.ignored) note(state, `${entry.name ?? `Character ${id}`}: ${body?.created ? "created in the portal" : "synced"}.`);
       badge("");
     } else {
-      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      entry.lastError = response.status === 401 ? "The token is no longer valid. Pair the extension again." : (body?.error?.message ?? `The portal answered ${response.status}.`);
-      badge(response.status === 401 ? "AUTH" : "!");
+      entry.lastError = explain(response.status, body);
+      entry.needsCampaign = response.status === 409 && body?.error?.code === "needs_campaign";
+      note(state, `${entry.name ?? `Character ${id}`}: ${entry.lastError}`, true);
+      badge(response.status === 401 ? "AUTH" : entry.needsCampaign ? "?" : "!");
     }
     await save(state);
     return { ok: response.ok };
   } catch {
     entry.lastError = "Cannot reach the portal.";
+    note(state, entry.lastError, true);
     badge("!");
     await save(state);
     return { ok: false };
   }
 }
 
+async function cobaltToken(): Promise<string> {
+  const cached = (await chrome.storage.session.get("ddbToken")).ddbToken as { value: string; expires: number } | undefined;
+  if (cached && cached.expires > Date.now()) return cached.value;
+  const response = await fetch("https://auth-service.dndbeyond.com/v1/cobalt-token", { method: "POST", credentials: "include" });
+  if (!response.ok) throw new Error(`token ${response.status}`);
+  const body = (await response.json()) as { token?: string; ttl?: number };
+  if (!body.token) throw new Error("no token");
+  await chrome.storage.session.set({ ddbToken: { value: body.token, expires: Date.now() + Math.max(30, (body.ttl ?? 300) - 30) * 1000 } });
+  return body.token;
+}
+
+const deps: SyncDeps = {
+  getToken: cobaltToken,
+  invalidateToken: () => void chrome.storage.session.remove("ddbToken"),
+  fetchCharacter: async (id, token) => {
+    const response = await fetch(`https://character-service.dndbeyond.com/character/v5/character/${id}?includeCustomItems=true`, { headers: { Authorization: `Bearer ${token}` }, credentials: "omit" });
+    return { status: response.status, json: response.ok ? await response.json() : undefined };
+  },
+  push: pushCharacter,
+  report: async (id, error) => {
+    const state = await load();
+    const entry = entryOf(state, id);
+    entry.lastError = error;
+    if (error) note(state, `${entry.name ?? `Character ${id}`}: ${error}`, true);
+    await save(state);
+    if (error) badge(/Sign in/.test(error) ? "IN" : "!");
+  },
+  now: () => Date.now(),
+};
+
+/** Syncs the given characters, or every enabled one the player has opened. */
+async function round(only?: string): Promise<Record<string, string>> {
+  const state = await load();
+  if (!state.portalUrl || !state.token) return {};
+  const ids = only ? [only] : Object.entries(state.characters).filter(([, entry]) => entry.enabled).map(([id]) => id);
+  return syncAll(deps, ids);
+}
+
+async function schedule() {
+  const { settings } = await load();
+  await chrome.alarms.create(ALARM, { delayInMinutes: 0.1, periodInMinutes: clampInterval(settings.intervalSeconds) / 60 });
+}
+
+chrome.runtime.onInstalled.addListener(() => void schedule());
+chrome.runtime.onStartup.addListener(() => void schedule());
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM) void round();
+});
+// A change of the interval on the options page moves the timer.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes[KEY]) return;
+  const before = clampInterval((changes[KEY].oldValue as Partial<SyncState> | undefined)?.settings?.intervalSeconds);
+  const after = clampInterval((changes[KEY].newValue as Partial<SyncState> | undefined)?.settings?.intervalSeconds);
+  if (before !== after) void schedule();
+});
+
 async function relayRoll(roll: { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string }): Promise<{ ok: boolean }> {
   const state = await load();
-  if (!state.portalUrl || !state.token || state.characters[roll.ddbCharacterId]?.enabled === false) return { ok: false };
+  if (!state.portalUrl || !state.token || !state.settings.replayRolls || state.characters[roll.ddbCharacterId]?.enabled === false) return { ok: false };
   const { ddbCharacterId, label, expression, total, breakdown } = roll;
   try {
     return { ok: (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown }) })).ok };
@@ -96,7 +170,7 @@ async function relayRoll(roll: { ddbCharacterId: string; label: string; expressi
   }
 }
 
-async function ping(): Promise<{ ok: boolean; text: string }> {
+async function ping(): Promise<{ ok: boolean; text: string; user?: string }> {
   const state = await load();
   if (!state.portalUrl || !state.token) return { ok: false, text: "Enter the portal address and a token first." };
   try {
@@ -104,21 +178,33 @@ async function ping(): Promise<{ ok: boolean; text: string }> {
     if (response.status === 401) return { ok: false, text: "The portal does not accept this token." };
     if (!response.ok) return { ok: false, text: `The portal answered ${response.status}.` };
     const who = (await response.json()) as { user: string };
-    return { ok: true, text: `Paired as ${who.user}.` };
+    return { ok: true, text: `Paired as ${who.user}.`, user: who.user };
   } catch {
     return { ok: false, text: "Cannot reach the portal." };
   }
 }
 
-chrome.runtime.onMessage.addListener((message: { type: string }, _sender, respond) => {
-  const work =
-    message.type === "character"
-      ? pushCharacter(message as never)
-      : message.type === "roll"
-        ? relayRoll((message as unknown as { roll: Parameters<typeof relayRoll>[0] }).roll)
-        : message.type === "ping"
-          ? ping()
-          : Promise.resolve({ ok: false });
+chrome.runtime.onMessage.addListener((message: { type: string; id?: string }, _sender, respond) => {
+  const work: Promise<unknown> =
+    message.type === "roll"
+      ? relayRoll((message as unknown as { roll: Parameters<typeof relayRoll>[0] }).roll)
+      : message.type === "ping"
+        ? ping()
+        : message.type === "seen" || message.type === "refresh"
+          ? message.id
+            ? (async () => {
+                // A character page that was opened is remembered, so it keeps syncing with the tab closed.
+                const state = await load();
+                if (!state.characters[message.id as string]) {
+                  entryOf(state, message.id as string);
+                  await save(state);
+                }
+                return round(message.id);
+              })()
+            : Promise.resolve({})
+          : message.type === "syncNow"
+            ? round(message.id)
+            : Promise.resolve({ ok: false });
   void work.then(respond);
   return true;
 });

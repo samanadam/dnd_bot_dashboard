@@ -1,9 +1,49 @@
 // Small pure helpers shared by the extension scripts (and unit-tested in the portal's suite).
 
-export type CharacterState = { lastSyncAt: string | null; lastError: string | null; enabled: boolean };
-export type SyncState = { portalUrl: string | null; token: string | null; characters: Record<string, CharacterState> };
+import { DEFAULT_SETTINGS, type Settings } from "./sync";
 
-export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {} };
+export type CharacterState = {
+  lastSyncAt: string | null;
+  lastError: string | null;
+  enabled: boolean;
+  name: string | null;
+  sheetId: string | null;
+  // The portal could not tell which campaign this character belongs to and waits for a choice.
+  needsCampaign: boolean;
+};
+export type LogEntry = { at: string; text: string; bad: boolean };
+export type SyncState = { portalUrl: string | null; token: string | null; characters: Record<string, CharacterState>; settings: Settings; log: LogEntry[] };
+
+export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {}, settings: DEFAULT_SETTINGS, log: [] };
+export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false };
+export const MAX_LOG = 40;
+
+/** The stored state with every field present, whatever an older version saved. */
+export function normalize(stored: Partial<SyncState> | undefined): SyncState {
+  const characters: Record<string, CharacterState> = {};
+  for (const [id, entry] of Object.entries(stored?.characters ?? {})) characters[id] = { ...BLANK_CHARACTER, ...entry };
+  return {
+    portalUrl: stored?.portalUrl ?? null,
+    token: stored?.token ?? null,
+    characters,
+    settings: { ...DEFAULT_SETTINGS, ...stored?.settings },
+    log: Array.isArray(stored?.log) ? stored.log.slice(-MAX_LOG) : [],
+  };
+}
+
+/** The log with one more line, newest last, at most MAX_LOG long. */
+export const withLog = (log: LogEntry[], text: string, bad: boolean, at: string): LogEntry[] => [...log, { at, text, bad }].slice(-MAX_LOG);
+
+/** "just now", "3 min ago"... for a time shown in the popup. */
+export function ago(iso: string | null, now: number): string {
+  if (!iso) return "never";
+  const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds} s ago`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`;
+  return `${Math.round(seconds / 86_400)} d ago`;
+}
 
 /** Whether a character needs pushing: false when it is identical to the last one pushed. */
 export const shouldPush = (previous: string | null, next: string): boolean => previous !== next;
