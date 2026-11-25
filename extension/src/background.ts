@@ -1,5 +1,5 @@
 import { originAllowed } from "./bridge";
-import { BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
+import { asOthers, BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
 import { clampInterval, syncAll, type PushMessage, type SyncDeps } from "./sync";
 
 // The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
@@ -54,6 +54,7 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
   const id = message.ddbCharacterId;
   const entry = entryOf(state, id);
   const about = characterSummary(message.character);
+  entry.mine = true;
   if (about.name) entry.name = about.name;
   entry.summary = about.summary;
   entry.avatarUrl = about.avatarUrl;
@@ -146,6 +147,16 @@ const deps: SyncDeps = {
     await save(state);
     if (error) badge(/Sign in/.test(error) ? "IN" : "!");
   },
+  notMine: async (id, character) => {
+    const state = await load();
+    const before = entryOf(state, id);
+    const about = characterSummary(character);
+    const after = asOthers({ ...before, name: about.name ?? before.name, summary: about.summary, avatarUrl: about.avatarUrl });
+    state.characters[id] = after;
+    if (before.mine !== false) note(state, `${after.name ?? `Character ${id}`} belongs to another player: kept under Other players and never sent.`);
+    await save(state);
+    badge("");
+  },
   now: () => Date.now(),
 };
 
@@ -162,7 +173,8 @@ async function round(only?: string, manual = false): Promise<Record<string, stri
   if (!state.portalUrl || !state.token) return {};
   if (!manual && !state.settings.live) return {};
   if (state.settings.live) await heartbeat(state, true);
-  const ids = only ? [only] : Object.entries(state.characters).filter(([, entry]) => entry.enabled).map(([id]) => id);
+  // Another player's character is never synced; one not read yet is, once, to find out whose it is.
+  const ids = only ? [only] : Object.entries(state.characters).filter(([, entry]) => entry.enabled && entry.mine !== false).map(([id]) => id);
   return syncAll(deps, ids);
 }
 
@@ -171,7 +183,23 @@ async function schedule() {
   await chrome.alarms.create(ALARM, { delayInMinutes: 0.1, periodInMinutes: clampInterval(settings.intervalSeconds) / 60 });
 }
 
-chrome.runtime.onInstalled.addListener(() => void schedule());
+chrome.runtime.onInstalled.addListener(async () => {
+  void schedule();
+  // Characters older versions tried to sync and the portal refused as read-only are other players'.
+  const state = await load();
+  let moved = false;
+  for (const [id, entry] of Object.entries(state.characters)) {
+    if (entry.mine === null && entry.lastError && /read-only/i.test(entry.lastError)) {
+      state.characters[id] = asOthers(entry);
+      moved = true;
+    }
+  }
+  if (moved) {
+    note(state, "Moved characters that belong to other players under Other players.");
+    await save(state);
+    badge("");
+  }
+});
 // Live sync starts off after every browser start: the player starts it when they sit down to play.
 chrome.runtime.onStartup.addListener(() => {
   void schedule();
@@ -283,9 +311,30 @@ async function opened(message: Message): Promise<unknown> {
     entryOf(state, message.id);
     await save(state);
   }
+  if (state.characters[message.id].mine === false) return {};
   // "Start live sync when I open a character": opening one of theirs starts it.
   if (message.type === "seen" && state.settings.autoStart && !state.settings.live && state.portalUrl && state.token) return setLive(true);
   return round(message.id);
+}
+
+/** Opens a character's sheet in the portal: straight away when the sync said where it is, else the portal is asked. */
+async function openSheet(id: string | undefined): Promise<{ ok: boolean }> {
+  const state = await load();
+  if (!state.portalUrl) return { ok: false };
+  const entry = id ? state.characters[id] : undefined;
+  let place = entry?.campaignId && entry.sheetId ? { campaignId: entry.campaignId, sheetId: entry.sheetId } : null;
+  if (!place && id && state.token) {
+    const answer = await callPortal(state, `sheet?ddbCharacterId=${encodeURIComponent(id)}`).catch(() => null);
+    const body = answer?.ok ? ((await answer.json().catch(() => null)) as { campaignId?: unknown; sheetId?: unknown } | null) : null;
+    if (typeof body?.campaignId === "string" && typeof body?.sheetId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(body.campaignId) && /^[A-Za-z0-9-]{1,64}$/.test(body.sheetId)) {
+      place = { campaignId: body.campaignId, sheetId: body.sheetId };
+      const fresh = await load();
+      if (fresh.characters[id as string]) Object.assign(fresh.characters[id as string], place);
+      await save(fresh);
+    }
+  }
+  await chrome.tabs.create({ url: place ? `${state.portalUrl}/play/c/${place.campaignId}/sheets/${place.sheetId}` : `${state.portalUrl}/play` });
+  return { ok: Boolean(place) };
 }
 
 const handlers: Record<string, (message: Message, sender: chrome.runtime.MessageSender) => Promise<unknown>> = {
@@ -297,6 +346,7 @@ const handlers: Record<string, (message: Message, sender: chrome.runtime.Message
   seen: opened,
   refresh: opened,
   syncNow: (message) => round(message.id, true),
+  open: (message) => openSheet(message.id),
 };
 
 chrome.runtime.onMessage.addListener((message: Message, sender, respond) => {

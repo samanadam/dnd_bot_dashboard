@@ -21,9 +21,11 @@ export type SyncDeps = {
   push: (message: PushMessage) => Promise<{ ok: boolean }>;
   // Records why a character could not be read (the portal's own answer is recorded by `push`).
   report: (id: string, error: string | null) => void;
+  // A character the player cannot edit: another player's, seen through a shared campaign. Never pushed.
+  notMine: (id: string, character: unknown) => void;
   now: () => number;
 };
-export type SyncResult = "ok" | "signin" | "error" | "busy";
+export type SyncResult = "ok" | "signin" | "error" | "busy" | "notmine";
 
 const running = new Set<string>();
 
@@ -64,7 +66,11 @@ export async function syncCharacter(deps: SyncDeps, id: string): Promise<SyncRes
       return "error";
     }
     const canEdit = (answer.json as { data?: { canEdit?: unknown } } | undefined)?.data?.canEdit === true;
-    const pushed = await deps.push({ ddbCharacterId: id, capturedAt: new Date(deps.now()).toISOString(), readOnly: !canEdit, character: answer.json });
+    if (!canEdit) {
+      deps.notMine(id, answer.json);
+      return "notmine";
+    }
+    const pushed = await deps.push({ ddbCharacterId: id, capturedAt: new Date(deps.now()).toISOString(), readOnly: false, character: answer.json });
     return pushed.ok ? "ok" : "error";
   } finally {
     running.delete(id);

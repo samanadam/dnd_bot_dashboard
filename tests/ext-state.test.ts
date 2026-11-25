@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, characterIdFromPath, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
+import { ago, asOthers, BLANK_CHARACTER, characterIdFromPath, groups, MAX_LOG, normalize, withLog, needsCheck, nextBackoff, portalOrigin, rollFromFrame, shouldPush, signature } from "@/extension/src/state";
 
 describe("rollFromFrame", () => {
   const socket = "wss://game-log-api-live.dndbeyond.com/v1";
@@ -64,7 +64,7 @@ describe("normalize", () => {
     const state = normalize({ portalUrl: "https://p.example", token: "ptx_x", characters: { "1": { lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false } as never } });
     expect(state.settings).toEqual({ live: false, autoStart: false, intervalSeconds: 30, replayRolls: true, overlay: true });
     expect(state.log).toEqual([]);
-    expect(state.characters["1"]).toEqual({ lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null });
+    expect(state.characters["1"]).toEqual({ lastSyncAt: "2026-11-25T10:00:00.000Z", lastError: null, enabled: false, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null, mine: null, hidden: false });
   });
 
   it("starts empty and keeps stored settings over the defaults", () => {
@@ -89,5 +89,23 @@ describe("withLog and ago", () => {
     expect(ago("2026-11-25T11:57:00.000Z", now)).toBe("3 min ago");
     expect(ago("2026-11-25T09:00:00.000Z", now)).toBe("3 h ago");
     expect(ago("2026-11-23T12:00:00.000Z", now)).toBe("2 d ago");
+  });
+});
+
+describe("other players' characters", () => {
+  it("hides and stops a character the first time it turns out to be someone else's", () => {
+    const entry = asOthers({ ...BLANK_CHARACTER, lastError: "This D&D Beyond page is read-only." });
+    expect(entry).toMatchObject({ mine: false, enabled: false, hidden: true, lastError: null });
+  });
+
+  it("keeps the player's later choice to show it", () => {
+    const shown = { ...BLANK_CHARACTER, mine: false, enabled: false, hidden: false };
+    expect(asOthers(shown).hidden).toBe(false);
+  });
+
+  it("splits characters into the player's own and other players', leaving out hidden ones, and counts the hidden", () => {
+    const c = (over: object) => ({ ...BLANK_CHARACTER, ...over });
+    const result = groups({ "1": c({ mine: true }), "2": c({ mine: null }), "3": c({ mine: false, hidden: false }), "4": c({ mine: false, hidden: true }), "5": c({ mine: true, hidden: true }) });
+    expect(result).toEqual({ mine: ["1", "2"], others: ["3"], hidden: 2 });
   });
 });

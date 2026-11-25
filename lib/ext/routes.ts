@@ -212,6 +212,38 @@ export function extSync(deps: ExtDeps) {
   };
 }
 
+const locationQuery = z.object({ ddbCharacterId: z.string().regex(/^[0-9]{1,20}$/, "expected digits") });
+
+export function extSheetLocation(deps: ExtDeps) {
+  return {
+    /**
+     * `?ddbCharacterId=`: the portal sheet of a D&D Beyond character, so the extension opens it
+     * directly. Only the asker's own, or one in a campaign the asker plays in (as on the party pages).
+     */
+    async GET(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const parsed = locationQuery.safeParse({ ddbCharacterId: new URL(request.url).searchParams.get("ddbCharacterId") ?? "" });
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      const sheets = deps.sheets();
+      const found = deps
+        .links()
+        .byDdbCharacter(parsed.data.ddbCharacterId)
+        .map((link) => ({ link, sheet: sheets.get(link.sheetId) }))
+        .filter((row) => row.sheet !== null);
+      const own = found.find((row) => row.link.userId === who.userId);
+      let hit = own;
+      if (!hit) {
+        const playing = await deps.campaignsOf(who.userId);
+        const ids = new Set((playing ?? []).map((c) => c.id));
+        hit = found.find((row) => ids.has(row.sheet!.campaignId));
+      }
+      if (!hit) return errorResponse(404, "not_found", "No sheet of that character in your campaigns.");
+      return json({ campaignId: hit.sheet!.campaignId, sheetId: hit.sheet!.id });
+    },
+  };
+}
+
 const ROLLS: Limit = { max: 30, windowMs: 60_000 };
 const sharedRollLimiter = new RateLimiter();
 

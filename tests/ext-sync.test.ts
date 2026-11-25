@@ -6,7 +6,7 @@ type Pushed = { ddbCharacterId: string; capturedAt: string; readOnly: boolean; c
 function setup(over: Partial<SyncDeps> = {}) {
   const pushed: Pushed[] = [];
   const failed: Array<[string, string | null]> = [];
-  const calls = { tokens: 0, invalidated: 0, fetched: [] as string[] };
+  const calls = { tokens: 0, invalidated: 0, fetched: [] as string[], notMine: [] as Array<[string, unknown]> };
   const deps: SyncDeps = {
     getToken: async () => {
       calls.tokens += 1;
@@ -24,6 +24,7 @@ function setup(over: Partial<SyncDeps> = {}) {
       return { ok: true };
     },
     report: (id, error) => void failed.push([id, error]),
+    notMine: (id, character) => void calls.notMine.push([id, character]),
     now: () => Date.parse("2026-11-25T10:00:00.000Z"),
     ...over,
   };
@@ -37,10 +38,13 @@ describe("syncCharacter", () => {
     expect(pushed).toEqual([{ ddbCharacterId: "42", capturedAt: "2026-11-25T10:00:00.000Z", readOnly: false, character: { data: { name: "Auren", canEdit: true } } }]);
   });
 
-  it("marks a view you cannot edit as read-only", async () => {
-    const { deps, pushed } = setup({ fetchCharacter: async () => ({ status: 200, json: { data: { canEdit: false } } }) });
-    await syncCharacter(deps, "42");
-    expect(pushed[0].readOnly).toBe(true);
+  it("keeps another player's character (one you cannot edit) to itself: nothing is pushed and no error is shown", async () => {
+    const friend = { data: { name: "Bongo", canEdit: false } };
+    const { deps, pushed, failed, calls } = setup({ fetchCharacter: async () => ({ status: 200, json: friend }) });
+    expect(await syncCharacter(deps, "42")).toBe("notmine");
+    expect(pushed).toEqual([]);
+    expect(failed).toEqual([]);
+    expect(calls.notMine).toEqual([["42", friend]]);
   });
 
   it("says to sign in to D&D Beyond when no token can be had, and pushes nothing", async () => {

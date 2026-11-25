@@ -43,6 +43,12 @@ export class DdbLinkRepo {
     return row ? { sheetId: row.sheet_id, capturedAt: row.captured_at } : null;
   }
 
+  /** Every portal sheet that mirrors this D&D Beyond character, whoever synced it. */
+  byDdbCharacter(ddbCharacterId: string): Array<{ sheetId: string; userId: string }> {
+    const rows = this.db.prepare("SELECT sheet_id, user_id FROM ddb_links WHERE ddb_character_id = ? ORDER BY synced_at DESC").all(ddbCharacterId) as Array<{ sheet_id: string; user_id: string }>;
+    return rows.map((r) => ({ sheetId: r.sheet_id, userId: r.user_id }));
+  }
+
   create(sheetId: string, userId: string, ddbCharacterId: string, capturedAt: string, ddbCampaign: DdbCampaign | null = null): void {
     this.db
       .prepare("INSERT INTO ddb_links (sheet_id, user_id, ddb_character_id, captured_at, synced_at, ddb_campaign_id, ddb_campaign_name) VALUES (?, ?, ?, ?, ?, ?, ?)")

@@ -5,7 +5,7 @@ import { UserRepo } from "@/lib/access/grants";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { openDatabase } from "@/lib/dm/db";
 import { ExtTokenRepo } from "@/lib/ext/tokens";
-import { extLive, extPing, extRolls, extSync, type ExtDeps } from "@/lib/ext/routes";
+import { extLive, extPing, extRolls, extSheetLocation, extSync, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
 
@@ -353,5 +353,37 @@ describe("live switch", () => {
     const { deps, token } = setup();
     expect((await extLive(deps).PUT(put(token, { live: "yes" }))).status).toBe(400);
     expect((await extLive(deps).PUT(put(token, { live: true, extra: 1 }))).status).toBe(400);
+  });
+});
+
+describe("where a D&D Beyond character's sheet is", () => {
+  const BRAM = "100000000000000003";
+  const ask = (token: string, id: string) => new Request(`https://portal.example/api/ext/sheet?ddbCharacterId=${id}`, { headers: { authorization: `Bearer ${token}` } });
+
+  it("tells the owner and anyone playing in that campaign, so the extension opens the right sheet", async () => {
+    const { deps, token, tokens } = setup();
+    const { sheetId } = (await (await extSync(deps).POST(post(token, payload(caster)))).json()) as { sheetId: string };
+    expect(await (await extSheetLocation(deps).GET(ask(token, "100000002"))).json()).toEqual({ campaignId: EMBER, sheetId });
+    const friend = tokens.issue(BRAM, "", "friend").token;
+    expect(await (await extSheetLocation(deps).GET(ask(friend, "100000002"))).json()).toEqual({ campaignId: EMBER, sheetId });
+  });
+
+  it("answers 404 for a character nobody synced, or one in a campaign the asker does not play in", async () => {
+    const { deps, token, tokens, state } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    const friend = tokens.issue(BRAM, "", "friend").token;
+    expect((await extSheetLocation(deps).GET(ask(friend, "999"))).status).toBe(404);
+    state.campaigns = [{ id: "bbbbbbbbbbbb", name: "Other table" }];
+    expect((await extSheetLocation(deps).GET(ask(friend, "100000002"))).status).toBe(404);
+    // Without the bot's list only your own characters can be found.
+    state.campaigns = null;
+    expect((await extSheetLocation(deps).GET(ask(friend, "100000002"))).status).toBe(404);
+    expect((await extSheetLocation(deps).GET(ask(token, "100000002"))).status).toBe(200);
+  });
+
+  it("needs a token and a numeric id", async () => {
+    const { deps, token } = setup();
+    expect((await extSheetLocation(deps).GET(new Request("https://portal.example/api/ext/sheet?ddbCharacterId=1"))).status).toBe(401);
+    expect((await extSheetLocation(deps).GET(ask(token, "abc"))).status).toBe(400);
   });
 });

@@ -16,6 +16,10 @@ export type CharacterState = {
   avatarUrl: string | null;
   hp: number | null;
   maxHp: number | null;
+  // Whether the player can edit it on D&D Beyond (their own), null until it was read once.
+  mine: boolean | null;
+  // Left out of the popup (it still shows in Settings).
+  hidden: boolean;
 };
 export type Session = { startedAt: string | null; syncs: number; rolls: number };
 export type RecentRoll = { at: string; label: string; total: number };
@@ -32,7 +36,7 @@ export type SyncState = {
 
 export const EMPTY_SESSION: Session = { startedAt: null, syncs: 0, rolls: 0 };
 export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {}, settings: DEFAULT_SETTINGS, log: [], session: EMPTY_SESSION, rolls: [] };
-export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null };
+export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null, mine: null, hidden: false };
 export const MAX_LOG = 40;
 export const MAX_ROLLS = 5;
 
@@ -48,6 +52,24 @@ export function normalize(stored: Partial<SyncState> | undefined): SyncState {
     log: Array.isArray(stored?.log) ? stored.log.slice(-MAX_LOG) : [],
     session: { ...EMPTY_SESSION, ...stored?.session },
     rolls: Array.isArray(stored?.rolls) ? stored.rolls.slice(0, MAX_ROLLS) : [],
+  };
+}
+
+/**
+ * A character the player cannot edit: another player's, opened through a shared campaign. It is kept, so
+ * it does not come back as new, but never synced; the first time it is also hidden from the popup.
+ */
+export function asOthers(entry: CharacterState): CharacterState {
+  return { ...entry, mine: false, enabled: false, lastError: null, needsCampaign: false, hidden: entry.mine === false ? entry.hidden : true };
+}
+
+/** The ids the popup shows, the player's own first and other players' apart, and how many are hidden. */
+export function groups(characters: Record<string, CharacterState>): { mine: string[]; others: string[]; hidden: number } {
+  const ids = Object.keys(characters);
+  return {
+    mine: ids.filter((id) => characters[id].mine !== false && !characters[id].hidden),
+    others: ids.filter((id) => characters[id].mine === false && !characters[id].hidden),
+    hidden: ids.filter((id) => characters[id].hidden).length,
   };
 }
 

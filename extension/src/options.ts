@@ -110,26 +110,51 @@ function liveSection(state: SyncState, keys: string): HTMLElement {
   );
 }
 
+function characterRow(id: string, entry: SyncState["characters"][string]): HTMLElement {
+  const others = entry.mine === false;
+  const small = (title: string, checked: boolean, onChange: (value: boolean) => void) => {
+    const box = el("input", { type: "checkbox", checked });
+    box.addEventListener("change", () => onChange(box.checked));
+    return el("label", { class: "row", style: "gap:6px;font-size:12px;cursor:pointer" }, box, title);
+  };
+  const toggles = el(
+    "div",
+    { style: "display:grid;gap:4px" },
+    ...(others ? [] : [small("Sync", entry.enabled, (value) => void change((s) => void (s.characters[id] && (s.characters[id].enabled = value))))]),
+    small("Show in popup", !entry.hidden, (value) => void change((s) => void (s.characters[id] && (s.characters[id].hidden = !value)))),
+  );
+  const remove = el("button", { class: "ghost small", textContent: "Forget" });
+  remove.addEventListener("click", () => void change((s) => void delete s.characters[id]));
+  const status = others ? "Another player's character. Never sent from this browser." : !entry.enabled ? "Not synced" : (entry.lastError ?? (entry.lastSyncAt ? `Synced ${ago(entry.lastSyncAt, Date.now())}` : "Not synced yet"));
+  const tone = others || !entry.enabled ? "faint" : entry.lastError ? (entry.needsCampaign ? "warn" : "bad") : "ok";
+  const picture = entry.avatarUrl ? el("img", { class: "avatar", src: entry.avatarUrl, alt: "", referrerPolicy: "no-referrer" }) : el("div", { class: "avatar", textContent: (entry.name ?? id).slice(0, 1).toUpperCase() });
+  return el(
+    "li",
+    { class: "row", style: "padding:10px 0;border-top:1px solid var(--border)" },
+    picture,
+    el("div", { class: "grow" }, el("div", { style: "font-weight:650", textContent: entry.name ?? `Character ${id}` }), el("div", { class: "muted", style: "font-size:12px", textContent: entry.summary || `D&D Beyond ${id}` }), el("div", { class: tone, style: "font-size:12px", textContent: status })),
+    toggles,
+    remove,
+  );
+}
+
 function characters(state: SyncState): HTMLElement {
   const entries = Object.entries(state.characters);
   if (entries.length === 0) return section("characters", "Characters", "None yet. Open one of your characters on D&D Beyond once and it appears here.");
-  const rows = entries.map(([id, entry]) => {
-    const on = el("input", { type: "checkbox", checked: entry.enabled, ariaLabel: `Sync ${entry.name ?? id}` });
-    on.addEventListener("change", () => void change((s) => void (s.characters[id] && (s.characters[id].enabled = on.checked))));
-    const remove = el("button", { class: "ghost small", textContent: "Forget" });
-    remove.addEventListener("click", () => void change((s) => void delete s.characters[id]));
-    const status = !entry.enabled ? "Paused" : (entry.lastError ?? (entry.lastSyncAt ? `Synced ${ago(entry.lastSyncAt, Date.now())}` : "Not synced yet"));
-    const picture = entry.avatarUrl ? el("img", { class: "avatar", src: entry.avatarUrl, alt: "", referrerPolicy: "no-referrer" }) : el("div", { class: "avatar", textContent: (entry.name ?? id).slice(0, 1).toUpperCase() });
-    return el(
-      "li",
-      { class: "row", style: "padding:10px 0;border-top:1px solid var(--border)" },
-      on,
-      picture,
-      el("div", { class: "grow" }, el("div", { style: "font-weight:650", textContent: entry.name ?? `Character ${id}` }), el("div", { class: "muted", style: "font-size:12px", textContent: entry.summary || `D&D Beyond ${id}` }), el("div", { class: !entry.enabled ? "faint" : entry.lastError ? (entry.needsCampaign ? "warn" : "bad") : "ok", style: "font-size:12px", textContent: status })),
-      remove,
-    );
-  });
-  return section("characters", "Characters", "Every character you have opened on D&D Beyond. Untick one to stop syncing it; Forget removes it until you open it again.", el("ul", { class: "plain", style: "gap:0;margin-top:6px" }, ...rows));
+  const mine = entries.filter(([, entry]) => entry.mine !== false);
+  const others = entries.filter(([, entry]) => entry.mine === false);
+  const list = (rows: typeof entries) => el("ul", { class: "plain", style: "gap:0;margin-top:6px" }, ...rows.map(([id, entry]) => characterRow(id, entry)));
+  return section(
+    "characters",
+    "Characters",
+    "Every character you have opened on D&D Beyond. Forget removes one until you open it again.",
+    el("h3", { class: "eyebrow", textContent: `Your characters (${mine.length})` }),
+    mine.length ? list(mine) : el("p", { class: "faint", textContent: "None yet." }),
+    el("h3", { class: "eyebrow", textContent: `Other players' characters (${others.length})` }),
+    others.length
+      ? list(others)
+      : el("p", { class: "faint", textContent: "None. A character you open but cannot edit (a friend's, through a shared campaign) lands here, hidden from the popup, and is never sent." }),
+  );
 }
 
 function rolls(state: SyncState): HTMLElement {
