@@ -380,6 +380,22 @@ const MIGRATIONS: readonly string[] = [
      failures INTEGER NOT NULL,
      queued_at TEXT NOT NULL
    );`,
+  // The table's rolls (portal and D&D Beyond), for everyone or the DM only (lib/play/tableRolls.ts).
+  `CREATE TABLE table_rolls (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     sheet_id TEXT,
+     who TEXT NOT NULL,
+     label TEXT NOT NULL,
+     expression TEXT NOT NULL,
+     total INTEGER NOT NULL,
+     breakdown TEXT NOT NULL,
+     visibility TEXT NOT NULL CHECK (visibility IN ('everyone', 'dm')),
+     source TEXT NOT NULL CHECK (source IN ('portal', 'ddb')),
+     created_at TEXT NOT NULL
+   );
+   CREATE INDEX table_rolls_campaign ON table_rolls (campaign_id, created_at);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

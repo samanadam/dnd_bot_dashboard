@@ -248,12 +248,15 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (before !== after) void schedule();
 });
 
-async function relayRoll(roll: { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string }): Promise<{ ok: boolean }> {
+async function relayRoll(roll: { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string; visibility?: "everyone" | "dm" | "self" }): Promise<{ ok: boolean }> {
   const state = await load();
   if (!state.portalUrl || !state.token || !state.settings.replayRolls || state.characters[roll.ddbCharacterId]?.enabled === false) return { ok: false };
   const { ddbCharacterId, label, expression, total, breakdown } = roll;
+  const visibility = roll.visibility ?? "everyone";
+  // A roll kept to oneself on D&D Beyond is not sent anywhere.
+  if (visibility === "self") return { ok: true };
   try {
-    const ok = (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown }) })).ok;
+    const ok = (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown, visibility }) })).ok;
     if (ok) {
       const fresh = await load();
       fresh.rolls = withRoll(fresh.rolls, { at: new Date().toISOString(), label: label.slice(0, 80), total });
