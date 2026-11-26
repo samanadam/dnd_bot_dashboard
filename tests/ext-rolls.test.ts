@@ -25,6 +25,7 @@ describe("parseRolls", () => {
       total: 18,
       breakdown: "14+4",
       dice: [{ kind: 20, face: 14, kept: true }],
+      visibility: "everyone",
     });
     expect(rolls[1]).toMatchObject({ label: "Dagger: damage", total: 5, dice: [{ kind: 4, face: 3, kept: true }] });
   });
@@ -76,5 +77,20 @@ describe("parseRolls", () => {
     const many = Array.from({ length: 30 }, () => ({ dieType: "d6", dieValue: 3, useInTotal: true }));
     const big = { ...d100(0), diceNotationStr: "30d6", diceNotation: { set: [{ count: 30, dieType: "d6", operation: 0, dice: many }], constant: 0 }, result: { constant: 0, values: [], total: 90, text: "90" } };
     expect(parseRolls(withRoll(big))[0].dice).toHaveLength(MAX_SHOWN);
+  });
+});
+
+describe("who a D&D Beyond roll is for", () => {
+  it("is everyone for a roll to the game", () => {
+    expect(parseRolls(sample).map((r) => r.visibility)).toEqual(["everyone", "everyone"]);
+  });
+
+  it("is the DM for a roll sent to another user, and self for one sent to the roller", () => {
+    expect(parseRolls({ ...sample, messageScope: "userId", messageTarget: "999" })[0].visibility).toBe("dm");
+    expect(parseRolls({ ...sample, messageScope: "userId", messageTarget: sample.userId })[0].visibility).toBe("self");
+  });
+
+  it("keeps an unknown scope private", () => {
+    expect(parseRolls({ ...sample, messageScope: "somethingNew" })[0].visibility).toBe("dm");
   });
 });

@@ -14,6 +14,7 @@ import { featRow, parseFeatQuery, parseSpellQuery, searchFeats, searchSpells, sp
 import type { SpellRepo } from "@/lib/dm/spells";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
 import { desiredWrite, onlyWriteBack } from "@/lib/ddb/writeBack";
+import type { TableRollRepo } from "@/lib/play/tableRolls";
 import { RateLimiter } from "@/lib/rateLimit";
 import { errorResponse } from "@/lib/requestGuard";
 import { canEdit, canManage, sheetView, summaryOf, type SheetSummary } from "./access";
@@ -35,6 +36,8 @@ export type SheetRouteDeps = DmGuardDeps & {
   sheets: () => SheetRepo;
   // Two-way HP on synced sheets: changes waiting for the owner's extension (lib/ddb/writeBack.ts).
   links?: () => DdbLinkRepo;
+  // The table's rolls (lib/play/tableRolls.ts): where a shared roll is kept for the campaign.
+  tableRolls?: () => TableRollRepo;
   users: () => UserRepo;
   spells: () => SpellRepo;
   feats: () => FeatRepo;
@@ -121,6 +124,8 @@ const rollSchema = z
     label: z.string().trim().min(1).max(60),
     mode: z.enum(["normal", "advantage", "disadvantage"]).default("normal"),
     announce: z.boolean().default(false),
+    // Who sees it in the table's rolls: everyone, the DM only (never posted to Discord), or nobody else.
+    visibility: z.enum(["everyone", "dm", "self"]).default("everyone"),
   })
   .strict();
 const copySchema = z.object({ campaignId: campaignIdSchema }).strict();
@@ -310,7 +315,8 @@ export function sheetRoll(deps: SheetRouteDeps) {
       if (!body.ok) return body.response;
       const parsed = rollSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
-      const { expression, label, mode, announce } = parsed.data;
+      const { expression, label, mode, visibility } = parsed.data;
+      const announce = parsed.data.announce && visibility === "everyone";
       let roll;
       try {
         roll = rollDice(mode === "normal" ? expression : withAdvantage(expression, mode === "advantage" ? "adv" : "dis"), deps.rng ?? secureRng);
@@ -326,6 +332,21 @@ export function sheetRoll(deps: SheetRouteDeps) {
         announced = await deps
           .announce({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown.slice(0, 300), label: `${found.sheet.name} · ${shownLabel}`.slice(0, 80) }, found.guard.userId)
           .catch(() => false);
+      }
+      if (visibility !== "self") {
+        deps.tableRolls?.().add({
+          campaignId: found.sheet.campaignId,
+          userId: found.guard.userId,
+          sheetId: found.sheet.id,
+          who: found.sheet.name,
+          label: shownLabel,
+          expression: roll.expression,
+          total: roll.total,
+          breakdown: roll.breakdown,
+          visibility,
+          source: "portal",
+          dice: shownDice(roll.terms),
+        });
       }
       return json({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: shownLabel, announced, natural: naturalD20(roll), dice: shownDice(roll.terms) });
     },

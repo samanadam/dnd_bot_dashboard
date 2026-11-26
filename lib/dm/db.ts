@@ -380,6 +380,24 @@ const MIGRATIONS: readonly string[] = [
      failures INTEGER NOT NULL,
      queued_at TEXT NOT NULL
    );`,
+  // The table's rolls (portal and D&D Beyond), for everyone or the DM only (lib/play/tableRolls.ts).
+  `CREATE TABLE table_rolls (
+     id TEXT PRIMARY KEY,
+     campaign_id TEXT NOT NULL,
+     user_id TEXT NOT NULL,
+     sheet_id TEXT,
+     who TEXT NOT NULL,
+     label TEXT NOT NULL,
+     expression TEXT NOT NULL,
+     total INTEGER NOT NULL,
+     breakdown TEXT NOT NULL,
+     visibility TEXT NOT NULL CHECK (visibility IN ('everyone', 'dm')),
+     source TEXT NOT NULL CHECK (source IN ('portal', 'ddb')),
+     created_at TEXT NOT NULL
+   );
+   CREATE INDEX table_rolls_campaign ON table_rolls (campaign_id, created_at);`,
+  // The dice of a portal roll (JSON, lib/dice/shown.ts), so the extension can show it in D&D Beyond's game log.
+  `ALTER TABLE table_rolls ADD COLUMN dice TEXT;`,
   // Imported book monsters (docs/superpowers/specs/2026-11-26-ddb-book-import-design.md). source names the book
   // (ddb:mm-2024), source_key the monster inside it, supersedes the bundled SRD entry it replaces
   // (edition/slug). library_pages keeps the raw pages so a converter fix never needs a re-capture.

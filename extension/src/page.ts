@@ -79,11 +79,16 @@ window.fetch = function (this: unknown, input: RequestInfo | URL, init?: Request
 // it is this character's. Rolls outside a campaign never reach the log.
 // The page sends its own rolls out over the socket and never receives them back, so the
 // outgoing frame is where a roll is seen.
+// The page's game-log connection, and the portal rolls this script sent on it itself (they must not
+// come back to the portal as new D&D Beyond rolls).
+let gameLogSocket: WebSocket | null = null;
+const ours = new Set<string>();
+
 const nativeSend = WebSocket.prototype.send;
 WebSocket.prototype.send = function (this: WebSocket, data: Parameters<WebSocket["send"]>[0]) {
   try {
     const message = rollFromFrame(this.url, data);
-    if (message) window.postMessage({ source: "portal-ddb", type: "roll", message }, window.location.origin);
+    if (message && !(message.id && ours.has(message.id))) window.postMessage({ source: "portal-ddb", type: "roll", message }, window.location.origin);
   } catch {
     // Watching must never break the page.
   }
@@ -97,6 +102,7 @@ window.WebSocket = new Proxy(NativeSocket, {
     const url = String(args[0]).split("?")[0];
     diag("ws open", url);
     const gameLog = /game-log/.test(url);
+    if (gameLog) gameLogSocket = socket;
     if (gameLog || DIAG) {
       socket.addEventListener("message", (event) => {
         try {
@@ -110,4 +116,21 @@ window.WebSocket = new Proxy(NativeSocket, {
     }
     return socket;
   },
+});
+
+// A portal roll for D&D Beyond's game log, from the extension's content script: sent on the page's own
+// game-log connection, as if rolled here. The answer says whether it went out.
+window.addEventListener("message", (event) => {
+  const data = event.data as { source?: unknown; type?: unknown; frame?: { id?: unknown; eventType?: unknown; entityType?: unknown } } | null;
+  if (event.source !== window || data?.source !== "portal-ext-roll" || data.type !== "send") return;
+  const frame = data.frame;
+  const id = typeof frame?.id === "string" ? frame.id : "";
+  let ok = false;
+  if (id && frame?.eventType === "dice/roll/fulfilled" && frame.entityType === "character" && gameLogSocket?.readyState === WebSocket.OPEN) {
+    ours.add(id);
+    if (ours.size > 100) ours.delete(ours.values().next().value as string);
+    nativeSend.call(gameLogSocket, JSON.stringify(frame));
+    ok = true;
+  }
+  window.postMessage({ source: "portal-ddb", type: "sent", id, ok }, window.location.origin);
 });

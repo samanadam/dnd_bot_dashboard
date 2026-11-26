@@ -11,6 +11,7 @@ import { matches } from "@/lib/ddb/writeBack";
 import { invalidBody, readDmJson } from "@/lib/dm/guard";
 import { json, noContent } from "@/lib/dm/http";
 import type { AuditLog } from "@/lib/dm/http";
+import type { TableRollRepo } from "@/lib/play/tableRolls";
 import { RateLimiter, type Limit } from "@/lib/rateLimit";
 import { errorResponse } from "@/lib/requestGuard";
 import type { RollToAnnounce } from "@/lib/sheets/routes";
@@ -35,6 +36,8 @@ export type ExtDeps = {
   now?: () => number;
   limiter?: RateLimiter;
   rollLimiter?: RateLimiter;
+  // The table's rolls, where relayed D&D Beyond rolls are kept with who may see them.
+  tableRolls?: () => TableRollRepo;
   syncLimiter?: RateLimiter;
   badTokenLimiter?: RateLimiter;
   // Book import: only a DM token may write the library. Without isDm nobody can.
@@ -239,6 +242,21 @@ export function extWrites(deps: ExtDeps) {
   };
 }
 
+const sinceQuery = z.object({ since: z.iso.datetime() });
+
+export function extRollsOut(deps: ExtDeps) {
+  return {
+    /** `?since=`: portal rolls of this player's synced characters, for the extension to show in D&D Beyond's game log. */
+    async GET(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const parsed = sinceQuery.safeParse({ since: new URL(request.url).searchParams.get("since") ?? "" });
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      return json({ rolls: deps.tableRolls?.().outgoing(who.userId, parsed.data.since, deps.now?.() ?? Date.now()) ?? [] });
+    },
+  };
+}
+
 const locationQuery = z.object({ ddbCharacterId: z.string().regex(/^[0-9]{1,20}$/, "expected digits") });
 
 export function extSheetLocation(deps: ExtDeps) {
@@ -281,6 +299,8 @@ const rollSchema = z
     expression: z.string().trim().min(1).max(100),
     total: z.number().int().min(-10_000).max(100_000),
     breakdown: z.string().max(200),
+    // Who the roll was for on D&D Beyond; an older extension sends none (a roll to the game).
+    visibility: z.enum(["everyone", "dm", "self"]).default("everyone"),
   })
   .strict();
 
@@ -296,9 +316,16 @@ export function extRolls(deps: ExtDeps) {
       if (!body.ok) return body.response;
       const parsed = rollSchema.safeParse(body.json);
       if (!parsed.success) return invalidBody(parsed.error.issues);
-      const { ddbCharacterId, label, expression, total, breakdown } = parsed.data;
-      if (!deps.links().find(who.userId, ddbCharacterId)) return errorResponse(404, "not_found", "That character is not synced.");
-      await deps.announce?.({ expression, total, breakdown, label }, who.userId);
+      const { ddbCharacterId, label, expression, total, breakdown, visibility } = parsed.data;
+      const link = deps.links().find(who.userId, ddbCharacterId);
+      if (!link) return errorResponse(404, "not_found", "That character is not synced.");
+      // A roll the player kept to themselves on D&D Beyond goes nowhere.
+      if (visibility === "self") return noContent();
+      const sheet = deps.sheets().get(link.sheetId);
+      if (sheet) deps.tableRolls?.().add({ campaignId: sheet.campaignId, userId: who.userId, sheetId: sheet.id, who: sheet.name, label, expression, total, breakdown, visibility, source: "ddb" });
+      // Discord's dice channel is public: only rolls to everyone go there.
+      if (visibility === "everyone") await deps.announce?.({ expression, total, breakdown, label }, who.userId);
+      deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: `ext/rolls (${visibility})`, status: 204 });
       return noContent();
     },
   };

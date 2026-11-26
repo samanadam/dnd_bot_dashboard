@@ -76,7 +76,7 @@ export const sheets = {
   meta: (id: string, patch: { ownerUserId?: string | null; active?: boolean; status?: "active" | "retired" | "dead"; dmNotes?: string }) =>
     sheetCall<SheetView>("PATCH", `sheets/${enc(id)}/meta`, patch),
   nameSync: (id: string) => sheetCall<{ nameSync: "ok" | "pending" }>("POST", `sheets/${enc(id)}/name-sync`),
-  roll: (id: string, input: { expression: string; label: string; mode: "normal" | "advantage" | "disadvantage"; announce: boolean }) =>
+  roll: (id: string, input: { expression: string; label: string; mode: "normal" | "advantage" | "disadvantage"; announce: boolean; visibility: RollShare }) =>
     sheetCall<RollAnswer>("POST", `sheets/${enc(id)}/roll`, input),
   copy: (id: string, campaignId: string) => sheetCall<SheetView>("POST", `sheets/${enc(id)}/copy`, { campaignId }),
   resolve: (id: string, spells: string[], feats: string[]) =>
@@ -116,6 +116,14 @@ export const combat = {
   updateNote: (noteId: string, patch: { text?: string; visibility?: "private" | "party"; keep?: boolean }) => sheetCall<DmNote>("PUT", `play/notes/${enc(noteId)}`, patch),
   deleteNote: (noteId: string) => sheetCall<void>("DELETE", `play/notes/${enc(noteId)}`),
   keptNotes: (campaign: string) => sheetCall<(DmNote & { encounterName: string })[]>("GET", `play/notes?campaign=${enc(campaign)}`),
+};
+
+// Who sees a portal roll in the table's rolls (and Discord only for everyone).
+export type RollShare = "everyone" | "dm" | "self";
+export type TableRollView = import("@/lib/play/tableRolls").TableRoll;
+
+export const tableRolls = {
+  list: (campaign: string) => sheetCall<{ rolls: TableRollView[] }>("GET", `play/rolls?campaign=${enc(campaign)}`),
 };
 
 export type PartyNoteView = { id: string; author: string; text: string; createdAt: string; updatedAt: string; mine: boolean; canDelete: boolean };

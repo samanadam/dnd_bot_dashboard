@@ -164,6 +164,7 @@ function rolls(state: SyncState): HTMLElement {
     "Rolls and dice",
     "What happens when you roll on D&D Beyond (in a campaign game).",
     check("Send my rolls to the portal", "They appear in the portal's roll feed for the table.", state.settings.replayRolls, (value) => void change((s) => void (s.settings.replayRolls = value))),
+    check("Show my portal rolls in D&D Beyond's game log", "While live sync is on and one of your characters is open on D&D Beyond, rolls you make on its portal sheet appear in your campaign's game log: to everyone, or to the DM only, as you chose in the portal.", state.settings.rollsToDdb, (value) => void change((s) => void (s.settings.rollsToDdb = value))),
     check("Show the 3D dice on D&D Beyond", "The portal's dice roll over the page when you roll.", state.settings.overlay, (value) => void change((s) => void (s.settings.overlay = value))),
   );
 }

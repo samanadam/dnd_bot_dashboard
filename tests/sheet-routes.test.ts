@@ -8,6 +8,7 @@ import { homebrewCollection, homebrewItem } from "@/lib/play/homebrewRoutes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { newBody } from "@/lib/sheets/body";
 import { SheetRepo } from "@/lib/sheets/repo";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 import { sheetCollection, sheetCopy, sheetItem, sheetMeta, sheetOps, sheetPlayers, sheetResolve, sheetRoll, sheetVitals } from "@/lib/sheets/routes";
 
 const OWNER = "100000000000000001"; // the portal owner
@@ -56,6 +57,7 @@ function setup() {
       return true;
     }),
     rng: () => 10,
+    tableRolls: () => new TableRollRepo(db),
   };
   return { db, deps, synced, announced, act: (user: string | null) => (as = user) };
 }
@@ -238,6 +240,19 @@ describe("saving and live play", () => {
     expect(announced[0]).toMatchObject({ label: "Aria · Stealth (advantage)", total: 15 });
     expect((await sheetRoll(deps).POST(req("POST", { expression: "1d20+5", label: "x", total: 20 }), body.id)).status).toBe(400);
     expect((await sheetRoll(deps).POST(req("POST", { expression: "rm -rf", label: "x" }), body.id)).status).toBe(400);
+  });
+
+  it("keeps the roll in the table's rolls: for everyone, for the DM only (never on Discord), or not at all", async () => {
+    const { deps, act, announced } = setup();
+    act(ARIA);
+    const { body } = await create(deps, EMBER, "Aria");
+    await sheetRoll(deps).POST(req("POST", { expression: "1d20", label: "Perception" }), body.id);
+    await sheetRoll(deps).POST(req("POST", { expression: "1d20", label: "Secret", visibility: "dm", announce: true }), body.id);
+    await sheetRoll(deps).POST(req("POST", { expression: "1d20", label: "Practice", visibility: "self", announce: true }), body.id);
+    expect(announced).toEqual([]);
+    const rolls = deps.tableRolls().list(EMBER, { userId: "someone else", seesAll: false });
+    expect(rolls.map((r) => [r.label, r.who, r.source, r.visibility])).toEqual([["Perception", "Aria", "portal", "everyone"]]);
+    expect(deps.tableRolls().list(EMBER, { userId: "dm", seesAll: true }).map((r) => r.label)).toEqual(["Secret", "Perception"]);
   });
 
   it("limits rolls to Discord per player", async () => {

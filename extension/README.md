@@ -26,7 +26,7 @@ Shows your D&D Beyond character in the portal, live, and replays your D&D Beyond
 
 ## Not in this version
 
-Write-back to D&D Beyond, Firefox/Safari, AboveVTT-specific features.
+HP write-back is two-way; everything else one-way. Firefox/Safari, AboveVTT-specific features.
 
 ## Finding out what D&D Beyond does
 

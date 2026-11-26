@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { Dice3dToggle, DiceOverlay, type Toss } from "@/components/dice/DiceOverlay";
 import { useToast } from "@/components/Providers";
 import { DmError } from "@/lib/dm/client";
-import { sheets, type RollAnswer } from "@/lib/sheets/client";
+import { sheets, type RollAnswer, type RollShare } from "@/lib/sheets/client";
 import { useLocalValue } from "@/lib/useLocalValue";
 
 type Mode = "normal" | "advantage" | "disadvantage";
@@ -18,20 +18,22 @@ export const useRoller = () => useContext(RollContext);
  * Every roll on a sheet goes to the server, which rolls it (and posts it to the
  * Discord dice channel when the player wants). The log lives in this tab only.
  */
-export function RollProvider({ sheetId, children }: { sheetId: string; children: ReactNode }) {
+export function RollProvider({ sheetId, defaultShare = "everyone", children }: { sheetId: string; defaultShare?: RollShare; children: ReactNode }) {
   const toast = useToast();
   const [log, setLog] = useState<RollAnswer[]>([]);
   const [mode, setMode] = useState<Mode>("normal");
   const [toss, setToss] = useState<Toss | null>(null);
   const [post, setPost] = useLocalValue("portal.sheet.postRolls");
-  const announce = post !== "off";
+  // The DM rolling on someone else's sheet keeps it to themselves by default.
+  const [share, setShare] = useState<RollShare>(defaultShare);
+  const announce = post !== "off" && share === "everyone";
 
   const roll = useCallback(
     async (expression: string, label: string) => {
       try {
         // Advantage applies to d20 rolls only; damage and healing roll as written.
         const d20 = /^1?d20\b/i.test(expression.replace(/\s/g, ""));
-        const answer = await sheets.roll(sheetId, { expression, label, mode: d20 ? mode : "normal", announce });
+        const answer = await sheets.roll(sheetId, { expression, label, mode: d20 ? mode : "normal", announce, visibility: share });
         setLog((current) => [answer, ...current].slice(0, 30));
         setToss({ id: `${Date.now()}-${Math.random()}`, dice: answer.dice ?? [] });
         if (d20) setMode("normal");
@@ -41,7 +43,7 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
         return null;
       }
     },
-    [announce, mode, sheetId, toast],
+    [announce, mode, share, sheetId, toast],
   );
 
   const value = useMemo(() => ({ roll, mode }), [roll, mode]);
@@ -68,7 +70,15 @@ export function RollProvider({ sheetId, children }: { sheetId: string; children:
           </div>
           <Dice3dToggle id="sheet-dice-3d" className="ml-auto" />
           <label className="flex items-center gap-1.5 text-xs text-muted">
-            <input type="checkbox" className="accent-[var(--accent)]" checked={announce} onChange={(event) => setPost(event.target.checked ? "on" : "off")} />
+            <span className="sr-only">Who sees the roll</span>
+            <select value={share} onChange={(event) => setShare(event.target.value as RollShare)} className="rounded-lg border border-border bg-bg/40 px-2 py-1 text-xs text-text">
+              <option value="everyone">Everyone sees it</option>
+              <option value="dm">DM only</option>
+              <option value="self">Just me</option>
+            </select>
+          </label>
+          <label className={`flex items-center gap-1.5 text-xs ${share === "everyone" ? "text-muted" : "text-faint"}`} title={share === "everyone" ? undefined : "Only rolls everyone sees go to Discord"}>
+            <input type="checkbox" className="accent-[var(--accent)]" checked={announce} disabled={share !== "everyone"} onChange={(event) => setPost(event.target.checked ? "on" : "off")} />
             <Send className="size-3" aria-hidden /> Post to Discord
           </label>
         </div>

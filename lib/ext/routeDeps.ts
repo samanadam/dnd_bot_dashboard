@@ -8,6 +8,7 @@ import { audit } from "@/lib/audit";
 import { botServer } from "@/lib/bot/server";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { CreatureRepo } from "@/lib/dm/creatures";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 import { getDatabase } from "@/lib/dm/database";
 import { LibraryPageRepo } from "@/lib/dm/libraryPages";
 import { listSrd } from "@/lib/dm/srd";
@@ -27,6 +28,7 @@ export function extDeps(): ExtDeps {
   return {
     tokens: () => new ExtTokenRepo(getDatabase()),
     links: () => new DdbLinkRepo(getDatabase()),
+    tableRolls: () => new TableRollRepo(getDatabase()),
     sheets: () => new SheetRepo(getDatabase()),
     users: () => new UserRepo(getDatabase()),
     campaignsOf: async (userId) => {

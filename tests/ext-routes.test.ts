@@ -5,9 +5,10 @@ import { UserRepo } from "@/lib/access/grants";
 import { DdbLinkRepo } from "@/lib/ddb/links";
 import { openDatabase } from "@/lib/dm/db";
 import { ExtTokenRepo } from "@/lib/ext/tokens";
-import { extLive, extPing, extRolls, extSheetLocation, extSync, extWrites, type ExtDeps } from "@/lib/ext/routes";
+import { extLive, extPing, extRolls, extRollsOut, extSheetLocation, extSync, extWrites, type ExtDeps } from "@/lib/ext/routes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { SheetRepo } from "@/lib/sheets/repo";
+import { TableRollRepo } from "@/lib/play/tableRolls";
 
 const ARIA = "100000000000000002";
 const EMBER = "aaaaaaaaaaaa";
@@ -30,6 +31,7 @@ function setup() {
     users: () => users,
     campaignsOf: async () => state.campaigns,
     limiter: new RateLimiter(),
+    tableRolls: () => new TableRollRepo(db),
     rollLimiter: new RateLimiter(),
     syncLimiter: new RateLimiter(),
     badTokenLimiter: new RateLimiter(),
@@ -188,6 +190,18 @@ describe("rolls", () => {
     await extSync(deps).POST(post(token, payload(caster)));
     for (let i = 0; i < 30; i++) expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(204);
     expect((await extRolls(deps).POST(post(token, roll(), "rolls"))).status).toBe(429);
+  });
+
+  it("keeps a D&D Beyond roll in the table's rolls with its visibility: a DM-only one never goes to Discord, a self one goes nowhere", async () => {
+    const { deps, token, announced } = setup();
+    await extSync(deps).POST(post(token, payload(caster)));
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Open" }), "rolls"))).status).toBe(204);
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Hidden", visibility: "dm" }), "rolls"))).status).toBe(204);
+    expect((await extRolls(deps).POST(post(token, roll({ label: "Mine", visibility: "self" }), "rolls"))).status).toBe(204);
+    expect(announced.map(([r]) => (r as { label: string }).label)).toEqual(["Open"]);
+    const everyone = deps.tableRolls!().list(EMBER, { userId: "x", seesAll: false });
+    expect(everyone.map((r) => [r.label, r.who, r.source, r.visibility])).toEqual([["Open", "Aria Test", "ddb", "everyone"]]);
+    expect(deps.tableRolls!().list(EMBER, { userId: "dm", seesAll: true }).map((r) => r.label)).toEqual(["Hidden", "Open"]);
   });
 
   it("validates the roll", async () => {
@@ -430,5 +444,46 @@ describe("two-way HP", () => {
   it("needs a token", async () => {
     const { deps } = setup();
     expect((await extWrites(deps).GET(new Request("https://portal.example/api/ext/writes"))).status).toBe(401);
+  });
+});
+
+describe("portal rolls for D&D Beyond's game log", () => {
+  const out = (token: string, since: string) => new Request(`https://portal.example/api/ext/rolls/out?since=${encodeURIComponent(since)}`, { headers: { authorization: `Bearer ${token}` } });
+  const dice = [{ kind: 20 as const, face: 14, kept: true }];
+
+  async function withRolls() {
+    const ctx = setup();
+    const { sheetId } = (await (await extSync(ctx.deps).POST(post(ctx.token, payload(caster)))).json()) as { sheetId: string };
+    const base = { campaignId: EMBER, userId: ARIA, sheetId, who: "Aria Test", expression: "1d20+4", total: 18, breakdown: "14 + 4", dice };
+    const rolls = ctx.deps.tableRolls!();
+    rolls.add({ ...base, label: "From D&D Beyond", visibility: "everyone", source: "ddb" });
+    rolls.add({ ...base, label: "Stealth", visibility: "everyone", source: "portal" });
+    rolls.add({ ...base, label: "Secret", visibility: "dm", source: "portal" });
+    rolls.add({ ...base, sheetId: null, label: "No sheet", visibility: "everyone", source: "portal" });
+    return ctx;
+  }
+
+  it("lists the portal rolls of the player's synced characters, oldest first, with the dice", async () => {
+    const { deps, token } = await withRolls();
+    const answer = (await (await extRollsOut(deps).GET(out(token, "2000-01-01T00:00:00.000Z"))).json()) as { rolls: Array<Record<string, unknown>> };
+    expect(answer.rolls.map((r) => [r.label, r.visibility, r.ddbCharacterId])).toEqual([
+      ["Stealth", "everyone", "100000002"],
+      ["Secret", "dm", "100000002"],
+    ]);
+    expect(answer.rolls[0]).toMatchObject({ expression: "1d20+4", total: 18, breakdown: "14 + 4", dice });
+    expect(typeof answer.rolls[0].id).toBe("string");
+  });
+
+  it("only gives rolls after the time asked for, and never ones older than two minutes", async () => {
+    const { deps, token } = await withRolls();
+    expect(((await (await extRollsOut(deps).GET(out(token, "2999-01-01T00:00:00.000Z"))).json()) as { rolls: unknown[] }).rolls).toEqual([]);
+    const late = { ...deps, now: () => Date.now() + 3 * 60_000 };
+    expect(((await (await extRollsOut(late).GET(out(token, "2000-01-01T00:00:00.000Z"))).json()) as { rolls: unknown[] }).rolls).toEqual([]);
+  });
+
+  it("needs a token and a time", async () => {
+    const { deps, token } = setup();
+    expect((await extRollsOut(deps).GET(new Request("https://portal.example/api/ext/rolls/out?since=x"))).status).toBe(401);
+    expect((await extRollsOut(deps).GET(out(token, "not a date"))).status).toBe(400);
   });
 });

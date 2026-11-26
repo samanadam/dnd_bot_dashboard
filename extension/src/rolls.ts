@@ -4,7 +4,16 @@ import { shownDice, type ShownDie } from "@/lib/dice/shown";
 // D&D Beyond's game-log roll message (see tests/fixtures/ddb/rolls.json) as the
 // portal's own dice want it. D&D Beyond decides the numbers; we only show them.
 
-export type DdbRoll = { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string; dice: ShownDie[] };
+// Who the roll was for on D&D Beyond: the whole game, the DM only, or the roller only.
+export type RollVisibility = "everyone" | "dm" | "self";
+export type DdbRoll = { ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string; dice: ShownDie[]; visibility: RollVisibility };
+
+/** A roll to the game is everyone's; one to a user is the roller's own or (any other user) the DM's. Anything unknown stays private. */
+function visibilityOf(m: Obj): RollVisibility {
+  if (m.messageScope === undefined || m.messageScope === "gameId") return "everyone";
+  if (m.messageScope === "userId" && m.messageTarget !== undefined && String(m.messageTarget) === String(m.userId)) return "self";
+  return "dm";
+}
 
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
@@ -37,6 +46,7 @@ export function parseRolls(message: unknown): DdbRoll[] {
   if (m.eventType !== "dice/roll/fulfilled" || m.entityType !== "character") return [];
   const data = obj(m.data);
   const action = str(data.action, 60);
+  const visibility = visibilityOf(m);
   return list(data.rolls).flatMap((entry) => {
     const roll = obj(entry);
     const result = obj(roll.result);
@@ -52,6 +62,7 @@ export function parseRolls(message: unknown): DdbRoll[] {
         total: Math.trunc(result.total),
         breakdown: str(result.text, 200),
         dice: shownDice(termsOf(obj(roll.diceNotation))),
+        visibility,
       },
     ];
   });
