@@ -5,8 +5,9 @@
 // portal shows the player as live. It is off after every browser start, so it is started on purpose.
 // `autoStart` turns live sync on when the player opens one of their characters on D&D Beyond.
 // `writeBack` lets HP changes made in the portal (damage, healing, temp HP, death saves) reach D&D Beyond.
-export type Settings = { live: boolean; autoStart: boolean; intervalSeconds: number; replayRolls: boolean; overlay: boolean; writeBack: boolean };
-export const DEFAULT_SETTINGS: Settings = { live: false, autoStart: false, intervalSeconds: 30, replayRolls: true, overlay: true, writeBack: true };
+// `rollsToDdb` shows the player's portal rolls in D&D Beyond's game log (through an open character page).
+export type Settings = { live: boolean; autoStart: boolean; intervalSeconds: number; replayRolls: boolean; overlay: boolean; writeBack: boolean; rollsToDdb: boolean };
+export const DEFAULT_SETTINGS: Settings = { live: false, autoStart: false, intervalSeconds: 30, replayRolls: true, overlay: true, writeBack: true, rollsToDdb: false };
 
 /** The live sync interval in whole seconds: 30 s is the smallest alarm Chrome allows, and the portal calls a player offline after 150 s of silence. */
 export function clampInterval(value: unknown): number {

@@ -396,6 +396,8 @@ const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL
    );
    CREATE INDEX table_rolls_campaign ON table_rolls (campaign_id, created_at);`,
+  // The dice of a portal roll (JSON, lib/dice/shown.ts), so the extension can show it in D&D Beyond's game log.
+  `ALTER TABLE table_rolls ADD COLUMN dice TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
