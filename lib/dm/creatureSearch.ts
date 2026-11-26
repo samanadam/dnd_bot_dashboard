@@ -5,6 +5,7 @@ import type { CreatureRef } from "./encounter";
 import { guardDm, type DmGuardDeps } from "./guard";
 import { json } from "./http";
 import type { MonsterSummary } from "./srd";
+import { withoutSuperseded } from "./superseded";
 
 // GET /api/dm/creatures/search: SRD monsters and the DM's own creatures together,
 // for the picker that links a pointer reward to an NPC. Returns only a reference
@@ -41,7 +42,7 @@ export function creatureSearch(deps: CreatureSearchDeps) {
         kind: creature.kind,
         detail: creature.kind === "npc" ? "Your NPC" : "Your monster",
       }));
-      const srd: CreatureSearchResult[] = deps.srdMonsters().map((monster) => ({
+      const srd: CreatureSearchResult[] = withoutSuperseded(deps.srdMonsters(), repo.supersededSrd()).map((monster) => ({
         ref: { source: "srd", edition: monster.edition as "2014" | "2024", slug: monster.slug },
         name: monster.name,
         kind: "monster",

@@ -86,6 +86,7 @@ const enc = encodeURIComponent;
 
 export const dm = {
   listCreatures: (kind?: "monster" | "npc") => dmCall<Creature[]>("GET", kind ? `creatures?kind=${kind}` : "creatures"),
+  removeLibrarySource: (source: string) => dmCall<{ removed: number }>("DELETE", `library/sources/${enc(source)}`),
   getCreature: (id: string) => dmCall<Creature>("GET", `creatures/${enc(id)}`),
   createCreature: (input: CreatureInput) => dmCall<Creature>("POST", "creatures", input),
   updateCreature: (id: string, input: CreatureInput) => dmCall<Creature>("PUT", `creatures/${enc(id)}`, input),

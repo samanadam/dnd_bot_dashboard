@@ -59,3 +59,6 @@ public/theme_assets/
 
 # built browser extension
 extension/dist/
+
+# Owned book content (raw D&D Beyond pages and converted copies). Never commit.
+data-ignore/

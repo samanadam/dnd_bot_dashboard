@@ -17,6 +17,8 @@ export type MonsterSummary = {
   hp: number;
   ac: number;
   tags?: string[];
+  /** The book an imported monster came from, as a label (imported monsters only). */
+  source?: string;
 };
 
 export function summarise(

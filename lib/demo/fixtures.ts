@@ -254,6 +254,9 @@ export function demoFixtures(now: number) {
     notes,
     tags,
     campaignId,
+    source: null,
+    sourceKey: null,
+    supersedes: null,
     createdAt: ago(minutes),
     updatedAt: ago(minutes / 2),
   });

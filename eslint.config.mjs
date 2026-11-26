@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The built browser extension.
     "extension/dist/**",
+    // Owned book content and scratch tools; git-ignored.
+    "data-ignore/**",
   ]),
 ]);
 

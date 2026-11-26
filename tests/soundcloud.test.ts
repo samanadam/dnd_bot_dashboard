@@ -199,6 +199,7 @@ describe("upgrading a database that only holds YouTube links", () => {
       insert.run("22222222-2222-4222-8222-222222222222", "sfx", "abcdefghijk", "Door", 4, "", "0123456789ab");
       // A real version-6 database also has the tables later migrations alter.
       old.exec("CREATE TABLE encounters (id TEXT PRIMARY KEY)");
+      old.exec("CREATE TABLE creatures (id TEXT PRIMARY KEY)");
       old.exec("PRAGMA user_version = 6");
       old.close();
 

@@ -1,5 +1,9 @@
 import { z } from "zod";
 import type { UserRepo } from "@/lib/access/grants";
+import type { CreatureRepo } from "@/lib/dm/creatures";
+import { importMonsterPage, LibraryFull, NoStatBlocks } from "@/lib/dm/libraryImport";
+import type { LibraryPageRepo } from "@/lib/dm/libraryPages";
+import type { MonsterSummary } from "@/lib/dm/monsterSummary";
 import { campaignOf, NO_DDB_CAMPAIGN, resolveCampaign, type CampaignRef } from "@/lib/ddb/campaign";
 import type { DdbLinkRepo } from "@/lib/ddb/links";
 import { mapCharacter, type Mapped } from "@/lib/ddb/map";
@@ -36,6 +40,12 @@ export type ExtDeps = {
   tableRolls?: () => TableRollRepo;
   syncLimiter?: RateLimiter;
   badTokenLimiter?: RateLimiter;
+  // Book import: only a DM token may write the library. Without isDm nobody can.
+  isDm?: (userId: string) => boolean;
+  creatures?: () => CreatureRepo;
+  libraryPages?: () => LibraryPageRepo;
+  srdMonsters?: () => MonsterSummary[];
+  libraryLimiter?: RateLimiter;
   log?: AuditLog;
 };
 
@@ -317,6 +327,59 @@ export function extRolls(deps: ExtDeps) {
       if (visibility === "everyone") await deps.announce?.({ expression, total, breakdown, label }, who.userId);
       deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: `ext/rolls (${visibility})`, status: 204 });
       return noContent();
+    },
+  };
+}
+
+// A captured book page is at most 2 MB of HTML; the JSON wrapper adds a little.
+export const MAX_LIBRARY_PAGE_BYTES = 2 * 1024 * 1024;
+const LIBRARY_PAGES: Limit = { max: 60, windowMs: 60_000 };
+const sharedLibraryLimiter = new RateLimiter();
+
+const libraryPageSchema = z
+  .object({
+    source: z.string().regex(/^ddb:[a-z0-9-]{1,40}$/, "expected ddb:<book id>"),
+    edition: z.enum(["2014", "2024"]),
+    page: z.string().regex(/^[a-z0-9-]{1,60}$/, "expected a page slug"),
+    html: z.string().min(1).max(MAX_LIBRARY_PAGE_BYTES),
+    dryRun: z.boolean().optional(),
+  })
+  .strict();
+
+/** POST /api/ext/library/pages: one captured book page to import (see lib/dm/libraryImport.ts). DM tokens only. */
+export function extLibraryPages(deps: ExtDeps) {
+  return {
+    async POST(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const { isDm, creatures, libraryPages, srdMonsters } = deps;
+      // The same answer as an unknown URL: a player token learns nothing.
+      if (!isDm?.(who.userId) || !creatures || !libraryPages || !srdMonsters) return errorResponse(404, "not_found", "Unknown endpoint.");
+      const wait = (deps.libraryLimiter ?? sharedLibraryLimiter).take(`ext-library:${who.tokenId}`, LIBRARY_PAGES);
+      if (wait > 0) return errorResponse(429, "rate_limited", "Importing too fast. Slow down.", { "Retry-After": String(wait) });
+      const body = await readDmJson(request, MAX_LIBRARY_PAGE_BYTES + 4096);
+      if (!body.ok) return body.response;
+      const parsed = libraryPageSchema.safeParse(body.json);
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      const { source, edition, page, html, dryRun } = parsed.data;
+      try {
+        const ledger = importMonsterPage({ creatures: creatures(), pages: libraryPages(), srd: srdMonsters }, { source, edition, page, html, dryRun: dryRun === true });
+        if (!dryRun) {
+          deps.log?.({
+            event: "dm_write",
+            userId: who.userId,
+            method: "POST",
+            path: "ext/library/pages",
+            status: 200,
+            detail: `${source} received=${ledger.received} created=${ledger.created} updated=${ledger.updated} superseding=${ledger.superseding} review=${ledger.needsReview.length}`,
+          });
+        }
+        return json({ ledger });
+      } catch (error) {
+        if (error instanceof NoStatBlocks) return errorResponse(422, "no_stat_blocks", "The page has no stat blocks.");
+        if (error instanceof LibraryFull) return errorResponse(507, "library_full", "The library is full. Remove a book first.");
+        throw error;
+      }
     },
   };
 }

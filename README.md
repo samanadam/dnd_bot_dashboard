@@ -172,6 +172,14 @@ portal, live, and replays their rolls with the portal dice. Build it with
 `npm run build:extension`; setup is in `extension/README.md`, the design in
 `docs/superpowers/specs/2026-11-22-ddb-sync-extension-design.md`.
 
+### Importing owned books
+
+The DM can import monsters from books they own on D&D Beyond (phase 1: the 2024 Monster Manual)
+from pages captured in their own browser. Nothing is requested from D&D Beyond by the import, the
+content stays in the server database, and it is removable per book. Design:
+`docs/superpowers/specs/2026-11-26-ddb-book-import-design.md`; script: `scripts/import-ddb-pages.mts`;
+capture notes: `data-ignore/README.md` (local only).
+
 ## Adding a tool
 
 1. Add an entry to `lib/tools/registry.ts`.

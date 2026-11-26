@@ -45,6 +45,15 @@
 		reverse_proxy 127.0.0.1:3000
 	}
 
+	# A captured D&D Beyond book page (up to 2 MB of HTML) for the book import.
+	@library path /api/ext/library/pages
+	handle @library {
+		request_body {
+			max_size 4MB
+		}
+		reverse_proxy 127.0.0.1:3000
+	}
+
 	# Everything else: request bodies stay small.
 	handle {
 		request_body {

@@ -210,7 +210,7 @@ const routes: Route[] = [
         const input = parse(creatureInputSchema, body);
         const { campaignId, ...rest } = input;
         const at = now();
-        const created: Creature = { id: crypto.randomUUID(), ...rest, campaignId: campaignId ?? null, createdAt: at, updatedAt: at };
+        const created: Creature = { id: crypto.randomUUID(), ...rest, campaignId: campaignId ?? null, source: null, sourceKey: null, supersedes: null, createdAt: at, updatedAt: at };
         state.dm.creatures.push(created);
         return created;
       }),

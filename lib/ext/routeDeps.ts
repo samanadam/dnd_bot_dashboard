@@ -7,8 +7,11 @@ import { accessFor, rolesOf } from "@/lib/access/store";
 import { audit } from "@/lib/audit";
 import { botServer } from "@/lib/bot/server";
 import { DdbLinkRepo } from "@/lib/ddb/links";
+import { CreatureRepo } from "@/lib/dm/creatures";
 import { TableRollRepo } from "@/lib/play/tableRolls";
 import { getDatabase } from "@/lib/dm/database";
+import { LibraryPageRepo } from "@/lib/dm/libraryPages";
+import { listSrd } from "@/lib/dm/srd";
 import { SheetRepo } from "@/lib/sheets/repo";
 import { ExtTokenRepo } from "./tokens";
 import type { ExtDeps } from "./routes";
@@ -33,6 +36,10 @@ export function extDeps(): ExtDeps {
       const known = await botCampaigns();
       return known ? known.filter((c) => can(access, "play", c.id)).map(({ id, name }) => ({ id, name })) : null;
     },
+    isDm: (userId) => can(accessFor(userId, rolesOf(userId)), "dm"),
+    creatures: () => new CreatureRepo(getDatabase()),
+    libraryPages: () => new LibraryPageRepo(getDatabase()),
+    srdMonsters: listSrd,
     syncName: nameOnBot,
     announce: async (roll, userId) => (await botServer("POST", "dice/announce", { body: { ...roll, origin: "sheet" }, userId })).ok,
     log: audit,
