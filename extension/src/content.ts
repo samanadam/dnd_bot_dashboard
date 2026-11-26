@@ -63,7 +63,29 @@ function notice(text: string) {
 // the background reloads when it is looked at again; one in front shows a notice instead of reloading
 // under the player.
 let reloadWhenShown = false;
-chrome.runtime.onMessage.addListener((message: { type?: string; write?: Parameters<typeof hpNotice>[0] }) => {
+
+/** Hands a portal roll to the page script, which sends it on D&D Beyond's game log; resolves whether it went out. */
+function sendRoll(frame: { id?: unknown }): Promise<boolean> {
+  return new Promise((resolve) => {
+    const done = (ok: boolean) => {
+      window.removeEventListener("message", listen);
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const listen = (event: MessageEvent) => {
+      if (event.source === window && event.data?.source === "portal-ddb" && event.data.type === "sent" && event.data.id === frame.id) done(event.data.ok === true);
+    };
+    const timer = setTimeout(() => done(false), 3000);
+    window.addEventListener("message", listen);
+    window.postMessage({ source: "portal-ext-roll", type: "send", frame }, location.origin);
+  });
+}
+
+chrome.runtime.onMessage.addListener((message: { type?: string; write?: Parameters<typeof hpNotice>[0]; frame?: { id?: unknown } }, _sender, respond) => {
+  if (message.type === "postRoll" && message.frame) {
+    void sendRoll(message.frame).then((ok) => respond({ ok }));
+    return true;
+  }
   if (message.type !== "hpSaved" || !message.write) return;
   if (document.visibilityState === "visible") notice(hpNotice(message.write));
   else reloadWhenShown = true;
@@ -74,6 +96,8 @@ document.addEventListener("visibilitychange", () => {
 
 if (id) {
   void chrome.runtime.sendMessage({ type: "seen", id }).catch(() => undefined);
+  // Portal rolls for D&D Beyond's game log go through an open character page: ask for new ones often.
+  setInterval(() => void chrome.runtime.sendMessage({ type: "pullRolls" }).catch(() => undefined), 4000);
   schedule(15_000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refresh();

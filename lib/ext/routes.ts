@@ -232,6 +232,21 @@ export function extWrites(deps: ExtDeps) {
   };
 }
 
+const sinceQuery = z.object({ since: z.iso.datetime() });
+
+export function extRollsOut(deps: ExtDeps) {
+  return {
+    /** `?since=`: portal rolls of this player's synced characters, for the extension to show in D&D Beyond's game log. */
+    async GET(request: Request): Promise<Response> {
+      const who = bearer(request, deps);
+      if (!who.ok) return who.response;
+      const parsed = sinceQuery.safeParse({ since: new URL(request.url).searchParams.get("since") ?? "" });
+      if (!parsed.success) return invalidBody(parsed.error.issues);
+      return json({ rolls: deps.tableRolls?.().outgoing(who.userId, parsed.data.since, deps.now?.() ?? Date.now()) ?? [] });
+    },
+  };
+}
+
 const locationQuery = z.object({ ddbCharacterId: z.string().regex(/^[0-9]{1,20}$/, "expected digits") });
 
 export function extSheetLocation(deps: ExtDeps) {
@@ -300,6 +315,7 @@ export function extRolls(deps: ExtDeps) {
       if (sheet) deps.tableRolls?.().add({ campaignId: sheet.campaignId, userId: who.userId, sheetId: sheet.id, who: sheet.name, label, expression, total, breakdown, visibility, source: "ddb" });
       // Discord's dice channel is public: only rolls to everyone go there.
       if (visibility === "everyone") await deps.announce?.({ expression, total, breakdown, label }, who.userId);
+      deps.log?.({ event: "play_write", userId: who.userId, method: "POST", path: `ext/rolls (${visibility})`, status: 204 });
       return noContent();
     },
   };

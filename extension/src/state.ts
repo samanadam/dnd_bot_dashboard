@@ -20,6 +20,10 @@ export type CharacterState = {
   mine: boolean | null;
   // Left out of the popup (it still shows in Settings).
   hidden: boolean;
+  // D&D Beyond ids a portal roll in its game log is addressed with: the player, the campaign, its DM.
+  ddbUserId: string | null;
+  gameId: string | null;
+  dmUserId: string | null;
 };
 export type Session = { startedAt: string | null; syncs: number; rolls: number };
 export type RecentRoll = { at: string; label: string; total: number };
@@ -36,7 +40,7 @@ export type SyncState = {
 
 export const EMPTY_SESSION: Session = { startedAt: null, syncs: 0, rolls: 0 };
 export const EMPTY_STATE: SyncState = { portalUrl: null, token: null, characters: {}, settings: DEFAULT_SETTINGS, log: [], session: EMPTY_SESSION, rolls: [] };
-export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null, mine: null, hidden: false };
+export const BLANK_CHARACTER: CharacterState = { lastSyncAt: null, lastError: null, enabled: true, name: null, sheetId: null, needsCampaign: false, campaignId: null, summary: "", avatarUrl: null, hp: null, maxHp: null, mine: null, hidden: false, ddbUserId: null, gameId: null, dmUserId: null };
 export const MAX_LOG = 40;
 export const MAX_ROLLS = 5;
 
@@ -85,7 +89,10 @@ export function duration(startedAt: string | null, now: number): string {
 }
 
 /** What the popup shows about a raw D&D Beyond character: name, "High Elf · Wizard 2", and an https portrait. */
-export function characterSummary(raw: unknown): { name: string | null; summary: string; avatarUrl: string | null } {
+// A D&D Beyond id (a number, or digits), or null.
+const ddbId = (v: unknown): string | null => (typeof v === "number" && Number.isInteger(v) && v > 0 ? String(v) : typeof v === "string" && /^[0-9]{1,20}$/.test(v) ? v : null);
+
+export function characterSummary(raw: unknown): { name: string | null; summary: string; avatarUrl: string | null; ddbUserId: string | null; gameId: string | null; dmUserId: string | null } {
   const data = ((raw as { data?: unknown } | null)?.data ?? {}) as Record<string, unknown>;
   const name = typeof data.name === "string" && data.name.trim() ? data.name.trim().slice(0, 120) : null;
   const species = typeof (data.race as { fullName?: unknown } | undefined)?.fullName === "string" ? ((data.race as { fullName: string }).fullName.slice(0, 60)) : "";
@@ -95,7 +102,16 @@ export function characterSummary(raw: unknown): { name: string | null; summary: 
     .map((c) => `${String(c.definition?.name).slice(0, 40)} ${typeof c.level === "number" ? c.level : ""}`.trim())
     .join(" / ");
   const avatar = (data.decorations as { avatarUrl?: unknown } | undefined)?.avatarUrl;
-  return { name, summary: [species, classes].filter(Boolean).join(" · "), avatarUrl: typeof avatar === "string" && /^https:\/\/[^\s"'<>]+$/.test(avatar) ? avatar.slice(0, 500) : null };
+  const campaign = (data.campaign ?? {}) as { id?: unknown; dmUserId?: unknown };
+  return {
+    name,
+    summary: [species, classes].filter(Boolean).join(" · "),
+    avatarUrl: typeof avatar === "string" && /^https:\/\/[^\s"'<>]+$/.test(avatar) ? avatar.slice(0, 500) : null,
+    // What a roll sent to D&D Beyond's game log is addressed with.
+    ddbUserId: ddbId(data.userId),
+    gameId: ddbId(campaign.id),
+    dmUserId: ddbId(campaign.dmUserId),
+  };
 }
 
 /** The log with one more line, newest last, at most MAX_LOG long. */

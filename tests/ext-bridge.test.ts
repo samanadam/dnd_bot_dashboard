@@ -61,13 +61,18 @@ describe("session helpers", () => {
 describe("characterSummary", () => {
   it("reads the name, species and classes, and an https portrait", () => {
     const raw = { data: { name: "Auren", race: { fullName: "High Elf" }, classes: [{ level: 2, definition: { name: "Wizard" } }, { level: 1, definition: { name: "Fighter" } }], decorations: { avatarUrl: "https://www.dndbeyond.com/avatars/1.png" } } };
-    expect(characterSummary(raw)).toEqual({ name: "Auren", summary: "High Elf · Wizard 2 / Fighter 1", avatarUrl: "https://www.dndbeyond.com/avatars/1.png" });
+    expect(characterSummary(raw)).toEqual({ name: "Auren", summary: "High Elf · Wizard 2 / Fighter 1", avatarUrl: "https://www.dndbeyond.com/avatars/1.png", ddbUserId: null, gameId: null, dmUserId: null });
+  });
+
+  it("reads the D&D Beyond ids a roll needs: the player, the campaign (game) and its DM", () => {
+    expect(characterSummary({ data: { userId: 122333583, campaign: { id: 8266155, dmUserId: 100200300 } } })).toMatchObject({ ddbUserId: "122333583", gameId: "8266155", dmUserId: "100200300" });
+    expect(characterSummary({ data: { userId: "x<1", campaign: { id: {}, dmUserId: null } } })).toMatchObject({ ddbUserId: null, gameId: null, dmUserId: null });
   });
 
   it("drops a portrait that is not https and copes with junk", () => {
     expect(characterSummary({ data: { name: "X", decorations: { avatarUrl: "javascript:alert(1)" } } }).avatarUrl).toBeNull();
-    expect(characterSummary(null)).toEqual({ name: null, summary: "", avatarUrl: null });
-    expect(characterSummary({ data: { classes: "junk", race: 5 } })).toEqual({ name: null, summary: "", avatarUrl: null });
+    expect(characterSummary(null)).toEqual({ name: null, summary: "", avatarUrl: null, ddbUserId: null, gameId: null, dmUserId: null });
+    expect(characterSummary({ data: { classes: "junk", race: 5 } })).toEqual({ name: null, summary: "", avatarUrl: null, ddbUserId: null, gameId: null, dmUserId: null });
   });
 });
 

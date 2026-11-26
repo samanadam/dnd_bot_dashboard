@@ -1,5 +1,6 @@
 import { originAllowed } from "./bridge";
 import { asOthers, badgeFor, BLANK_CHARACTER, characterSummary, EMPTY_SESSION, needsCheck, normalize, shouldPush, signature, withLog, withRoll, type CharacterState, type SyncState } from "./state";
+import { ddbRollFrame, type OutRoll } from "./rollOut";
 import { applyWrite, clampInterval, syncAll, type HpWrite, type PushMessage, type SyncDeps } from "./sync";
 
 // The only script that talks to the portal and, on a timer, to D&D Beyond. It reads every
@@ -51,6 +52,9 @@ async function pushCharacter(message: PushMessage): Promise<{ ok: boolean }> {
   if (about.name) entry.name = about.name;
   entry.summary = about.summary;
   entry.avatarUrl = about.avatarUrl;
+  entry.ddbUserId = about.ddbUserId;
+  entry.gameId = about.gameId;
+  entry.dmUserId = about.dmUserId;
   if (!entry.enabled) {
     await save(state);
     return { ok: true };
@@ -233,6 +237,7 @@ async function setLive(live: boolean): Promise<{ ok: boolean }> {
   const state = await load();
   state.settings.live = live;
   state.session = live ? { startedAt: new Date().toISOString(), syncs: 0, rolls: 0 } : { ...EMPTY_SESSION };
+  await chrome.storage.session.set({ rollsSince: new Date().toISOString() });
   note(state, live ? "Live sync started." : "Live sync stopped.");
   await save(state);
   await heartbeat(state, live);
@@ -256,7 +261,14 @@ async function relayRoll(roll: { ddbCharacterId: string; label: string; expressi
   // A roll kept to oneself on D&D Beyond is not sent anywhere.
   if (visibility === "self") return { ok: true };
   try {
-    const ok = (await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown, visibility }) })).ok;
+    const response = await callPortal(state, "rolls", { method: "POST", body: JSON.stringify({ ddbCharacterId, label, expression, total, breakdown, visibility }) });
+    const ok = response.ok;
+    if (!ok) {
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      const fresh = await load();
+      note(fresh, `A roll (${label}) did not reach the portal: ${body?.error?.message ?? `it answered ${response.status}`}.`, true);
+      await save(fresh);
+    }
     if (ok) {
       const fresh = await load();
       fresh.rolls = withRoll(fresh.rolls, { at: new Date().toISOString(), label: label.slice(0, 80), total });
@@ -265,8 +277,48 @@ async function relayRoll(roll: { ddbCharacterId: string; label: string; expressi
     }
     return { ok };
   } catch {
-    // The dice already showed on the page; a missed relay is not worth a warning.
+    const fresh = await load();
+    note(fresh, `A roll (${label}) did not reach the portal: it could not be reached.`, true);
+    await save(fresh);
     return { ok: false };
+  }
+}
+
+let pulling = false;
+
+/**
+ * Portal rolls of the player's own characters, shown in D&D Beyond's game log: asked from the portal
+ * every few seconds (by an open character page) while live sync is on, and sent through an open page
+ * of that character, as everyone's roll or the DM's only.
+ */
+async function pullRolls(): Promise<{ ok: boolean }> {
+  const state = await load();
+  if (pulling || !state.portalUrl || !state.token || !state.settings.live || !state.settings.rollsToDdb) return { ok: false };
+  pulling = true;
+  try {
+    const stored = (await chrome.storage.session.get("rollsSince")).rollsSince as string | undefined;
+    const since = stored ?? new Date(Date.now() - 10_000).toISOString();
+    const answer = await callPortal(state, `rolls/out?since=${encodeURIComponent(since)}`).catch(() => null);
+    if (!answer?.ok) return { ok: false };
+    const rolls = ((await answer.json().catch(() => null)) as { rolls?: Array<OutRoll & { at: string }> } | null)?.rolls ?? [];
+    let last = since;
+    for (const roll of rolls) {
+      last = roll.at > last ? roll.at : last;
+      const entry = state.characters[roll.ddbCharacterId];
+      if (!entry || entry.mine === false) continue;
+      const frame = ddbRollFrame(roll, { gameId: entry.gameId ?? "", userId: entry.ddbUserId ?? "", dmUserId: entry.dmUserId, name: entry.name ?? "", now: Date.now(), messageId: crypto.randomUUID(), rollId: crypto.randomUUID() });
+      const [tab] = await chrome.tabs.query({ url: `https://www.dndbeyond.com/characters/${roll.ddbCharacterId}*` }).catch(() => []);
+      const sent = frame && tab?.id !== undefined ? ((await chrome.tabs.sendMessage(tab.id, { type: "postRoll", frame }).catch(() => null)) as { ok?: boolean } | null)?.ok === true : false;
+      const fresh = await load();
+      const who = entry.name ?? `Character ${roll.ddbCharacterId}`;
+      if (sent) note(fresh, `${who}: ${roll.label} (${roll.total}) shown in D&D Beyond's game log${roll.visibility === "dm" ? " for the DM" : ""}.`);
+      else note(fresh, `${who}: ${roll.label} (${roll.total}) could not go to D&D Beyond: ${!frame ? (entry.gameId ? "the campaign's DM is not known" : "the character is in no D&D Beyond campaign") : tab ? "the page did not send it" : "open the character on D&D Beyond"}.`, true);
+      await save(fresh);
+    }
+    await chrome.storage.session.set({ rollsSince: last });
+    return { ok: true };
+  } finally {
+    pulling = false;
   }
 }
 
@@ -369,6 +421,7 @@ const handlers: Record<string, (message: Message, sender: chrome.runtime.Message
   refresh: opened,
   syncNow: (message) => round(message.id, true),
   open: (message) => openSheet(message.id),
+  pullRolls: () => pullRolls(),
 };
 
 chrome.runtime.onMessage.addListener((message: Message, sender, respond) => {

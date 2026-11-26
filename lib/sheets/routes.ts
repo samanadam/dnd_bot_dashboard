@@ -345,6 +345,7 @@ export function sheetRoll(deps: SheetRouteDeps) {
           breakdown: roll.breakdown,
           visibility,
           source: "portal",
+          dice: shownDice(roll.terms),
         });
       }
       return json({ expression: roll.expression, total: roll.total, breakdown: roll.breakdown, label: shownLabel, announced, natural: naturalD20(roll), dice: shownDice(roll.terms) });

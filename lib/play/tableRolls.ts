@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import type { ShownDie } from "@/lib/dice/shown";
 
 // The table's rolls: the portal's own and the ones relayed from D&D Beyond, per campaign. A roll is
 // for everyone or for the DM only; a DM-only roll is seen by the DM and by whoever rolled it.
@@ -17,8 +18,13 @@ export type NewTableRoll = {
   breakdown: string;
   visibility: RollVisibility;
   source: RollSource;
+  dice?: ShownDie[];
 };
-export type TableRoll = Omit<NewTableRoll, "campaignId" | "userId"> & { id: string; at: string; mine: boolean };
+export type TableRoll = Omit<NewTableRoll, "campaignId" | "userId" | "dice"> & { id: string; at: string; mine: boolean };
+export type OutgoingRoll = { id: string; ddbCharacterId: string; label: string; expression: string; total: number; breakdown: string; dice: ShownDie[]; visibility: RollVisibility; at: string };
+
+// A portal roll older than this is not shown in D&D Beyond's game log any more: it would be out of place.
+export const OUTGOING_MAX_AGE_MS = 2 * 60_000;
 export type Viewer = { userId: string; seesAll: boolean };
 
 export const MAX_TABLE_ROLLS = 200;
@@ -33,12 +39,23 @@ export class TableRollRepo {
 
   add(roll: NewTableRoll): void {
     this.db
-      .prepare("INSERT INTO table_rolls (id, campaign_id, user_id, sheet_id, who, label, expression, total, breakdown, visibility, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(randomUUID(), roll.campaignId, roll.userId, roll.sheetId, roll.who.slice(0, 120), roll.label.slice(0, 80), roll.expression.slice(0, 100), Math.trunc(roll.total), roll.breakdown.slice(0, 300), roll.visibility, roll.source, this.now().toISOString());
+      .prepare("INSERT INTO table_rolls (id, campaign_id, user_id, sheet_id, who, label, expression, total, breakdown, visibility, source, created_at, dice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(randomUUID(), roll.campaignId, roll.userId, roll.sheetId, roll.who.slice(0, 120), roll.label.slice(0, 80), roll.expression.slice(0, 100), Math.trunc(roll.total), roll.breakdown.slice(0, 300), roll.visibility, roll.source, this.now().toISOString(), roll.dice ? JSON.stringify(roll.dice.slice(0, 40)) : null);
     // Only the latest rolls of the campaign are kept.
     this.db
       .prepare("DELETE FROM table_rolls WHERE campaign_id = ? AND id NOT IN (SELECT id FROM table_rolls WHERE campaign_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?)")
       .run(roll.campaignId, roll.campaignId, MAX_TABLE_ROLLS);
+  }
+
+  /** Portal rolls of this player's synced characters made after `since` (and recently), oldest first, for D&D Beyond. */
+  outgoing(userId: string, since: string, now: number): OutgoingRoll[] {
+    const after = new Date(Math.max(Date.parse(since), now - OUTGOING_MAX_AGE_MS)).toISOString();
+    const rows = this.db
+      .prepare(
+        "SELECT r.id, r.label, r.expression, r.total, r.breakdown, r.visibility, r.created_at, r.dice, l.ddb_character_id FROM table_rolls r JOIN ddb_links l ON l.sheet_id = r.sheet_id WHERE l.user_id = ? AND r.source = 'portal' AND r.created_at > ? ORDER BY r.created_at, r.rowid LIMIT 20",
+      )
+      .all(userId, after) as Array<{ id: string; label: string; expression: string; total: number; breakdown: string; visibility: RollVisibility; created_at: string; dice: string | null; ddb_character_id: string }>;
+    return rows.map((r) => ({ id: r.id, ddbCharacterId: r.ddb_character_id, label: r.label, expression: r.expression, total: r.total, breakdown: r.breakdown, dice: r.dice ? (JSON.parse(r.dice) as ShownDie[]) : [], visibility: r.visibility, at: r.created_at }));
   }
 
   /** The rolls this viewer may see, newest first. */
