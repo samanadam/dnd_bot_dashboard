@@ -220,7 +220,7 @@ export function BestiaryBrowser({ monsters, initialSource = "all" }: { monsters:
                         monster.edition === "custom" ? "border-accent/30 bg-accent-soft text-accent" : "border-border text-faint"
                       }`}
                     >
-                      {monster.edition === "custom" ? (monster.kind === "npc" ? "NPC" : "Mine") : monster.edition}
+                      {monster.edition === "custom" ? (monster.kind === "npc" ? "NPC" : (monster.source ?? "Mine")) : monster.edition}
                     </span>
                   </span>
                 </span>

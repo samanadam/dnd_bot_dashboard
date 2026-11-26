@@ -8,7 +8,8 @@ import { CreatureRepo } from "@/lib/dm/creatures";
 import { getDatabase } from "@/lib/dm/database";
 import { ENCOUNTER_ID, EncounterRepo } from "@/lib/dm/encounters";
 import { refLookup } from "@/lib/dm/routeDeps";
-import { listSrd, summarise } from "@/lib/dm/srd";
+import { listSrd } from "@/lib/dm/srd";
+import { customSummary, withoutSuperseded } from "@/lib/dm/superseded";
 
 export const metadata: Metadata = { title: "Encounter" };
 export const dynamic = "force-dynamic";
@@ -21,10 +22,11 @@ export default async function EncounterPage(props: PageProps<"/dm/combat/[id]">)
   const encounters = new EncounterRepo(db);
   const stored = encounters.get(id);
   if (!stored || !scope.allows(stored.campaignId)) notFound();
-  const custom = new CreatureRepo(db)
+  const creatureRepo = new CreatureRepo(db);
+  const custom = creatureRepo
     .list()
     .filter((c) => c.kind === "monster" || scope.allows(c.campaignId))
-    .map((c) => summarise(c.id, c.id, "custom", c.kind, c.statBlock, c.tags));
+    .map(customSummary);
   // The area this battle belongs to, so its loot shows beside it. A launched copy
   // shows the loot of the prepared battle it came from.
   const areas = new AreaRepo(db);
@@ -32,5 +34,5 @@ export default async function EncounterPage(props: PageProps<"/dm/combat/[id]">)
   const areaId = battleId ? areas.areaIdForEncounter(battleId) : null;
   const found = areaId ? areas.get(areaId) : null;
   const area = found && scope.allows(found.campaignId) ? areaDetail(found, { areas, encounters, lookup: refLookup() }) : null;
-  return <EncounterView stored={stored} creatures={[...custom, ...listSrd()]} area={area} battleId={battleId} />;
+  return <EncounterView stored={stored} creatures={[...custom, ...withoutSuperseded(listSrd(), creatureRepo.supersededSrd())]} area={area} battleId={battleId} />;
 }

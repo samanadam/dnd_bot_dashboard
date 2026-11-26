@@ -5,6 +5,7 @@ import { AreaRepo } from "./areas";
 import { StoryRepo } from "./story";
 import type { RefLookup } from "./areaView";
 import { CreatureRepo } from "./creatures";
+import { LibraryPageRepo } from "./libraryPages";
 import { getDatabase } from "./database";
 import { EncounterRepo, type StoredEncounter } from "./encounters";
 import { combatEffects } from "@/lib/combat/routeDeps";
@@ -38,6 +39,8 @@ export function dmDeps() {
   return {
     getAccess,
     repo: () => new CreatureRepo(getDatabase()),
+    creatures: () => new CreatureRepo(getDatabase()),
+    libraryPages: () => new LibraryPageRepo(getDatabase()),
     encounters: () => new EncounterRepo(getDatabase()),
     scenes: () => new SceneRepo(getDatabase()),
     saved: () => new SavedRepo(getDatabase()),

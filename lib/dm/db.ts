@@ -380,6 +380,21 @@ const MIGRATIONS: readonly string[] = [
      failures INTEGER NOT NULL,
      queued_at TEXT NOT NULL
    );`,
+  // Imported book monsters (docs/superpowers/specs/2026-11-26-ddb-book-import-design.md). source names the book
+  // (ddb:mm-2024), source_key the monster inside it, supersedes the bundled SRD entry it replaces
+  // (edition/slug). library_pages keeps the raw pages so a converter fix never needs a re-capture.
+  `ALTER TABLE creatures ADD COLUMN source TEXT;
+   ALTER TABLE creatures ADD COLUMN source_key TEXT;
+   ALTER TABLE creatures ADD COLUMN supersedes TEXT;
+   CREATE INDEX creatures_source ON creatures (source);
+   CREATE UNIQUE INDEX creatures_source_key ON creatures (source, source_key) WHERE source IS NOT NULL;
+   CREATE TABLE library_pages (
+     source TEXT NOT NULL,
+     page TEXT NOT NULL,
+     html TEXT NOT NULL,
+     fetched_at TEXT NOT NULL,
+     PRIMARY KEY (source, page)
+   );`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

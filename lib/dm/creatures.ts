@@ -22,13 +22,27 @@ export type CreatureInput = z.infer<typeof creatureInputSchema>;
 export type Creature = Omit<CreatureInput, "campaignId"> & {
   id: string;
   campaignId: string | null;
+  // Set only for monsters imported from a book (see libraryImport.ts).
+  source: string | null;
+  sourceKey: string | null;
+  supersedes: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export const CREATURE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-type Row = { id: string; kind: string; data: string; campaign_id: string | null; created_at: string; updated_at: string };
+type Row = {
+  id: string;
+  kind: string;
+  data: string;
+  campaign_id: string | null;
+  source: string | null;
+  source_key: string | null;
+  supersedes: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 const storedSchema = creatureInputSchema.omit({ kind: true, campaignId: true });
 
@@ -57,6 +71,9 @@ export class CreatureRepo {
       kind: kind.data,
       ...data.data,
       campaignId: row.campaign_id,
+      source: row.source,
+      sourceKey: row.source_key,
+      supersedes: row.supersedes,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -93,7 +110,7 @@ export class CreatureRepo {
     this.db
       .prepare("INSERT INTO creatures (id, kind, name, data, campaign_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(id, kind, value.statBlock.name, JSON.stringify(data), campaignId ?? null, at, at);
-    return { id, ...data, kind, campaignId: campaignId ?? null, createdAt: at, updatedAt: at };
+    return { id, ...data, kind, campaignId: campaignId ?? null, source: null, sourceKey: null, supersedes: null, createdAt: at, updatedAt: at };
   }
 
   update(id: string, input: CreatureInput): Creature | null {
@@ -115,5 +132,40 @@ export class CreatureRepo {
   remove(id: string): boolean {
     if (!CREATURE_ID.test(id)) return false;
     return Number(this.db.prepare("DELETE FROM creatures WHERE id = ?").run(id).changes) > 0;
+  }
+
+  /** Inserts or refreshes one monster imported from a book, keyed by (source, sourceKey). */
+  upsertImported(input: CreatureInput, origin: { source: string; sourceKey: string; supersedes: string | null }): "created" | "updated" {
+    const value = creatureInputSchema.parse(input);
+    const { kind, campaignId, ...data } = value;
+    const at = this.now().toISOString();
+    const updated = this.db
+      .prepare("UPDATE creatures SET name = ?, data = ?, supersedes = ?, updated_at = ? WHERE source = ? AND source_key = ?")
+      .run(value.statBlock.name, JSON.stringify(data), origin.supersedes, at, origin.source, origin.sourceKey);
+    if (Number(updated.changes) > 0) return "updated";
+    this.db
+      .prepare("INSERT INTO creatures (id, kind, name, data, campaign_id, source, source_key, supersedes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(this.newId(), kind, value.statBlock.name, JSON.stringify(data), campaignId ?? null, origin.source, origin.sourceKey, origin.supersedes, at, at);
+    return "created";
+  }
+
+  hasImported(source: string, sourceKey: string): boolean {
+    return this.db.prepare("SELECT 1 FROM creatures WHERE source = ? AND source_key = ?").get(source, sourceKey) !== undefined;
+  }
+
+  listSources(): Array<{ source: string; count: number }> {
+    const rows = this.db.prepare("SELECT source, COUNT(*) AS n FROM creatures WHERE source IS NOT NULL GROUP BY source ORDER BY source").all() as Array<{ source: string; n: number }>;
+    return rows.map((row) => ({ source: row.source, count: Number(row.n) }));
+  }
+
+  /** Deletes every monster imported from one book; returns how many. */
+  removeSource(source: string): number {
+    return Number(this.db.prepare("DELETE FROM creatures WHERE source = ?").run(source).changes);
+  }
+
+  /** The bundled SRD entries (edition/slug) that an imported monster replaces. */
+  supersededSrd(): Set<string> {
+    const rows = this.db.prepare("SELECT DISTINCT supersedes FROM creatures WHERE supersedes IS NOT NULL").all() as Array<{ supersedes: string }>;
+    return new Set(rows.map((row) => row.supersedes));
   }
 }
